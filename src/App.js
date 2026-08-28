@@ -344,14 +344,6 @@ export default function App() {
               <span style={{ fontSize:22, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
               <span style={{ fontSize:18 }}>🐾</span>
             </div>
-            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              {Object.keys(CITY_CONFIG).map(c => (
-                <button key={c} onClick={() => handleCityChange(c)}
-                  style={{ padding:'5px 12px', borderRadius:16, border:'none', background:city===c?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.15)', color:'white', fontSize:12, fontWeight:city===c?700:400, cursor:'pointer' }}>
-                  {CITY_CONFIG[c].emoji} {CITY_CONFIG[c].displayName}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Greeting */}
