@@ -1,0 +1,422 @@
+const fs = require('fs');
+const code = `import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, CheckCircle, Camera, Star, TrendingUp, Eye, Award } from 'lucide-react';
+import { supabase } from './supabase';
+
+const ORANGE = '#FF6B35';
+const ORANGE_LIGHT = '#FFF0EB';
+
+const SERVICES = [
+  { id: 'walk30', name: 'Dog Walking', sub: '30 min', icon: '🦮', min: 149, max: 599, step: 50 },
+  { id: 'boarding', name: 'Home Boarding', sub: 'Per night', icon: '🏠', min: 499, max: 1999, step: 100 },
+  { id: 'daycare', name: 'Doggy Daycare', sub: 'Per day', icon: '☀️', min: 399, max: 1299, step: 50 },
+  { id: 'dropin', name: 'Drop-in Visit', sub: '30 min', icon: '🔔', min: 99, max: 499, step: 50 },
+  { id: 'housesit', name: 'House Sitting', sub: 'Per night', icon: '🏡', min: 799, max: 1999, step: 100 },
+];
+
+const LANGUAGES = ['Hindi', 'English', 'Marathi', 'Punjabi', 'Tamil', 'Telugu', 'Kannada', 'Bengali'];
+const EXPERIENCE_OPTIONS = ['Less than 1 year', '1-2 years', '3-5 years', '5+ years'];
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+export default function SitterEditProfile({ onBack, city }) {
+  const [tab, setTab] = useState('profile');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [sitterProfile, setSitterProfile] = useState(null);
+  const [stats, setStats] = useState({ totalEarnings: 0, totalBookings: 0, repeatClients: 0, profileViews: 0, responseRate: 100 });
+  const [bio, setBio] = useState('');
+  const [experience, setExperience] = useState('');
+  const [languages, setLanguages] = useState(['Hindi', 'English']);
+  const [upiId, setUpiId] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
+  const [availableDays, setAvailableDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+  const [morningSlot, setMorningSlot] = useState(true);
+  const [afternoonSlot, setAfternoonSlot] = useState(false);
+  const [eveningSlot, setEveningSlot] = useState(true);
+  const [maxDogs, setMaxDogs] = useState(1);
+  const [advanceNotice, setAdvanceNotice] = useState('24hrs');
+  const [activeServices, setActiveServices] = useState([]);
+  const [prices, setPrices] = useState({});
+
+  const theme = city === 'Pune'
+    ? { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' }
+    : { primary: ORANGE, light: ORANGE_LIGHT, grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' };
+
+  useEffect(() => { loadProfile(); }, []);
+
+  const loadProfile = async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    const { data: profile } = await supabase.from('sitter_profiles').select('*').eq('user_id', user.id).single();
+    if (profile) {
+      setSitterProfile(profile);
+      setBio(profile.bio || '');
+      setExperience(profile.experience_years ? profile.experience_years + ' years' : '');
+      setLanguages(profile.languages || ['Hindi', 'English']);
+      setUpiId(profile.upi_id || '');
+      setIsPaused(profile.is_paused || false);
+      setPhotoUrl(profile.profile_photo_url || null);
+      setAvailableDays(profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+      setMorningSlot(profile.morning_slot !== false);
+      setAfternoonSlot(profile.afternoon_slot || false);
+      setEveningSlot(profile.evening_slot !== false);
+      setMaxDogs(profile.max_dogs || 1);
+      setAdvanceNotice(profile.advance_notice || '24hrs');
+      const { data: services } = await supabase.from('sitter_services').select('*').eq('sitter_id', profile.id);
+      if (services && services.length > 0) {
+        setActiveServices(services.map(s => s.service_type));
+        const priceMap = {};
+        services.forEach(s => { priceMap[s.service_type] = Math.round(s.price_paise / 100); });
+        setPrices(priceMap);
+      }
+      const { data: bookings } = await supabase.from('bookings').select('gross_amount_paise, pet_parent_id, status').eq('sitter_id', profile.id);
+      if (bookings) {
+        const completed = bookings.filter(b => b.status === 'completed');
+        const totalEarnings = completed.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
+        const parentIds = completed.map(b => b.pet_parent_id);
+        const uniqueParents = [...new Set(parentIds)];
+        const repeatClients = uniqueParents.filter(id => parentIds.filter(p => p === id).length > 1).length;
+        setStats({ totalEarnings, totalBookings: completed.length, repeatClients, profileViews: profile.profile_views || 0, responseRate: profile.response_rate || 100 });
+      }
+    }
+    setLoading(false);
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Photo must be under 2MB'); return; }
+    setUploadingPhoto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const ext = file.name.split('.').pop();
+      const path = \`sitter-photos/\${user.id}.\${ext}\`;
+      const { error: uploadError } = await supabase.storage.from('pet-photos').upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('pet-photos').getPublicUrl(path);
+      setPhotoUrl(publicUrl);
+    } catch (e) { alert('Upload failed: ' + e.message); }
+    setUploadingPhoto(false);
+  };
+
+  const toggleService = (id) => {
+    setActiveServices(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    if (!prices[id]) {
+      const svc = SERVICES.find(s => s.id === id);
+      if (svc) setPrices(prev => ({ ...prev, [id]: Math.round((svc.min + svc.max) / 2) }));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('sitter_profiles').update({
+        bio, experience_years: parseInt(experience) || 0, languages,
+        upi_id: upiId || null, is_paused: isPaused, profile_photo_url: photoUrl,
+        availability_days: availableDays, morning_slot: morningSlot,
+        afternoon_slot: afternoonSlot, evening_slot: eveningSlot,
+        max_dogs: maxDogs, advance_notice: advanceNotice,
+      }).eq('user_id', user.id);
+      if (sitterProfile) {
+        await supabase.from('sitter_services').delete().eq('sitter_id', sitterProfile.id);
+        if (activeServices.length > 0) {
+          await supabase.from('sitter_services').insert(
+            activeServices.map(id => ({ sitter_id: sitterProfile.id, service_type: id, price_paise: (prices[id] || 299) * 100, is_active: true }))
+          );
+        }
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) { alert('Save failed: ' + e.message); }
+    setSaving(false);
+  };
+
+  const completeness = () => {
+    const checks = [!!photoUrl, bio.length > 30, !!upiId, activeServices.length > 0, languages.length > 0, !!experience, !!sitterProfile?.aadhaar_number];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  };
+
+  const pct = completeness();
+
+  if (loading) return (
+    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 40 }}>🐾</div>
+      <div style={{ fontSize: 14, color: '#888' }}>Loading your profile...</div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
+      <div style={{ background: theme.grad, padding: '48px 20px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 12, padding: '8px 12px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <ArrowLeft size={16} /> Back
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ background: saved ? '#2E7D32' : 'white', border: 'none', borderRadius: 12, padding: '8px 16px', color: saved ? 'white' : theme.primary, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div onClick={() => fileInputRef.current?.click()}
+              style={{ width: 72, height: 72, borderRadius: 22, background: photoUrl ? 'transparent' : 'rgba(255,255,255,0.2)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+              {photoUrl ? <img src={photoUrl} alt="profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ textAlign: 'center' }}><Camera size={20} color="white" /><div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, marginTop: 2 }}>Add photo</div></div>}
+            </div>
+            {uploadingPhoto && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: 'white', fontSize: 10 }}>...</div></div>}
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>My Sitter Profile</div>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>{city} · {sitterProfile?.status === 'active' ? 'Live 🟢' : 'Pending 🟡'}</div>
+            <div onClick={() => setIsPaused(!isPaused)}
+              style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: isPaused ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '4px 12px', cursor: 'pointer' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 4, background: isPaused ? '#FFC107' : '#4CAF50' }} />
+              <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>{isPaused ? 'Paused — tap to go live' : 'Accepting bookings'}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '10px 14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>Profile completeness</span>
+            <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>{pct}%</span>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 4, height: 6 }}>
+            <div style={{ background: pct === 100 ? '#4CAF50' : 'white', borderRadius: 4, height: 6, width: pct + '%', transition: 'width 0.3s' }} />
+          </div>
+          {pct < 100 && <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 4 }}>
+            {!photoUrl && '📷 Add photo · '}{bio.length < 30 && '✍️ Write bio · '}{!upiId && '💳 Add UPI'}
+          </div>}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, padding: '14px 16px 0' }}>
+        {[
+          { icon: <TrendingUp size={14} color={theme.primary} />, val: 'Rs.' + stats.totalEarnings.toLocaleString('en-IN'), label: 'Earned' },
+          { icon: <Star size={14} color="#FFC107" fill="#FFC107" />, val: stats.responseRate + '%', label: 'Response' },
+          { icon: <Eye size={14} color={theme.primary} />, val: stats.profileViews, label: 'Views' },
+          { icon: <Award size={14} color={theme.primary} />, val: stats.repeatClients, label: 'Repeats' },
+        ].map((s, i) => (
+          <div key={i} style={{ background: 'white', borderRadius: 14, padding: '10px 8px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{s.val}</div>
+            <div style={{ fontSize: 10, color: '#AAA' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {sitterProfile?.is_top_sitter && (
+        <div style={{ margin: '12px 16px 0', background: 'linear-gradient(135deg,#FFF9C4,#FFF3E0)', borderRadius: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, border: '1.5px solid #FFC107' }}>
+          <span style={{ fontSize: 24 }}>⭐</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#E65100' }}>Top Sitter Badge</div>
+            <div style={{ fontSize: 11, color: '#888' }}>You appear first in search results</div>
+          </div>
+        </div>
+      )}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{ background: 'white', borderRadius: 14, padding: 4, display: 'flex', gap: 4, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          {[{ id: 'profile', label: 'Profile' }, { id: 'services', label: 'Services' }, { id: 'availability', label: 'Schedule' }, { id: 'payout', label: 'Payout' }].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', background: tab === t.id ? theme.primary : 'transparent', color: tab === t.id ? 'white' : '#888', fontSize: 11, fontWeight: tab === t.id ? 700 : 400, cursor: 'pointer' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: '14px 16px 0' }}>
+        {tab === 'profile' && (
+          <div>
+            <div style={{ background: sitterProfile?.aadhaar_number ? '#E8F5E9' : '#FFF3E0', borderRadius: 16, padding: '12px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, border: '1px solid ' + (sitterProfile?.aadhaar_number ? '#A5D6A7' : '#FFCC80') }}>
+              <span style={{ fontSize: 20 }}>{sitterProfile?.aadhaar_verified ? '✅' : sitterProfile?.aadhaar_number ? '🔄' : '🪪'}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{sitterProfile?.aadhaar_verified ? 'Aadhaar Verified' : sitterProfile?.aadhaar_number ? 'Verification pending (24hrs)' : 'Aadhaar not submitted'}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{sitterProfile?.aadhaar_verified ? 'Verified badge visible to pet parents' : 'Required before your first booking'}</div>
+              </div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>Bio</div>
+              <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={300}
+                placeholder="Tell pet parents about yourself..."
+                style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1.5px solid #E0E0E0', fontSize: 13, color: '#1a1a1a', outline: 'none', resize: 'none', minHeight: 100, lineHeight: 1.6, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 11, color: '#CCC', textAlign: 'right', marginTop: 4 }}>{bio.length}/300</div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>Experience with pets</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {EXPERIENCE_OPTIONS.map(opt => (
+                  <button key={opt} onClick={() => setExperience(opt)}
+                    style={{ padding: '8px 14px', borderRadius: 20, border: experience === opt ? '2px solid ' + theme.primary : '1.5px solid #E0E0E0', background: experience === opt ? theme.light : 'white', color: experience === opt ? theme.primary : '#555', fontSize: 13, fontWeight: experience === opt ? 600 : 400, cursor: 'pointer' }}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>Languages spoken</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {LANGUAGES.map(lang => (
+                  <button key={lang} onClick={() => setLanguages(prev => prev.includes(lang) ? prev.filter(x => x !== lang) : [...prev, lang])}
+                    style={{ padding: '8px 14px', borderRadius: 20, border: languages.includes(lang) ? '2px solid ' + theme.primary : '1.5px solid #E0E0E0', background: languages.includes(lang) ? theme.light : 'white', color: languages.includes(lang) ? theme.primary : '#555', fontSize: 13, fontWeight: languages.includes(lang) ? 600 : 400, cursor: 'pointer' }}>
+                    {lang}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {tab === 'services' && (
+          <div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 14 }}>Toggle services on/off and set your prices</div>
+            {SERVICES.map(s => {
+              const active = activeServices.includes(s.id);
+              const price = prices[s.id] || Math.round((s.min + s.max) / 2);
+              return (
+                <div key={s.id} style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: active ? '1.5px solid ' + theme.primary : '1.5px solid transparent' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: active ? 14 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 22 }}>{s.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>{s.sub}</div>
+                      </div>
+                    </div>
+                    <div onClick={() => toggleService(s.id)}
+                      style={{ width: 44, height: 24, borderRadius: 12, background: active ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                      <div style={{ position: 'absolute', top: 2, left: active ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                    </div>
+                  </div>
+                  {active && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#888' }}>Your price</span>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: theme.primary }}>Rs.{price}</span>
+                      </div>
+                      <input type="range" min={s.min} max={s.max} step={s.step} value={price}
+                        onChange={e => setPrices(prev => ({ ...prev, [s.id]: parseInt(e.target.value) }))}
+                        style={{ width: '100%', accentColor: theme.primary, marginBottom: 8 }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 11, color: '#CCC' }}>Min Rs.{s.min}</span>
+                        <span style={{ fontSize: 11, color: '#CCC' }}>Max Rs.{s.max}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {tab === 'availability' && (
+          <div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>Available days</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                {DAYS.map(day => {
+                  const sel = availableDays.includes(day);
+                  return (
+                    <button key={day} onClick={() => setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                      style={{ padding: '8px 14px', borderRadius: 20, border: sel ? '2px solid ' + theme.primary : '1.5px solid #E0E0E0', background: sel ? theme.light : 'white', color: sel ? theme.primary : '#555', fontSize: 13, fontWeight: sel ? 600 : 400, cursor: 'pointer' }}>
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[{ label: 'Weekdays', days: ['Mon','Tue','Wed','Thu','Fri'] }, { label: 'Weekends', days: ['Sat','Sun'] }, { label: 'All days', days: DAYS }].map(p => (
+                  <button key={p.label} onClick={() => setAvailableDays(p.days)}
+                    style={{ flex: 1, padding: '6px 0', borderRadius: 10, border: '1px solid #E0E0E0', background: 'white', color: '#888', fontSize: 11, cursor: 'pointer' }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>Time slots</div>
+              {[
+                { label: 'Morning', sub: '6am - 10am', val: morningSlot, set: setMorningSlot },
+                { label: 'Afternoon', sub: '12pm - 4pm', val: afternoonSlot, set: setAfternoonSlot },
+                { label: 'Evening', sub: '5pm - 8pm', val: eveningSlot, set: setEveningSlot },
+              ].map((slot, i, arr) => (
+                <div key={slot.label} onClick={() => slot.set(!slot.val)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{slot.label}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{slot.sub}</div>
+                  </div>
+                  <div style={{ width: 44, height: 24, borderRadius: 12, background: slot.val ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: slot.val ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>Max dogs at one time</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[1,2,3,4].map(n => (
+                  <button key={n} onClick={() => setMaxDogs(n)}
+                    style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: maxDogs === n ? '2px solid ' + theme.primary : '1.5px solid #E0E0E0', background: maxDogs === n ? theme.light : 'white', color: maxDogs === n ? theme.primary : '#555', fontSize: 16, fontWeight: maxDogs === n ? 700 : 400, cursor: 'pointer' }}>
+                    {n}{n === 4 ? '+' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>Advance notice needed</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {['Same day','12hrs','24hrs','48hrs','1 week'].map(n => (
+                  <button key={n} onClick={() => setAdvanceNotice(n)}
+                    style={{ padding: '8px 14px', borderRadius: 20, border: advanceNotice === n ? '2px solid ' + theme.primary : '1.5px solid #E0E0E0', background: advanceNotice === n ? theme.light : 'white', color: advanceNotice === n ? theme.primary : '#555', fontSize: 12, fontWeight: advanceNotice === n ? 600 : 400, cursor: 'pointer' }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {tab === 'payout' && (
+          <div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>UPI ID for payouts</div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>We pay you directly after each completed booking</div>
+              <input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="e.g. yourname@paytm"
+                style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #E0E0E0', fontSize: 15, color: '#1a1a1a', outline: 'none', boxSizing: 'border-box' }} />
+              {upiId && <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} color="#2E7D32" /><span style={{ fontSize: 12, color: '#2E7D32' }}>UPI ID saved</span></div>}
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>Earnings summary</div>
+              {[
+                { label: 'Total earned', val: 'Rs.' + stats.totalEarnings.toLocaleString('en-IN') },
+                { label: 'Total bookings', val: stats.totalBookings },
+                { label: 'Repeat clients', val: stats.repeatClients },
+                { label: 'Response rate', val: stats.responseRate + '%' },
+              ].map((row, i, arr) => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid #F5F5F5' : 'none' }}>
+                  <span style={{ fontSize: 13, color: '#888' }}>{row.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{row.val}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: theme.light, borderRadius: 16, padding: 14, border: '1px solid ' + theme.primary }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: theme.primary, marginBottom: 4 }}>💡 How payouts work</div>
+              <div style={{ fontSize: 12, color: '#555', lineHeight: 1.7 }}>After each completed booking, Fursday transfers your earnings to your UPI ID within 24 hours. Commission is 0% during the pilot phase.</div>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px 24px' }}>
+        <button onClick={handleSave} disabled={saving}
+          style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: saved ? '#2E7D32' : theme.primary, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+          {saving ? 'Saving...' : saved ? '✓ Changes saved!' : 'Save changes'}
+        </button>
+      </div>
+    </div>
+  );
+}`;
+
+fs.writeFileSync('C:\\Users\\nikhil.a.mathur\\SynologyDrive\\Home Project\\fursday\\src\\SitterEditProfile.js', code, 'utf8');
+console.log('Done, bytes:', code.length);

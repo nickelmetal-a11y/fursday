@@ -1,0 +1,457 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabase';
+import LoginScreen from './LoginScreen';
+import SitterProfile from './SitterProfile';
+import SitterOnboarding from './SitterOnboarding';
+import BookingFlow from './BookingFlow';
+import PetProfile from './PetProfile';
+import WalkReportCard from './WalkReportCard';
+import BookingsDashboard from './BookingsDashboard';
+import AdminPanel from './AdminPanel';
+import SitterDashboard from './SitterDashboard';
+import PaymentScreen from './PaymentScreen';
+import UserProfile from './UserProfile';
+import TermsAndConditions from './TermsAndConditions';
+import PrivacyPolicy from './PrivacyPolicy';
+import ExploreScreen from './ExploreScreen';
+import FirstLoginPrompt from './FirstLoginPrompt';
+import SitterEditProfile from './SitterEditProfile';
+import ChatScreen from './ChatScreen';
+import BookingReceipt from './BookingReceipt';
+import ParentOnboarding from './ParentOnboarding';
+import BroadcastRequest from './BroadcastRequest';
+import { MapPin, Search, Star, Shield, Clock, ChevronRight, Home, Calendar, User } from 'lucide-react';
+
+const CITY_THEMES = {
+  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', gradient: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)', label: 'Delhi NCR' },
+  Pune: { primary: '#6C5CE7', light: '#F0EEFF', gradient: 'linear-gradient(135deg, #6C5CE7 0%, #8E7CF3 100%)', label: 'Pune, Maharashtra' },
+};
+
+export default function App() {
+  const [city, setCity] = useState(() => localStorage.getItem('fursday_city') || 'Gurgaon');
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeNav, setActiveNav] = useState('home');
+  const [selectedSitter, setSelectedSitter] = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showBooking, setShowBooking] = useState(false);
+  const [showPetProfile, setShowPetProfile] = useState(false);
+  const [showWalkReport, setShowWalkReport] = useState(false);
+  const [showBookings, setShowBookings] = useState(false);
+  const [realSitters, setRealSitters] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(false);
+  const [sittersLoading, setSittersLoading] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(window.location.hash === '#admin');
+  const [isSitterMode, setIsSitterMode] = useState(false);
+  const [isSitter, setIsSitter] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentBooking, setPaymentBooking] = useState(null);
+  const [requestSentFor, setRequestSentFor] = useState(null);
+  const [chatBooking, setChatBooking] = useState(null);
+  const [showChat, setShowChat] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showExplore, setShowExplore] = useState(false);
+  const [showSitterEdit, setShowSitterEdit] = useState(false);
+  const [outsideCity, setOutsideCity] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [userName, setUserName] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+  const [showParentOnboarding, setShowParentOnboarding] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
+  const [logoTaps, setLogoTaps] = useState(0);
+  const [search, setSearch] = useState('');
+  const [selectedServiceType, setSelectedServiceType] = useState(null);
+  const [neighbourhood, setNeighbourhood] = useState('');
+
+  const getNeighbourhood = (lat, lng) => {
+    if (lat > 28.48 && lat < 28.52 && lng > 77.08 && lng < 77.12) return 'DLF Phase 1-3';
+    if (lat > 28.44 && lat < 28.48 && lng > 77.09 && lng < 77.13) return 'DLF Phase 4-5';
+    if (lat > 28.45 && lat < 28.50 && lng > 77.03 && lng < 77.08) return 'Sushant Lok';
+    if (lat > 28.40 && lat < 28.45 && lng > 77.03 && lng < 77.09) return 'Nirvana Country';
+    if (lat > 18.52 && lat < 18.56 && lng > 73.88 && lng < 73.92) return 'Koregaon Park';
+    if (lat > 18.55 && lat < 18.60 && lng > 73.77 && lng < 73.82) return 'Baner';
+    if (lat > 18.55 && lat < 18.58 && lng > 73.91 && lng < 73.95) return 'Viman Nagar';
+    if (lat > 18.54 && lat < 18.57 && lng > 73.93 && lng < 73.97) return 'Kharadi';
+    if (lat > 28.3 && lat < 28.9) return 'Delhi NCR';
+    if (lat > 18.4 && lat < 18.7) return 'Pune';
+    return '';
+  };
+
+  const theme = CITY_THEMES[city];
+
+  useEffect(() => {
+    const fetchSitters = async () => {
+      setSittersLoading(true);
+      const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
+      if (cityRow) {
+        const { data } = await supabase
+          .from('sitter_profiles')
+          .select('*, users(name), sitter_services(service_type, price_paise), lat, lng')
+          .eq('city_id', cityRow.id)
+          .eq('status', 'active');
+        if (data) {
+          setRealSitters(data.map((s, i) => ({
+            id: s.id,
+            name: s.users?.name || 'Sitter',
+            city, area: city,
+            rating: s.rating || 5.0,
+            reviews: s.total_bookings || 0,
+            price: s.sitter_services?.[0] ? 'Rs.' + Math.round(s.sitter_services[0].price_paise / 100) + '/walk' : 'Rs.299/walk',
+            tags: s.sitter_services?.map(sv => sv.service_type) || [],
+            verified: s.aadhaar_verified || false,
+            emoji: (s.users?.name || 'S')[0].toUpperCase(),
+            bg: ['#FFE0B2','#E1F5FE','#F8BBD9','#E8F5E9','#FFF9C4'][i % 5],
+            isTopSitter: s.is_top_sitter || false,
+            profilePhoto: s.profile_photo_url || null,
+          })));
+        }
+      }
+      setSittersLoading(false);
+    };
+    fetchSitters();
+  }, [city]);
+
+  useEffect(() => {
+    const checkIfSitter = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('sitter_profiles').select('id, status').eq('user_id', user.id).single();
+        if (data) setIsSitter(true);
+      }
+    };
+    checkIfSitter();
+  }, [user]);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setNeighbourhood(getNeighbourhood(pos.coords.latitude, pos.coords.longitude));
+          const lat = pos.coords.latitude, lng = pos.coords.longitude;
+          const inGurgaon = lat > 28.3 && lat < 28.9 && lng > 76.8 && lng < 77.5;
+          const inPune = lat > 18.4 && lat < 18.7 && lng > 73.7 && lng < 74.1;
+          if (!inGurgaon && !inPune) setOutsideCity(true);
+        },
+        () => setLocationError(true),
+        { timeout: 8000 }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
+        setUserName(data?.name || null);
+      }
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (_event === 'SIGNED_OUT') setUser(null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleCityChange = (newCity) => { setCity(newCity); localStorage.setItem('fursday_city', newCity); };
+  const handleLogoTap = () => { const t = logoTaps + 1; setLogoTaps(t); if(t >= 5) { setShowAdmin(true); setLogoTaps(0); window.location.hash='admin'; } };
+
+  const requestBooking = async (sitter) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
+      await supabase.from('bookings').insert({
+        pet_parent_id: user?.id, sitter_id: sitter.id,
+        city_id: cityRow?.id, service_type: 'walk30',
+        scheduled_date: new Date().toISOString().split('T')[0],
+        scheduled_time: '07:00', gross_amount_paise: 29900,
+        status: 'pending', payment_status: 'unpaid',
+      });
+      setRequestSentFor(sitter.name);
+      setTimeout(() => setRequestSentFor(null), 3000);
+    } catch(e) { console.log('Request error:', e); }
+  };
+
+  // ── Loading ──
+  if (loading) return (
+    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+      <div style={{ fontSize:56 }}>🐾</div>
+      <div style={{ color:'white', fontSize:22, fontWeight:700 }}>Fursday</div>
+      <div style={{ color:'rgba(255,255,255,0.4)', fontSize:13 }}>Loading...</div>
+    </div>
+  );
+
+  // ── Auth ──
+  if (!user) return <LoginScreen onLogin={async (u) => {
+    setUser(u);
+    await supabase.from('users').upsert({ id: u.id, email: u.email }, { onConflict: 'id', ignoreDuplicates: true });
+    const { data } = await supabase.from('users').select('name').eq('id', u.id).single();
+    setUserName(data?.name || null);
+  }} />;
+
+  if (user && !userName) return <FirstLoginPrompt user={user} onDone={(name) => { setUserName(name); setShowParentOnboarding(true); }} />;
+  if (showParentOnboarding) return <ParentOnboarding onDone={() => setShowParentOnboarding(false)} city={city} userName={userName} />;
+
+  // ── Outside city ──
+  if (outsideCity) return (
+    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 24px', fontFamily:'sans-serif', textAlign:'center' }}>
+      <div style={{ fontSize:64, marginBottom:20 }}>🗺️</div>
+      <div style={{ fontSize:24, fontWeight:700, color:'white', marginBottom:8 }}>Coming to your city soon!</div>
+      <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:32, lineHeight:1.6 }}>Fursday is available in Delhi NCR and Pune. Expanding fast!</div>
+      {!waitlistSent ? (
+        <div style={{ width:'100%' }}>
+          <input value={waitlistEmail} onChange={e => setWaitlistEmail(e.target.value)} placeholder="your@email.com" type="email"
+            style={{ width:'100%', padding:'16px', borderRadius:14, border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.08)', fontSize:15, color:'white', outline:'none', boxSizing:'border-box', marginBottom:12, fontFamily:'inherit' }} />
+          <button onClick={async () => { if(waitlistEmail.includes('@')) { await supabase.from('waitlist').insert({ email: waitlistEmail }); setWaitlistSent(true); } }}
+            style={{ width:'100%', padding:'16px 0', borderRadius:14, border:'none', background:'#FF6B35', color:'white', fontSize:15, fontWeight:700, cursor:'pointer', marginBottom:12 }}>
+            Join the waitlist
+          </button>
+          <button onClick={() => setOutsideCity(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.3)', fontSize:13, cursor:'pointer' }}>
+            I am in Delhi NCR or Pune
+          </button>
+        </div>
+      ) : (
+        <div style={{ background:'rgba(255,255,255,0.08)', borderRadius:16, padding:20, width:'100%' }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>✅</div>
+          <div style={{ color:'white', fontSize:16, fontWeight:600, marginBottom:8 }}>You are on the list!</div>
+          <div style={{ color:'rgba(255,255,255,0.5)', fontSize:13 }}>We will email you when Fursday launches in your city.</div>
+          <button onClick={() => setOutsideCity(false)} style={{ marginTop:16, background:'none', border:'none', color:'rgba(255,255,255,0.3)', fontSize:13, cursor:'pointer' }}>Continue anyway</button>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Screen routes ──
+  if (showAdmin) return <AdminPanel />;
+  if (showTerms) return <TermsAndConditions onBack={() => setShowTerms(false)} city={city} />;
+  if (showPrivacy) return <PrivacyPolicy onBack={() => setShowPrivacy(false)} city={city} />;
+  if (showReceipt) return <BookingReceipt onBack={() => setShowReceipt(false)} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
+  if (showBroadcast) return <BroadcastRequest onBack={() => setShowBroadcast(false)} city={city} onSitterAccepted={(sitter) => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
+  if (showOnboarding) return <SitterOnboarding onDone={(dest) => { setShowOnboarding(false); if(dest==='sitter') { setIsSitter(true); setIsSitterMode(true); } }} city={city} />;
+  if (isSitterMode) return <SitterDashboard onBack={() => setIsSitterMode(false)} onEditProfile={() => { setIsSitterMode(false); setShowSitterEdit(true); }} city={city} onMessage={(b) => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||'Pet parent', otherPhone:b.users?.phone||'', fromSitter:true }); setIsSitterMode(false); setShowChat(true); }} />;
+  if (showSitterEdit) return <SitterEditProfile onBack={() => setShowSitterEdit(false)} city={city} />;
+  if (showUserProfile) return <UserProfile onBack={() => setShowUserProfile(false)} city={city} onAddPet={() => { setShowUserProfile(false); setShowPetProfile(true); }} onEditPet={() => { setShowUserProfile(false); setShowPetProfile(true); }} onSignOut={async () => { await supabase.auth.signOut(); setUser(null); setShowUserProfile(false); }} />;
+  if (showExplore) return <ExploreScreen onBack={() => setShowExplore(false)} city={city} userLocation={userLocation} onBook={(sitter) => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} />;
+  if (showChat) return <ChatScreen onBack={() => { setShowChat(false); if(chatBooking?.fromSitter) setIsSitterMode(true); else setShowBookings(true); }} city={city} booking={chatBooking} userType={chatBooking?.fromSitter ? 'sitter' : 'parent'} />;
+  if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={(paymentId) => { setShowPayment(false); setReceiptData({ ...paymentBooking, paymentId }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
+  if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
+  if (showBookings) return <BookingsDashboard onBack={() => setShowBookings(false)} city={city} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={(b) => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone }); setShowBookings(false); setShowChat(true); }} />;
+  if (showPetProfile) return <PetProfile onBack={() => setShowPetProfile(false)} city={city} onSave={() => setShowPetProfile(false)} />;
+  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} />;
+  if (selectedSitter && !showBooking) return <SitterProfile onBack={() => setSelectedSitter(null)} onBook={() => setShowBooking(true)} sitter={selectedSitter} />;
+
+  const filteredSitters = realSitters.filter(s =>
+    search === '' || s.name.toLowerCase().includes(search.toLowerCase()) || s.area.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // ── Home screen ──
+  return (
+    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', backgroundColor:'#FAFAFA', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', paddingBottom:80 }}>
+
+      {requestSentFor && (
+        <div style={{ position:'fixed', top:16, left:'50%', transform:'translateX(-50%)', width:'calc(390px - 32px)', maxWidth:358, background:'#2E7D32', borderRadius:14, padding:'12px 16px', zIndex:1000, boxShadow:'0 4px 20px rgba(0,0,0,0.2)', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:18 }}>✓</span>
+          <span style={{ color:'white', fontSize:13, fontWeight:600 }}>Request sent to {requestSentFor}! They will respond soon.</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ background:theme.gradient, padding:'48px 20px 24px', borderBottomLeftRadius:28, borderBottomRightRadius:28 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
+          <div onClick={handleLogoTap}>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>Your city</div>
+            <div style={{ display:'flex', gap:8 }}>
+              {['Gurgaon','Pune'].map(c => (
+                <button key={c} onClick={() => handleCityChange(c)}
+                  style={{ padding:'6px 14px', borderRadius:20, border:city===c?'2px solid white':'1.5px solid rgba(255,255,255,0.3)', background:city===c?'white':'transparent', color:city===c?theme.primary:'white', fontSize:13, fontWeight:city===c?700:400, cursor:'pointer' }}>
+                  {c === 'Gurgaon' ? '🏙️ Delhi NCR' : '🌴 Pune'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button onClick={() => supabase.auth.signOut()}
+            style={{ background:'transparent', border:'none', color:'rgba(255,255,255,0.4)', fontSize:12, cursor:'pointer', marginTop:4 }}>
+            Sign out
+          </button>
+        </div>
+
+        <div style={{ color:'white', fontSize:22, fontWeight:700, marginBottom:4 }}>Happy Fursday! 🐾</div>
+        <div style={{ color:'rgba(255,255,255,0.85)', fontSize:13, marginBottom:16 }}>Trusted pet care in {theme.label}</div>
+
+        {/* Search */}
+        <div style={{ background:'white', borderRadius:16, padding:'12px 16px', display:'flex', alignItems:'center', gap:10, boxShadow:'0 4px 20px rgba(0,0,0,0.12)', marginBottom:12 }}>
+          <Search size={18} color="#CCC" />
+          <input style={{ border:'none', outline:'none', flex:1, fontSize:14, color:'#333', background:'transparent' }}
+            placeholder="Search sitters, areas..."
+            value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        {/* Sitter banner */}
+        {isSitter ? (
+          <div style={{ display:'flex', gap:8 }}>
+            <div onClick={() => setIsSitterMode(true)}
+              style={{ flex:2, background:'#1a1a2e', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer', border:'1px solid rgba(255,255,255,0.2)' }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>💰</div>
+              <div>
+                <div style={{ color:'white', fontSize:13, fontWeight:700 }}>Sitter Dashboard</div>
+                <div style={{ color:'#4CAF50', fontSize:11, fontWeight:600 }}>● You are live</div>
+              </div>
+            </div>
+            <div onClick={() => setShowSitterEdit(true)}
+              style={{ flex:1, background:'rgba(255,255,255,0.1)', borderRadius:16, padding:'12px 14px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'1px solid rgba(255,255,255,0.15)' }}>
+              <span style={{ fontSize:18 }}>✏️</span>
+              <span style={{ color:'white', fontSize:11, marginTop:4 }}>Edit</span>
+            </div>
+          </div>
+        ) : (
+          <div onClick={() => setShowOnboarding(true)}
+            style={{ background:'#1a1a2e', borderRadius:16, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid rgba(255,255,255,0.15)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:38, height:38, borderRadius:12, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🐾</div>
+              <div>
+                <div style={{ color:'white', fontSize:13, fontWeight:700 }}>Become a Fursday sitter</div>
+                <div style={{ color:theme.primary, fontSize:11, fontWeight:600, marginTop:1 }}>Earn Rs.12,000-45,000/month</div>
+              </div>
+            </div>
+            <div style={{ background:theme.primary, borderRadius:10, padding:'7px 14px' }}>
+              <span style={{ color:'white', fontSize:12, fontWeight:700 }}>Join</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding:'20px 20px 0' }}>
+
+        {/* Service grid */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
+          {[
+            { id:'walk30', icon:'🦮', name:'Request a walker', price:'from Rs.299', color:'#FFF3E0', tc:'#E65100' },
+            { id:'boarding', icon:'🏠', name:'Home boarding', price:'from Rs.849/night', color:'#E8F5E9', tc:'#2E7D32' },
+            { id:'daycare', icon:'☀️', name:'Doggy daycare', price:'from Rs.649/day', color:'#E3F2FD', tc:'#1565C0' },
+            { id:'broadcast', icon:'📢', name:'Broadcast request', price:'all sitters respond', color:theme.light, tc:theme.primary },
+          ].map(svc => (
+            <div key={svc.id} onClick={() => {
+              if (svc.id === 'broadcast') { setShowBroadcast(true); return; }
+              setSelectedServiceType(svc.id);
+              setShowBooking(true);
+            }} style={{ background:svc.color, borderRadius:16, padding:'14px 12px', cursor:'pointer', border:'0.5px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize:26, marginBottom:6 }}>{svc.icon}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', marginBottom:2, lineHeight:1.3 }}>{svc.name}</div>
+              <div style={{ fontSize:11, color:svc.tc, fontWeight:500 }}>{svc.price}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div style={{ background:'white', borderRadius:14, padding:'10px 14px', display:'flex', alignItems:'center', gap:10, marginBottom:20, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+          <Search size={16} color="#CCC" />
+          <input style={{ border:'none', outline:'none', flex:1, fontSize:14, color:'#333', background:'transparent' }}
+            placeholder="Search sitters by name..."
+            value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        {/* Sitter list header */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+          <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a' }}>Top sitters near you</div>
+          <div onClick={() => setShowExplore(true)} style={{ fontSize:13, color:theme.primary, fontWeight:500, cursor:'pointer' }}>See all <ChevronRight size={13} /></div>
+        </div>
+
+        {/* Loading */}
+        {sittersLoading && (
+          <div style={{ textAlign:'center', padding:'40px 20px' }}>
+            <div style={{ fontSize:32, marginBottom:8 }}>🐾</div>
+            <div style={{ fontSize:13, color:'#888' }}>Finding sitters near you...</div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {filteredSitters.length === 0 && !sittersLoading && (
+          <div style={{ textAlign:'center', padding:'40px 20px' }}>
+            <div style={{ fontSize:48, marginBottom:12 }}>🐾</div>
+            <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a', marginBottom:8 }}>
+              {search ? 'No sitters match your search' : 'No sitters in ' + city + ' yet'}
+            </div>
+            <div style={{ fontSize:13, color:'#888', lineHeight:1.6, marginBottom:20 }}>
+              {search ? 'Try a different search term' : 'We are onboarding sitters in your area!'}
+            </div>
+            {!search && (
+              <button onClick={() => setShowOnboarding(true)}
+                style={{ padding:'12px 24px', borderRadius:14, border:'none', background:theme.primary, color:'white', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+                Become a sitter 🐾
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Sitter cards */}
+        {!sittersLoading && filteredSitters.map(s => (
+          <div key={s.id} onClick={() => setSelectedSitter(s)}
+            style={{ background:'white', borderRadius:20, padding:14, display:'flex', gap:12, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', cursor:'pointer', alignItems:'center' }}>
+            <div style={{ width:60, height:60, borderRadius:16, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
+              {s.profilePhoto ? <img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.emoji}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{s.name}</div>
+                  {s.isTopSitter && <span style={{ fontSize:10, background:'#FFF9C4', color:'#E65100', borderRadius:10, padding:'2px 6px', fontWeight:700 }}>⭐ Top</span>}
+                </div>
+                <div style={{ fontSize:14, fontWeight:700, color:theme.primary }}>{s.price}</div>
+              </div>
+              <div style={{ fontSize:12, color:'#888', marginBottom:6, display:'flex', alignItems:'center', gap:4 }}>
+                <MapPin size={11} color={theme.primary} />{s.area}
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                  {s.tags.slice(0,2).map(t => (
+                    <span key={t} style={{ fontSize:11, padding:'3px 8px', borderRadius:20, background:theme.light, color:theme.primary, fontWeight:500 }}>{t}</span>
+                  ))}
+                  {s.verified && <span style={{ fontSize:11, padding:'3px 8px', borderRadius:20, background:'#E8F5E9', color:'#2E7D32', fontWeight:500 }}>✓ Verified</span>}
+                </div>
+                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+                    <Star size={12} fill="#FFC107" color="#FFC107" />
+                    <span style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{s.rating}</span>
+                  </div>
+                  <div onClick={e => { e.stopPropagation(); requestBooking(s); }}
+                    style={{ background:theme.primary, borderRadius:8, padding:'4px 10px', fontSize:11, fontWeight:700, color:'white', cursor:'pointer' }}>
+                    Request
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom nav — always 4 tabs, parent-focused */}
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
+        {[
+          { id:'home', icon:'🏠', label:'Home', action:'home' },
+          { id:'book', icon:'📋', label:'Bookings', action:'bookings' },
+          { id:'explore', icon:'🔍', label:'Explore', action:'explore' },
+          { id:'profile', icon:'🐕', label:'My Pets', action:'profile' },
+        ].map(n => (
+          <div key={n.id} onClick={() => {
+            setActiveNav(n.id);
+            if (n.action === 'bookings') setShowBookings(true);
+            if (n.action === 'explore') setShowExplore(true);
+            if (n.action === 'profile') setShowUserProfile(true);
+          }} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+            <span style={{ fontSize:22 }}>{n.icon}</span>
+            <div style={{ fontSize:10, fontWeight:500, color:activeNav===n.id?theme.primary:'#BBB' }}>{n.label}</div>
+            {activeNav===n.id && <div style={{ width:4, height:4, borderRadius:2, background:theme.primary }} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

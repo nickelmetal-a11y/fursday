@@ -1,0 +1,10 @@
+<svg width="440" height="120" viewBox="0 0 440 120" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="60" cy="60" r="44" fill="#FF6B35"/>
+  <ellipse cx="60" cy="68" rx="15" ry="12.5" fill="white"/>
+  <circle cx="42" cy="50" r="7.5" fill="white"/>
+  <circle cx="54" cy="43" r="7.5" fill="white"/>
+  <circle cx="67" cy="43" r="7.5" fill="white"/>
+  <circle cx="79" cy="50" r="7.5" fill="white"/>
+  <text x="120" y="58" font-family="Inter, -apple-system, Helvetica Neue, sans-serif" font-weight="800" font-size="38" fill="#1a1a1a" letter-spacing="-1">fursday</text>
+  <text x="121" y="82" font-family="Inter, -apple-system, Helvetica Neue, sans-serif" font-weight="400" font-size="12.5" fill="#FF6B35" letter-spacing="0.08em">PET CARE · PUNE &amp; GURGAON</text>
+</svg>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fursday — Trusted pet care in Pune &amp; Gurgaon</title>
+<meta name="description" content="Verified, Aadhaar-checked dog walkers, sitters and boarders in Pune and Gurgaon. Book in minutes. Get a WhatsApp walk report every time. Rs.25,000 vet cover included.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23FF6B35'/%3E%3Cellipse cx='50' cy='57' rx='17' ry='14' fill='white'/%3E%3Ccircle cx='32' cy='40' r='8.5' fill='white'/%3E%3Ccircle cx='44' cy='32' r='8.5' fill='white'/%3E%3Ccircle cx='56' cy='32' r='8.5' fill='white'/%3E%3Ccircle cx='68' cy='40' r='8.5' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#1A1610;
+    --ink-soft:#6B6259;
+    --paper:#FCF8F3;
+    --paper-deep:#F4EEE4;
+    --orange:#FF6B35;
+    --orange-deep:#E2501C;
+    --orange-tint:#FFE9DD;
+    --moss:#2F6D54;
+    --moss-tint:#E3F0EA;
+    --sand:#F1E4D3;
+    --pune:#6C5CE7;
+    --pune-tint:#EDEBFC;
+    --radius:20px;
+    --radius-sm:12px;
+    --shadow:0 8px 30px rgba(26,22,16,0.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Inter',-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.display{
+    font-family:'Baloo 2',cursive;
+    font-weight:700;
+    line-height:1.08;
+    letter-spacing:-0.01em;
+  }
+  a{color:inherit;text-decoration:none;}
+  img,svg{display:block;max-width:100%;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:15px 28px;border-radius:100px;font-weight:700;font-size:15.5px;
+    border:none;cursor:pointer;transition:transform .15s ease, box-shadow .15s ease;
+    font-family:'Inter',sans-serif;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{background:var(--orange);color:white;box-shadow:0 10px 24px rgba(255,107,53,0.35);}
+  .btn-primary:hover{background:var(--orange-deep);}
+  .btn-dark{background:var(--ink);color:white;}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid rgba(26,22,16,0.15);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:13px;font-weight:600;}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--orange-deep);margin-bottom:14px;display:inline-block;}
+
+  /* ===== NAV ===== */
+  nav{
+    position:sticky;top:0;z-index:100;
+    background:rgba(252,248,243,0.85);backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(26,22,16,0.06);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1180px;margin:0 auto;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-mark{width:38px;height:38px;border-radius:11px;background:var(--orange);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .logo-text{font-family:'Baloo 2',cursive;font-weight:700;font-size:22px;color:var(--ink);}
+  .nav-links{display:flex;gap:32px;font-size:15px;font-weight:600;color:var(--ink-soft);}
+  .nav-links a:hover{color:var(--ink);}
+  .nav-cta{display:flex;gap:10px;align-items:center;}
+  @media(max-width:860px){.nav-links{display:none;} .btn{padding:12px 20px;font-size:14px;}}
+
+  /* ===== ROUTE LINE (signature element) ===== */
+  .route-line{
+    position:absolute;left:50%;top:0;bottom:0;width:4px;
+    background-image:radial-gradient(circle, rgba(255,107,53,0.35) 3px, transparent 3px);
+    background-size:4px 22px;
+    transform:translateX(-50%);
+    z-index:0;
+  }
+  .paw-stop{
+    width:54px;height:54px;border-radius:16px;background:var(--orange);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 20px rgba(255,107,53,0.35);
+    position:relative;z-index:2;flex-shrink:0;
+  }
+  .paw-stop.alt{background:var(--moss);box-shadow:0 8px 20px rgba(47,109,84,0.3);}
+  .paw-svg path,.paw-svg circle,.paw-svg ellipse{fill:white;}
+
+  /* ===== HERO ===== */
+  .hero{position:relative;padding:64px 0 40px;overflow:hidden;}
+  .hero::before{
+    content:'';position:absolute;top:-200px;right:-200px;width:560px;height:560px;
+    background:radial-gradient(circle, var(--orange-tint) 0%, transparent 70%);
+    z-index:0;
+  }
+  .hero-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:56px;align-items:center;position:relative;z-index:1;}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:40px;}}
+  .city-pills{display:flex;gap:8px;margin-bottom:22px;}
+  .city-pill-g{background:var(--orange-tint);color:var(--orange-deep);}
+  .city-pill-p{background:var(--pune-tint);color:var(--pune);}
+  .hero h1{font-size:clamp(36px,5.2vw,58px);margin-bottom:20px;}
+  .hero h1 span{color:var(--orange);}
+  .hero p.lede{font-size:18px;color:var(--ink-soft);max-width:480px;margin-bottom:32px;}
+  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px;}
+  .trust-row{display:flex;gap:28px;flex-wrap:wrap;}
+  .trust-item{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink-soft);}
+  .trust-item .dot{width:8px;height:8px;border-radius:4px;background:var(--moss);}
+
+  /* Hero mock card - walk report */
+  .report-card{
+    background:var(--ink);border-radius:28px;padding:26px;color:white;
+    box-shadow:0 30px 60px rgba(26,22,16,0.25);
+    transform:rotate(2deg);
+    max-width:340px;margin:0 auto;
+  }
+  .report-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .report-head .avatar{width:44px;height:44px;border-radius:14px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .report-head .name{font-weight:700;font-size:15px;}
+  .report-head .meta{font-size:12px;color:rgba(255,255,255,0.5);}
+  .report-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;}
+  .report-stat{background:rgba(255,255,255,0.06);border-radius:14px;padding:12px 8px;text-align:center;}
+  .report-stat .v{font-size:18px;font-weight:700;}
+  .report-stat .l{font-size:10.5px;color:rgba(255,255,255,0.45);margin-top:2px;}
+  .report-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .report-tag{background:rgba(46,125,50,0.18);color:#7FCF9A;font-size:11.5px;padding:5px 11px;border-radius:20px;font-weight:600;}
+  .report-msg{background:rgba(255,255,255,0.06);border-radius:14px;padding:12px 14px;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.5;}
+  .report-msg b{color:white;}
+  .wa-badge{display:flex;align-items:center;gap:8px;background:#128C7E;border-radius:14px;padding:10px 14px;margin-top:14px;font-size:12.5px;font-weight:700;}
+
+  /* ===== SECTION SHARED ===== */
+  section{padding:90px 0;position:relative;}
+  .section-head{max-width:620px;margin:0 auto 56px;text-align:center;}
+  .section-head h2{font-size:clamp(28px,3.6vw,42px);margin-bottom:14px;}
+  .section-head p{font-size:17px;color:var(--ink-soft);}
+
+  /* ===== HOW IT WORKS (route path) ===== */
+  .how-section{background:var(--paper-deep);}
+  .route-wrap{position:relative;max-width:760px;margin:0 auto;z-index:1;}
+  .route-wrap .route-line{display:block;}
+  .step-row{display:grid;grid-template-columns:1fr 54px 1fr;align-items:center;gap:0;margin-bottom:8px;position:relative;z-index:1;}
+  .step-row:last-child .connector{display:none;}
+  .step-card{background:white;border-radius:var(--radius);padding:24px 26px;box-shadow:var(--shadow);}
+  .step-row:nth-child(odd) .step-card{grid-column:1;}
+  .step-row:nth-child(odd) .spacer{grid-column:3;}
+  .step-row:nth-child(even) .step-card{grid-column:3;}
+  .step-row:nth-child(even) .spacer{grid-column:1;}
+  .step-num{font-size:12px;font-weight:700;color:var(--orange-deep);letter-spacing:0.06em;margin-bottom:6px;}
+  .step-card h3{font-size:19px;margin-bottom:6px;}
+  .step-card p{font-size:14.5px;color:var(--ink-soft);}
+  .connector{height:64px;}
+  @media(max-width:760px){
+    .route-line{left:27px;}
+    .step-row{grid-template-columns:54px 1fr;gap:18px;}
+    .step-row:nth-child(odd) .step-card,.step-row:nth-child(even) .step-card{grid-column:2;}
+    .spacer{display:none;}
+    .paw-stop{width:44px;height:44px;}
+  }
+
+  /* ===== SERVICES ===== */
+  .services-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;}
+  @media(max-width:980px){.services-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:520px){.services-grid{grid-template-columns:1fr;}}
+  .service-card{
+    background:white;border-radius:var(--radius);padding:26px 22px;box-shadow:var(--shadow);
+    transition:transform .2s ease;
+  }
+  .service-card:hover{transform:translateY(-6px);}
+  .service-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:16px;}
+  .service-card h3{font-size:17px;margin-bottom:6px;}
+  .service-card .price{font-size:13.5px;color:var(--orange-deep);font-weight:700;}
+  .service-card p.desc{font-size:13px;color:var(--ink-soft);margin-top:8px;}
+
+  /* ===== TRUST ===== */
+  .trust-section{background:var(--ink);color:white;}
+  .trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+  @media(max-width:900px){.trust-grid{grid-template-columns:repeat(2,1fr);}}
+  .trust-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius);padding:28px 22px;}
+  .trust-card .icon{font-size:30px;margin-bottom:14px;}
+  .trust-card h3{font-family:'Baloo 2',cursive;font-size:18px;margin-bottom:8px;}
+  .trust-card p{font-size:13.5px;color:rgba(255,255,255,0.55);}
+  .trust-section .section-head h2{color:white;}
+  .trust-section .section-head p{color:rgba(255,255,255,0.55);}
+
+  /* ===== FOR SITTERS ===== */
+  .sitter-section{}
+  .sitter-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}
+  @media(max-width:900px){.sitter-grid{grid-template-columns:1fr;gap:36px;}}
+  .earn-card{background:var(--orange);border-radius:28px;padding:36px;color:white;position:relative;overflow:hidden;}
+  .earn-card::after{content:'🐾';position:absolute;font-size:140px;opacity:0.12;right:-20px;bottom:-30px;}
+  .earn-label{font-size:13px;opacity:0.85;margin-bottom:6px;}
+  .earn-amount{font-family:'Baloo 2',cursive;font-size:52px;font-weight:800;margin-bottom:4px;}
+  .earn-sub{font-size:14px;opacity:0.85;margin-bottom:24px;}
+  .earn-list{display:flex;flex-direction:column;gap:10px;}
+  .earn-list div{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;}
+  .sitter-copy .eyebrow{color:var(--orange-deep);}
+  .sitter-copy h2{font-size:clamp(26px,3.4vw,38px);margin-bottom:16px;}
+  .sitter-copy p{color:var(--ink-soft);font-size:16px;margin-bottom:26px;}
+  .sitter-bullets{display:flex;flex-direction:column;gap:14px;margin-bottom:30px;}
+  .sitter-bullets div{display:flex;gap:12px;align-items:flex-start;font-size:15px;}
+  .check{width:22px;height:22px;border-radius:7px;background:var(--moss-tint);color:var(--moss);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px;}
+
+  /* ===== CITIES ===== */
+  .cities-section{background:var(--paper-deep);}
+  .city-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  @media(max-width:760px){.city-grid{grid-template-columns:1fr;}}
+  .city-card{border-radius:28px;padding:36px;color:white;position:relative;overflow:hidden;min-height:220px;display:flex;flex-direction:column;justify-content:flex-end;}
+  .city-card.gurgaon{background:linear-gradient(135deg,#FF6B35,#FF9466);}
+  .city-card.pune{background:linear-gradient(135deg,#6C5CE7,#9C90F0);}
+  .city-card .live-badge{position:absolute;top:24px;right:24px;background:rgba(255,255,255,0.22);backdrop-filter:blur(6px);font-size:12px;font-weight:700;padding:6px 14px;border-radius:100px;display:flex;align-items:center;gap:6px;}
+  .live-dot{width:7px;height:7px;border-radius:4px;background:#fff;animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .city-card h3{font-family:'Baloo 2',cursive;font-size:30px;margin-bottom:6px;}
+  .city-card p{font-size:14px;opacity:0.9;}
+  .city-card.soon{background:white;border:2px dashed rgba(26,22,16,0.15);color:var(--ink-soft);align-items:flex-start;justify-content:center;text-align:center;}
+
+  /* ===== FAQ ===== */
+  .faq-list{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  details{background:white;border-radius:var(--radius-sm);padding:6px 22px;box-shadow:var(--shadow);}
+  summary{cursor:pointer;font-weight:700;font-size:15.5px;padding:18px 0;list-style:none;display:flex;justify-content:space-between;align-items:center;}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:'+';font-size:22px;color:var(--orange);font-weight:400;transition:transform .2s;}
+  details[open] summary::after{transform:rotate(45deg);}
+  details p{padding-bottom:18px;color:var(--ink-soft);font-size:14.5px;line-height:1.7;}
+
+  /* ===== FINAL CTA ===== */
+  .final-cta{background:var(--orange);color:white;text-align:center;border-radius:32px;margin:0 24px;padding:70px 32px;}
+  .final-cta h2{font-size:clamp(28px,4vw,42px);margin-bottom:14px;}
+  .final-cta p{font-size:17px;opacity:0.9;margin-bottom:32px;}
+  .final-cta .btn-dark{background:white;color:var(--ink);}
+
+  /* ===== FOOTER ===== */
+  footer{padding:60px 0 30px;}
+  .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:50px;}
+  @media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr;}}
+  .footer-col h4{font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin-bottom:14px;}
+  .footer-col a,.footer-col p{display:block;font-size:14.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .footer-col a:hover{color:var(--ink);}
+  .footer-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:24px;border-top:1px solid rgba(26,22,16,0.08);font-size:13px;color:var(--ink-soft);flex-wrap:wrap;gap:12px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <div class="logo-mark">
+        <svg width="22" height="22" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14" fill="white"/><circle cx="32" cy="40" r="8.5" fill="white"/><circle cx="44" cy="32" r="8.5" fill="white"/><circle cx="56" cy="32" r="8.5" fill="white"/><circle cx="68" cy="40" r="8.5" fill="white"/></svg>
+      </div>
+      <span class="logo-text">fursday</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#services">Services</a>
+      <a href="#sitters">Become a sitter</a>
+      <a href="#faq">FAQ</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a href="https://fursday.vercel.app" class="btn btn-primary">Find a sitter</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="city-pills">
+          <span class="pill city-pill-g">📍 Gurgaon</span>
+          <span class="pill city-pill-p">📍 Pune</span>
+        </div>
+        <h1>Trusted pet care,<br>for <span>Happy Fursdays</span> every week.</h1>
+        <p class="lede">Verified dog walkers, sitters and boarders near you — booked in minutes, tracked in real time, with a WhatsApp report after every single visit.</p>
+        <div class="hero-ctas">
+          <a href="https://fursday.vercel.app" class="btn btn-primary">Find a sitter 🐾</a>
+          <a href="#sitters" class="btn btn-ghost">Become a sitter</a>
+        </div>
+        <div class="trust-row">
+          <div class="trust-item"><span class="dot"></span> Aadhaar verified</div>
+          <div class="trust-item"><span class="dot"></span> Rs.25,000 vet cover</div>
+          <div class="trust-item"><span class="dot"></span> Live GPS walks</div>
+        </div>
+      </div>
+      <div>
+        <div class="report-card">
+          <div class="report-head">
+            <div class="avatar">🐕</div>
+            <div>
+              <div class="name">Bruno's Walk Report</div>
+              <div class="meta">by Priya S. · 7:32 AM</div>
+            </div>
+          </div>
+          <div class="report-stats">
+            <div class="report-stat"><div class="v">30 min</div><div class="l">DURATION</div></div>
+            <div class="report-stat"><div class="v">1.8 km</div><div class="l">DISTANCE</div></div>
+            <div class="report-stat"><div class="v">😄</div><div class="l">MOOD</div></div>
+          </div>
+          <div class="report-tags">
+            <span class="report-tag">💧 Pee ✓</span>
+            <span class="report-tag">💩 Poo ✓</span>
+            <span class="report-tag">🌡️ Heat safe</span>
+          </div>
+          <div class="report-msg"><b>Priya:</b> Bruno was in great spirits today, full loop around the park and said hello to all his friends!</div>
+          <div class="wa-badge">💬 Sent on WhatsApp · Delivered</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">The route</span>
+      <h2>From booking to walk report,<br>in four simple stops</h2>
+      <p>Every booking follows the same trusted path — no surprises along the way.</p>
+    </div>
+    <div class="route-wrap">
+      <div class="route-line"></div>
+
+      <div class="step-row">
+        <div class="step-card">
+          <div class="step-num">STOP 01</div>
+          <h3>Search nearby</h3>
+          <p>Browse verified sitters and walkers within 5km, filtered by service and price.</p>
+        </div>
+        <div class="paw-stop"><svg class="paw-svg" width="24" height="24" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14"/><circle cx="32" cy="40" r="8.5"/><circle cx="44" cy="32" r="8.5"/><circle cx="56" cy="32" r="8.5"/><circle cx="68" cy="40" r="8.5"/></svg></div>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="step-row">
+        <div class="spacer"></div>
+        <div class="paw-stop alt"><svg class="paw-svg" width="24" height="24" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14"/><circle cx="32" cy="40" r="8.5"/><circle cx="44" cy="32" r="8.5"/><circle cx="56" cy="32" r="8.5"/><circle cx="68" cy="40" r="8.5"/></svg></div>
+        <div class="step-card">
+          <div class="step-num">STOP 02</div>
+          <h3>Request &amp; confirm</h3>
+          <p>Send a request — your sitter accepts, then you pay securely by UPI or card.</p>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-card">
+          <div class="step-num">STOP 03</div>
+          <h3>The walk happens</h3>
+          <p>GPS-tracked, heat-safe timing, and a friendly face your pet already trusts.</p>
+        </div>
+        <div class="paw-stop"><svg class="paw-svg" width="24" height="24" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14"/><circle cx="32" cy="40" r="8.5"/><circle cx="44" cy="32" r="8.5"/><circle cx="56" cy="32" r="8.5"/><circle cx="68" cy="40" r="8.5"/></svg></div>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="step-row">
+        <div class="spacer"></div>
+        <div class="paw-stop alt"><svg class="paw-svg" width="24" height="24" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14"/><circle cx="32" cy="40" r="8.5"/><circle cx="44" cy="32" r="8.5"/><circle cx="56" cy="32" r="8.5"/><circle cx="68" cy="40" r="8.5"/></svg></div>
+        <div class="step-card">
+          <div class="step-num">STOP 04</div>
+          <h3>Get your report</h3>
+          <p>A full WhatsApp report with photos, mood, and activity — every single time.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Services</span>
+      <h2>Whatever your pet needs,<br>there's a sitter for it</h2>
+    </div>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-icon" style="background:var(--orange-tint);">🦮</div>
+        <h3>Dog Walking</h3>
+        <div class="price">From Rs.299</div>
+        <p class="desc">30-minute walks, GPS-tracked routes.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon" style="background:var(--moss-tint);">🏠</div>
+        <h3>Home Boarding</h3>
+        <div class="price">From Rs.799/night</div>
+        <p class="desc">Your dog stays at a verified home.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon" style="background:var(--pune-tint);">☀️</div>
+        <h3>Doggy Daycare</h3>
+        <div class="price">From Rs.599/day</div>
+        <p class="desc">Daytime care while you're at work.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon" style="background:var(--sand);">🔔</div>
+        <h3>Drop-in Visit</h3>
+        <div class="price">From Rs.199</div>
+        <p class="desc">Quick check-ins, feeding, bathroom breaks.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon" style="background:var(--orange-tint);">🏡</div>
+        <h3>House Sitting</h3>
+        <div class="price">From Rs.1,299/night</div>
+        <p class="desc">A sitter stays over at your home.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section class="trust-section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow" style="color:#FFB088;">Built for India</span>
+      <h2>Trust isn't a feature here.<br>It's the whole point.</h2>
+      <p>Indian pet parenting has different needs — so we built different safeguards.</p>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="icon">🪪</div>
+        <h3>Aadhaar verified</h3>
+        <p>Every sitter is ID-checked before their first booking.</p>
+      </div>
+      <div class="trust-card">
+        <div class="icon">🛡️</div>
+        <h3>Rs.25,000 vet cover</h3>
+        <p>Included automatically with every single booking.</p>
+      </div>
+      <div class="trust-card">
+        <div class="icon">🌡️</div>
+        <h3>Heat-safe walks</h3>
+        <p>Timing flagged and avoided during peak summer hours.</p>
+      </div>
+      <div class="trust-card">
+        <div class="icon">📍</div>
+        <h3>Live GPS tracking</h3>
+        <p>See the exact route and duration of every walk.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOR SITTERS -->
+<section id="sitters">
+  <div class="wrap">
+    <div class="sitter-grid">
+      <div class="sitter-copy">
+        <span class="eyebrow">Become a sitter</span>
+        <h2>Turn your love for dogs into a real income</h2>
+        <p>Set your own prices, choose your own hours, and start earning from your very first walk.</p>
+        <div class="sitter-bullets">
+          <div><span class="check">✓</span> No fixed hours — accept only what suits you</div>
+          <div><span class="check">✓</span> Set your own prices, change them anytime</div>
+          <div><span class="check">✓</span> Get paid directly to your UPI ID</div>
+          <div><span class="check">✓</span> Rs.0 to join, no lock-in contracts</div>
+        </div>
+        <a href="https://fursday.vercel.app" class="btn btn-dark">Start earning today 🐾</a>
+      </div>
+      <div class="earn-card">
+        <div class="earn-label">Average sitter earns</div>
+        <div class="earn-amount">Rs.22,000</div>
+        <div class="earn-sub">per month in Gurgaon · top sitters earn Rs.45,000+</div>
+        <div class="earn-list">
+          <div>🦮 Dog walking · Rs.299–599/walk</div>
+          <div>🏠 Home boarding · Rs.799–1,999/night</div>
+          <div>☀️ Doggy daycare · Rs.599–1,299/day</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CITIES -->
+<section class="cities-section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Where we are</span>
+      <h2>Live in two cities. Growing carefully.</h2>
+      <p>We're starting focused — every sitter in your city, properly verified — before we expand.</p>
+    </div>
+    <div class="city-grid">
+      <div class="city-card gurgaon">
+        <div class="live-badge"><span class="live-dot"></span> LIVE NOW</div>
+        <h3>Gurgaon</h3>
+        <p>DLF Phases, Sushant Lok, Nirvana Country &amp; more</p>
+      </div>
+      <div class="city-card pune">
+        <div class="live-badge"><span class="live-dot"></span> LIVE NOW</div>
+        <h3>Pune</h3>
+        <p>Koregaon Park, Baner, Viman Nagar &amp; more</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Questions</span>
+      <h2>Good to know</h2>
+    </div>
+    <div class="faq-list">
+      <details open>
+        <summary>Is Fursday available in my city?</summary>
+        <p>Right now, Fursday is live only in Pune and Gurgaon. We're deliberately starting small so every sitter can be properly verified before we expand to more cities.</p>
+      </details>
+      <details>
+        <summary>How are sitters verified?</summary>
+        <p>Every sitter completes Aadhaar eKYC verification before accepting their first booking. We also review their service area, experience, and require a complete profile before approval.</p>
+      </details>
+      <details>
+        <summary>What happens if my sitter cancels last minute?</summary>
+        <p>You're refunded in full immediately, and we'll help you find a replacement sitter as quickly as possible.</p>
+      </details>
+      <details>
+        <summary>How does payment work?</summary>
+        <p>You pay securely through UPI, card, or net banking once your sitter accepts the booking. Your payment is only released to the sitter after the service is completed.</p>
+      </details>
+      <details>
+        <summary>What's included in the Rs.25,000 vet cover?</summary>
+        <p>Every booking on Fursday automatically includes vet insurance cover up to Rs.25,000, in case of an accident or emergency during the service.</p>
+      </details>
+      <details>
+        <summary>How do I become a sitter?</summary>
+        <p>Tap "Become a sitter," tell us what services you'd like to offer and your availability, set your prices, and complete ID verification. Most sitters are live within 24 hours of applying.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+
+<!-- CONNECT WITH US -->
+<section id="contact" style="padding:80px 0;">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Connect with us</span>
+      <h2>We're here to help</h2>
+      <p>Got a question? Need help with a booking? Reach us on WhatsApp or drop us a message.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;margin:0 auto;">
+      <a href="https://wa.me/919999999999?text=Hi%20Fursday!%20I%20need%20some%20help." target="_blank"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px 24px;background:#25D366;border-radius:28px;text-decoration:none;color:white;transition:transform .2s;">
+        <span style="font-size:48px;">💬</span>
+        <div style="text-align:center;">
+          <div style="font-family:'Baloo 2',cursive;font-weight:700;font-size:22px;margin-bottom:4px;">WhatsApp us</div>
+          <div style="font-size:14px;opacity:0.9;">Fastest response · Usually within 1 hour</div>
+        </div>
+      </a>
+      <div style="background:white;border-radius:28px;padding:32px;box-shadow:0 8px 30px rgba(26,22,16,0.08);">
+        <div style="font-family:'Baloo 2',cursive;font-weight:700;font-size:20px;color:#1A1610;margin-bottom:20px;">Send us a message</div>
+        <input type="text" placeholder="Your name" id="contact-name"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid #E0D8D0;font-size:14px;margin-bottom:12px;outline:none;font-family:inherit;box-sizing:border-box;" />
+        <input type="tel" placeholder="WhatsApp number (+91...)" id="contact-phone"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid #E0D8D0;font-size:14px;margin-bottom:12px;outline:none;font-family:inherit;box-sizing:border-box;" />
+        <textarea placeholder="How can we help?" id="contact-msg" rows="3"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid #E0D8D0;font-size:14px;margin-bottom:16px;outline:none;font-family:inherit;resize:none;box-sizing:border-box;"></textarea>
+        <button onclick="sendToWhatsApp()"
+          style="width:100%;padding:14px 0;border-radius:100px;border:none;background:#FF6B35;color:white;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+          Send via WhatsApp 🐾
+        </button>
+        <div id="contact-success" style="display:none;margin-top:12px;padding:10px 14px;background:#E3F0EA;border-radius:12px;font-size:13px;color:#2F6D54;font-weight:600;">
+          ✓ Opening WhatsApp with your message...
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function sendToWhatsApp() {
+  const name = document.getElementById('contact-name').value.trim();
+  const phone = document.getElementById('contact-phone').value.trim();
+  const msg = document.getElementById('contact-msg').value.trim();
+  if (!name || !msg) { alert('Please enter your name and message.'); return; }
+  const text = 'Hi Fursday! My name is ' + name + (phone ? ', my number is ' + phone : '') + '. ' + msg;
+  document.getElementById('contact-success').style.display = 'block';
+  setTimeout(() => { window.open('https://wa.me/919999999999?text=' + encodeURIComponent(text), '_blank'); }, 500);
+}
+</script>
+<!-- FINAL CTA -->
+<section style="padding-bottom:40px;">
+  <div class="final-cta">
+    <h2>Your pet's favourite day<br>is one tap away.</h2>
+    <p>Join pet parents and sitters across Pune and Gurgaon already on Fursday.</p>
+    <a href="https://fursday.vercel.app" class="btn btn-dark">Open Fursday 🐾</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <div class="logo" style="margin-bottom:14px;">
+          <div class="logo-mark">
+            <svg width="22" height="22" viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="17" ry="14" fill="white"/><circle cx="32" cy="40" r="8.5" fill="white"/><circle cx="44" cy="32" r="8.5" fill="white"/><circle cx="56" cy="32" r="8.5" fill="white"/><circle cx="68" cy="40" r="8.5" fill="white"/></svg>
+          </div>
+          <span class="logo-text">fursday</span>
+        </div>
+        <p style="max-width:280px;">Trusted pet care for Pune and Gurgaon. Verified sitters, real-time tracking, WhatsApp walk reports.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#how">How it works</a>
+        <a href="#services">Services</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <h4>For sitters</h4>
+        <a href="#sitters">Become a sitter</a>
+        <a href="https://fursday.vercel.app">Sitter dashboard</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#">Terms of Service</a>
+        <a href="#">Privacy Policy</a>
+        <a href="mailto:hello@fursday.in">hello@fursday.in</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Fursday. Currently serving Pune and Gurgaon only.</span>
+      <span>Made with 🐾 in India</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

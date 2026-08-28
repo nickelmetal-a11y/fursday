@@ -1,0 +1,1 @@
+require("fs").writeFileSync("src/App.js", require("fs").readFileSync("src/App.js.new", "utf8"), "utf8"); console.log("Done");
