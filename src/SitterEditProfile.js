@@ -48,6 +48,7 @@ export default function SitterEditProfile({ onBack, city }) {
   const [isPaused, setIsPaused] = useState(false);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photos, setPhotos] = useState([]);
   const fileInputRef = useRef(null);
   const [availableDays, setAvailableDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   const [morningSlot, setMorningSlot] = useState(true);
@@ -85,6 +86,11 @@ export default function SitterEditProfile({ onBack, city }) {
       setEveningSlot(profile.evening_slot !== false);
       setMaxDogs(profile.max_dogs || 1);
       setAdvanceNotice(profile.advance_notice || '24hrs');
+      // Load sitter profile photos
+      const { data: photoData } = await supabase.from('sitter_profile_photos').select('*').eq('sitter_id', profile.id).order('display_order');
+      if (photoData && photoData.length > 0) {
+        setPhotos(photoData.map(p => ({ id: p.id, url: p.photo_url })));
+      }
       const { data: services } = await supabase.from('sitter_services').select('*').eq('sitter_id', profile.id);
       if (services && services.length > 0) {
         setActiveServices(services.map(s => s.service_type));
@@ -106,22 +112,25 @@ export default function SitterEditProfile({ onBack, city }) {
   };
 
   const handlePhotoUpload = async (e) => {
-    let file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length || photos.length >= 3) return;
     setUploadingPhoto(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const compressed = await compressImage(file);
-      const path = user.id + '-' + Date.now() + '.jpg';
-      const { error: uploadError } = await supabase.storage.from('sitter-photos').upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
-      setPhotoUrl(publicUrl);
-      // Persist immediately to the sitter profile
-      const { data: prof } = await supabase.from('sitter_profiles').select('id').eq('user_id', user.id).single();
-      if (prof) await supabase.from('sitter_profiles').update({ profile_photo_url: publicUrl }).eq('id', prof.id);
+      for (let file of files.slice(0, 3 - photos.length)) {
+        const compressed = await compressImage(file);
+        const path = 'sitter-' + user.id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.jpg';
+        const { error: uploadError } = await supabase.storage.from('sitter-photos').upload(path, compressed);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
+        setPhotos(prev => [...prev, { id: null, url: publicUrl }]);
+      }
     } catch (e) { alert('Upload failed: ' + (e.message || e)); }
     setUploadingPhoto(false);
+  };
+
+  const handlePhotoDelete = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleService = (id) => {
@@ -162,6 +171,14 @@ export default function SitterEditProfile({ onBack, city }) {
         if (activeServices.length > 0) {
           await supabase.from('sitter_services').insert(
             activeServices.map(id => ({ sitter_id: sitterProfile.id, service_type: id, price_paise: (prices[id] || 299) * 100, is_active: true }))
+          );
+        }
+
+        // Save profile photos
+        await supabase.from('sitter_profile_photos').delete().eq('sitter_id', sitterProfile.id);
+        if (photos.length > 0) {
+          await supabase.from('sitter_profile_photos').insert(
+            photos.map((p, idx) => ({ sitter_id: sitterProfile.id, photo_url: p.url, display_order: idx }))
           );
         }
       }
@@ -272,6 +289,28 @@ export default function SitterEditProfile({ onBack, city }) {
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{sitterProfile?.aadhaar_verified ? 'Aadhaar Verified' : sitterProfile?.aadhaar_number ? 'Verification pending (24hrs)' : 'Aadhaar not submitted'}</div>
                 <div style={{ fontSize: 11, color: '#888' }}>{sitterProfile?.aadhaar_verified ? 'Verified badge visible to pet parents' : 'Required before your first booking'}</div>
               </div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>Portfolio photos (max 3)</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {photos.map((photo, i) => (
+                  <div key={i} style={{ position: 'relative', width: 90, height: 90 }}>
+                    <img src={photo.url} alt={`Photo ${i+1}`} style={{ width: 90, height: 90, borderRadius: 14, objectFit: 'cover' }} />
+                    <div onClick={() => handlePhotoDelete(i)}
+                      style={{ position: 'absolute', top: -8, right: -8, width: 28, height: 28, borderRadius: 14, background: '#D32F2F', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                      <span style={{ color: 'white', fontSize: 18, fontWeight: 'bold', lineHeight: 1 }}>×</span>
+                    </div>
+                  </div>
+                ))}
+                {photos.length < 3 && (
+                  <div onClick={() => fileInputRef.current?.click()}
+                    style={{ width: 90, height: 90, borderRadius: 14, background: theme.light, border: '2px dashed ' + theme.primary, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
+                    {uploadingPhoto ? <span style={{ fontSize: 12, color: theme.primary }}>...</span> : <><Camera size={20} color={theme.primary} /><span style={{ fontSize: 10, color: theme.primary, textAlign: 'center' }}>{photos.length === 0 ? 'Add photo' : 'More'}</span></>}
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: '#AAA', marginTop: 8 }}>{photos.length}/3 photos uploaded • Max 2MB each</div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display: 'none' }} />
             </div>
             <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>Bio</div>

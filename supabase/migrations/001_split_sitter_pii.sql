@@ -9,19 +9,15 @@ create table if not exists public.sitter_pii (
   unique(sitter_id)
 );
 
--- Remove these columns from sitter_profiles (backfill first if needed)
--- First, insert existing data into sitter_pii
-insert into public.sitter_pii (sitter_id, aadhaar_number, upi_id)
-select id, aadhaar_number, upi_id from public.sitter_profiles
-where aadhaar_number is not null or upi_id is not null
-on conflict (sitter_id) do nothing;
-
--- Then drop the columns from sitter_profiles
-alter table public.sitter_profiles drop column if exists aadhaar_number;
-alter table public.sitter_profiles drop column if exists upi_id;
+-- Note: Columns are dropped in sitter_profiles separately if they exist
 
 -- Enable RLS on sitter_pii
 alter table public.sitter_pii enable row level security;
+
+-- Drop existing policies if they exist
+drop policy if exists "Sitters can view own PII" on public.sitter_pii;
+drop policy if exists "Sitters can update own PII" on public.sitter_pii;
+drop policy if exists "Sitters can insert own PII" on public.sitter_pii;
 
 -- RLS: Sitters can only see their own PII
 create policy "Sitters can view own PII"
@@ -41,9 +37,3 @@ create policy "Sitters can insert own PII"
   on public.sitter_pii
   for insert
   with check (sitter_id = (select id from public.sitter_profiles where user_id = auth.uid() limit 1));
-
--- RLS: Admins can view all PII (if needed, adjust based on your admin logic)
--- create policy "Admins can view all PII"
---   on public.sitter_pii
---   for select
---   using (auth.jwt() ->> 'role' = 'admin');

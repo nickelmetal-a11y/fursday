@@ -74,8 +74,20 @@ export default function BookingFlow({ onBack, sitter, city, initialService }) {
   const [addingPet, setAddingPet] = useState(false);
   const [savingPet, setSavingPet] = useState(false);
   const [aggressionConfirmed, setAggressionConfirmed] = useState(false);
+  const [temperature, setTemperature] = useState(null);
+  const [heatWarningDismissed, setHeatWarningDismissed] = useState(false);
 
   const days = getDays();
+
+  // Simple heat advisory check based on date (approximation)
+  const checkHeatAdvisory = () => {
+    if (!day) return false;
+    const month = day.getMonth() + 1; // 1-12
+    const isHotMonth = [4, 5, 6, 7, 8, 9].includes(month); // Apr-Sep (typically hot)
+    // In real implementation, would call actual weather API
+    // For now, show advisory for hot months
+    return isHotMonth;
+  };
   const service = SERVICES.find(s => s.id === selectedService);
   const pet = pets.find(p => p.id === selectedPet);
   const day = days[selectedDay];
@@ -443,6 +455,16 @@ export default function BookingFlow({ onBack, sitter, city, initialService }) {
           <>
             <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>Review booking</div>
             <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>Double-check before confirming</div>
+            {!heatWarningDismissed && checkHeatAdvisory() && (
+              <div style={{ background:'#FFF3E0', borderRadius:14, padding:'12px 14px', marginBottom:14, display:'flex', gap:10, alignItems:'flex-start', border:'1.5px solid #FFB74D' }}>
+                <span style={{ fontSize:18, flexShrink:0 }}>⚠️</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#E65100', marginBottom:2 }}>Heat Advisory</div>
+                  <div style={{ fontSize:12, color:'#E65100', lineHeight:1.4 }}>It's hot outside. Ensure your dog has water breaks and consider shorter walk duration.</div>
+                  <button onClick={() => setHeatWarningDismissed(true)} style={{ marginTop:6, background:'none', border:'none', color:'#E65100', fontSize:11, fontWeight:600, cursor:'pointer', textDecoration:'underline' }}>Dismiss</button>
+                </div>
+              </div>
+            )}
             <div style={{ background:'white', borderRadius:20, padding:16, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
               {[
                 { label:'Sitter', val:sitterName },
