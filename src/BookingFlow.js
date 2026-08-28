@@ -73,6 +73,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService }) {
   const [newPetBreed, setNewPetBreed] = useState('');
   const [addingPet, setAddingPet] = useState(false);
   const [savingPet, setSavingPet] = useState(false);
+  const [aggressionConfirmed, setAggressionConfirmed] = useState(false);
 
   const days = getDays();
   const service = SERVICES.find(s => s.id === selectedService);
@@ -173,7 +174,10 @@ export default function BookingFlow({ onBack, sitter, city, initialService }) {
       if (isDaycare && !pickTime) return 'Please select pick-up time';
       if (!isDaycare && !selectedTime) return 'Please select a time';
     }
-    if (step === 2 && !selectedPet) return 'Please select a pet';
+    if (step === 2) {
+      if (!selectedPet) return 'Please select a pet';
+      if (!aggressionConfirmed) return 'Please confirm your dog does not have aggression issues';
+    }
     return '';
   };
 
@@ -397,6 +401,16 @@ export default function BookingFlow({ onBack, sitter, city, initialService }) {
                 </div>
               </div>
             )}
+            <div style={{ background:'#FFF3E0', borderRadius:18, padding:16, marginBottom:14, border:'1.5px solid '+ORANGE }}>
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                <input type="checkbox" checked={aggressionConfirmed} onChange={e => setAggressionConfirmed(e.target.checked)}
+                  style={{ width:20, height:20, marginTop:2, cursor:'pointer' }} />
+                <div>
+                  <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>Dog Aggression Disclosure</div>
+                  <div style={{ fontSize:12, color:'#E65100', lineHeight:1.5 }}>I confirm my dog does not have known aggression issues and will be safe with the sitter.</div>
+                </div>
+              </div>
+            </div>
             <div style={{ background:'white', borderRadius:18, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>Your address details</div>
               <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>Needed for society/apartment access</div>

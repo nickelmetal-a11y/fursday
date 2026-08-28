@@ -202,10 +202,15 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                 )}
                 {b.status === 'active' && (
                   <div onClick={(e) => e.stopPropagation()} style={{ marginTop:8 }}>
-                    <div style={{ background:'#E8F5E9', borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', gap:8, marginBottom: ['boarding','daycare'].includes(b.service_type)?8:0 }}>
+                    <div style={{ background:'#E8F5E9', borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
                       <div style={{ width:8, height:8, borderRadius:4, background:'#2E7D32' }} />
                       <span style={{ fontSize:12, color:'#2E7D32', fontWeight:600 }}>{['boarding','daycare'].includes(b.service_type)?'Your dog is with '+sitterName:'Walk in progress'}</span>
                     </div>
+                    {sitterPhone && (
+                      <a href={'tel:'+sitterPhone} style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'2px solid #2E7D32', background:'white', color:'#2E7D32', fontSize:14, fontWeight:700, cursor:'pointer', textAlign:'center', textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:8 }}>
+                        🚨 Emergency Contact: {sitterPhone}
+                      </a>
+                    )}
                     {['boarding','daycare'].includes(b.service_type) && (
                       <div style={{ background:t.light, borderRadius:12, padding:'12px 14px' }}>
                         <div style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>Confirm pick-up</div>

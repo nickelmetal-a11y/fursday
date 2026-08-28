@@ -28,13 +28,14 @@ const compressImage = (file, maxSizeMB = 1) => new Promise((resolve) => {
   };
   reader.readAsDataURL(file);
 });
-export default function PetProfile({ onBack, city, onSave }) {
+export default function PetProfile({ onBack, city, onSave, petId }) {
   const t = THEMES[city] || THEMES.Gurgaon;
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(petId ? true : false);
 
   const [pet, setPet] = useState({
     name: '', breed: '', age: '', weight: '', gender: '',
@@ -43,6 +44,24 @@ export default function PetProfile({ onBack, city, onSave }) {
   });
 
   const update = (k, v) => setPet(prev => ({ ...prev, [k]: v }));
+
+  useEffect(() => {
+    if (petId) {
+      const loadPet = async () => {
+        const { data } = await supabase.from('pet_profiles').select('*').eq('id', petId).single();
+        if (data) {
+          setPet({
+            name: data.name || '', breed: data.breed || '', age: data.age_years || '', weight: data.weight_kg || '', gender: data.gender || '',
+            energy: data.energy_level || '', strangers: data.behavior_strangers || '', leash: data.behavior_leash || '',
+            vaccinated: data.vaccinated || null, emergency: data.emergency_contact || '', notes: data.notes || '',
+          });
+          if (data.photo_url) setPhotos([data.photo_url]);
+        }
+        setLoading(false);
+      };
+      loadPet();
+    }
+  }, [petId]);
 
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files || []);
