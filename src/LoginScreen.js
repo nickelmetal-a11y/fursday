@@ -86,7 +86,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
           Welcome to Fursday
         </div>
         <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-          {step === 'email' ? `Trusted pet care in ${Object.values(CITY_CONFIG).map(c => c.displayName).join(' & ')}.` : 'Enter the 6-digit code we sent to your email.'}
+          {step === 'email' ? 'Trusted pet care, right at your doorstep.' : 'Enter the 6-digit code we sent to your email.'}
         </div>
       </div>
 
@@ -177,7 +177,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
       )}
 
       <div style={{ marginTop: 'auto', paddingBottom: 40, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.6 }}>
-        Currently available in {Object.values(CITY_CONFIG).map(c => c.displayName).join(' and ')} only.
+        Expanding to your city soon.
       </div>
     </div>
   );
