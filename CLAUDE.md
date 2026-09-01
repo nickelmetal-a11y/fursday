@@ -122,11 +122,11 @@ vercel --prod
 - [x] Sitter profile display
 - [x] Integration with BookingsDashboard
 
-**Part 2: Walk Photo Reports** (NEXT - 2 days)
-- [ ] Sitter uploads 1-3 photos after walk
-- [ ] Photo carousel UI
-- [ ] Proof of service notification
-- [ ] Parent confirmation
+**Part 2: Walk Photo Reports** (IN PROGRESS - 60% complete)
+- [x] Sitter uploads 1-3 photos after walk (PhotoUploadModal.js complete)
+- [x] Photo upload integration in SitterDashboard (button for completed walks)
+- [ ] Photo carousel UI in BookingsDashboard (for parents viewing proof)
+- [ ] Parent confirmation flow
 
 **Part 3: Cancellation Policy** (2-3 days after Part 2)
 - [ ] Clear refund rules UI
@@ -241,7 +241,7 @@ npm start
 
 ---
 
-**Last Updated:** 2026-08-29  
-**Status:** Phase 2 Part 1 Live (Ratings & Reviews)  
-**Next:** Phase 2 Part 2 (Walk Photo Reports)
+**Last Updated:** 2026-09-01  
+**Status:** Phase 2 Part 1 Live (Ratings & Reviews) + Phase 2 Part 2 In Progress (Walk Photo Reports - sitter upload complete)  
+**Next:** Photo carousel in BookingsDashboard + Parent confirmation flow
 

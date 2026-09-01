@@ -38,6 +38,9 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState(false);
   const [reviewingBooking, setReviewingBooking] = useState(null);
+  const [photoCarousel, setPhotoCarousel] = useState(null);
+  const [photoReport, setPhotoReport] = useState(null);
+  const [confirmingPhotos, setConfirmingPhotos] = useState(false);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -50,6 +53,21 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     setReportReason('');
     setReportSent(true);
     setTimeout(() => setReportSent(false), 3000);
+  };
+
+  const viewPhotoReport = async (booking) => {
+    const { data } = await supabase.from('walk_photo_reports').select('*').eq('booking_id', booking.id).single();
+    setPhotoReport(data);
+    setPhotoCarousel(booking);
+  };
+
+  const confirmPhotoReport = async (booking) => {
+    setConfirmingPhotos(true);
+    await supabase.from('walk_photo_reports').update({ parent_confirmed: true, confirmed_at: new Date().toISOString() }).eq('booking_id', booking.id);
+    await supabase.from('bookings').update({ parent_confirmed_photos: true }).eq('id', booking.id);
+    setConfirmingPhotos(false);
+    setPhotoCarousel(null);
+    loadBookings();
   };
 
   const cancelBooking = async (bookingId) => {
@@ -267,6 +285,14 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                       ⚑ Report a problem with this sitter
                     </button>
                   )}
+                  {b.status === 'completed' && b.sitter_uploaded_photos && (
+                    <div style={{ marginTop:8, background:t.light, borderRadius:14, padding:'12px', marginBottom:8 }}>
+                      <button onClick={() => viewPhotoReport(b)}
+                        style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'none', background:'white', color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                        📸 View walk proof
+                      </button>
+                    </div>
+                  )}
                   {b.status === 'completed' && (
                     <div style={{ display:'flex', gap:8, marginTop:8 }}>
                       <button onClick={() => onViewReport && onViewReport(b)}
@@ -361,6 +387,43 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
               style={{ marginTop:16, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#E0E0E0', fontSize:13, fontWeight:600, cursor:'pointer' }}>
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {photoCarousel && photoReport && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:'white', borderRadius:24, padding:24, maxWidth:360, width:'90%', maxHeight:'90vh', overflow:'auto' }}>
+            <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:16 }}>Walk proof photos</div>
+
+            {photoReport.photo_urls && photoReport.photo_urls.length > 0 && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+                {photoReport.photo_urls.map((url, i) => (
+                  <div key={i} style={{ position:'relative', width:'100%', paddingBottom:'100%', overflow:'hidden', borderRadius:14, background:'#F0F0F0' }}>
+                    <img src={url} alt={`Walk proof ${i+1}`} style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ background:'#E8F5E9', borderRadius:12, padding:'12px 14px', marginBottom:16, fontSize:13 }}>
+              <div style={{ color:'#2E7D32', fontWeight:600, marginBottom:4 }}>✓ Sitter provided proof of your walk</div>
+              <div style={{ fontSize:12, color:'#555' }}>Photos uploaded on {new Date(photoReport.created_at).toLocaleDateString()}</div>
+              {photoReport.parent_confirmed && <div style={{ fontSize:12, color:'#2E7D32', marginTop:6 }}>You confirmed these photos</div>}
+            </div>
+
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setPhotoCarousel(null)}
+                style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#888', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+                Close
+              </button>
+              {!photoReport.parent_confirmed && (
+                <button onClick={() => confirmPhotoReport(photoCarousel)} disabled={confirmingPhotos}
+                  style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:600, cursor:confirmingPhotos?'not-allowed':'pointer', opacity:confirmingPhotos?0.7:1 }}>
+                  {confirmingPhotos ? 'Confirming...' : 'Confirm photos'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
