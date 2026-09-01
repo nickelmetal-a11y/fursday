@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 import { useSupportContact, callSupport } from './supportContact';
 import ReviewModal from './ReviewModal';
 import CancellationPolicyModal from './CancellationPolicyModal';
+import ReceiptModal from './ReceiptModal';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -43,6 +44,8 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [photoReport, setPhotoReport] = useState(null);
   const [confirmingPhotos, setConfirmingPhotos] = useState(false);
   const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [viewingReceipt, setViewingReceipt] = useState(null);
+  const [receiptData, setReceiptData] = useState(null);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -70,6 +73,13 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     setConfirmingPhotos(false);
     setPhotoCarousel(null);
     loadBookings();
+  };
+
+  const viewReceipt = async (booking) => {
+    const sitterData = booking.sitter_profiles;
+    const { data: petData } = await supabase.from('pet_profiles').select('*').eq('id', booking.pet_id).single();
+    setReceiptData({ booking, sitter: sitterData, pet: petData });
+    setViewingReceipt(true);
   };
 
   const cancelBooking = async (bookingId) => {
@@ -304,13 +314,17 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                   {b.status === 'completed' && (
                     <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:8 }}>
                       <div style={{ display:'flex', gap:8 }}>
+                        <button onClick={() => viewReceipt(b)}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:'#E8F5E9', color:'#2E7D32', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          📄 Receipt
+                        </button>
                         <button onClick={() => onViewReport && onViewReport(b)}
                           style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                          View walk report
+                          Walk report
                         </button>
                         <button onClick={() => setReviewingBooking(b)}
                           style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                          Leave review
+                          Review
                         </button>
                       </div>
                       <button onClick={() => onNav && onNav('book', { repeatBooking: b })}
@@ -384,6 +398,15 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           booking={cancellingBooking}
           onClose={() => setCancellingBooking(null)}
           onCancelled={() => { setCancellingBooking(null); loadBookings(); }}
+        />
+      )}
+
+      {viewingReceipt && receiptData && (
+        <ReceiptModal
+          booking={receiptData.booking}
+          sitter={receiptData.sitter}
+          pet={receiptData.pet}
+          onClose={() => { setViewingReceipt(false); setReceiptData(null); }}
         />
       )}
 
