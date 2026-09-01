@@ -70,6 +70,7 @@ A `SessionStart` hook in `.claude/settings.json` re-injects this rule automatica
 | Walk photo reports | PhotoUploadModal.js, SitterDashboard.js, BookingsDashboard.js | ✅ Live (Phase 2 P2) |
 | Cancellation policy | CancellationPolicyModal.js, BookingsDashboard.js | ✅ Live (Phase 2 P3) |
 | Repeat booking | BookingFlow.js, BookingsDashboard.js | ✅ Live (Phase 3 P1) |
+| Favorite sitters | ExploreScreen.js | ✅ Live (Phase 3 P2) |
 
 ---
 
@@ -150,12 +151,25 @@ vercel --prod
 - [x] 3-step cancellation flow (policy → reason selection → confirmation)
 - [x] Refund tracking in database
 
-### 🟡 PHASE 3: RETENTION (NEXT - 5-6 days)
-- [ ] Repeat booking button (1 day)
-- [ ] Favorite sitters list (1 day)
-- [ ] Walk receipts/invoices (1 day)
-- [ ] Push notifications (2 days - optional)
-- [ ] Referral program (2 days - optional)
+### 🟡 PHASE 3: RETENTION (IN PROGRESS - 2/3 features complete)
+**Part 1: Repeat Booking** ✅ LIVE
+- [x] Quick re-book button on completed bookings
+- [x] Pre-fills booking with previous details (sitter, service, pet)
+- [x] Skips service selection for faster re-booking
+
+**Part 2: Favorite Sitters** ✅ LIVE  
+- [x] Heart icon toggle on each sitter card
+- [x] Favorites filter tab in explore
+- [x] Persistent storage per user
+
+**Part 3: Walk Receipts** (1 day - NEXT)
+- [ ] PDF/invoice generation for completed walks
+- [ ] Downloadable proof of service
+- [ ] Email receipts to users
+
+**Optional:**
+- [ ] Push notifications (2 days)
+- [ ] Referral program (2 days)
 
 ---
 
@@ -257,10 +271,10 @@ npm start
 
 ---
 
-**Last Updated:** 2026-09-01 (Session 2)  
+**Last Updated:** 2026-09-01 (Session 2 - Ongoing)  
 **Setup note:** Added SHARED-INSTANCE RULE + `.claude/settings.json` SessionStart hook that re-injects "read CLAUDE.md first" on this machine.  
-**Status:** Phase 2 Complete ✅ | Phase 3 In Progress (1/3 features done)  
-**Completed Features This Session:** Walk Photo Reports (P2 P2), Cancellation Policy (P2 P3), Repeat Booking (P3 P1)  
-**Next Priority:** Favorites List (P3 P2) - 1 day remaining  
-**Remaining Work:** Favorites (1d) → Receipts (1d) → Optional: Push notifications (2d), Referral (2d)
+**Status:** Phase 2 Complete ✅ | Phase 3 In Progress (2/3 features done)  
+**Completed This Session:** Walk Photos (P2 P2), Cancellation (P2 P3), Repeat Booking (P3 P1), Favorites (P3 P2)  
+**Next Priority:** Walk Receipts/Invoices (P3 P3) - 1 day remaining  
+**Remaining Work:** Receipts (1d) → Optional Phase: Push notifications (2d), Referral (2d)
 
