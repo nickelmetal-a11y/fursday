@@ -3,6 +3,7 @@ import { CheckCircle, Clock, MapPin, Phone, Star, ChevronRight, Calendar } from 
 import { supabase } from './supabase';
 import { useSupportContact, callSupport } from './supportContact';
 import ReviewModal from './ReviewModal';
+import CancellationPolicyModal from './CancellationPolicyModal';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -41,6 +42,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [photoCarousel, setPhotoCarousel] = useState(null);
   const [photoReport, setPhotoReport] = useState(null);
   const [confirmingPhotos, setConfirmingPhotos] = useState(false);
+  const [cancellingBooking, setCancellingBooking] = useState(null);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -279,6 +281,12 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                       🚨 Emergency — Call Fursday Support
                     </a>
                   )}
+                  {(b.status === 'pending' || b.status === 'confirmed') && (
+                    <button onClick={() => setCancellingBooking(b)}
+                      style={{ marginTop:8, width:'100%', padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#A32D2D', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      ✕ Cancel this booking
+                    </button>
+                  )}
                   {(b.status === 'completed' || b.status === 'active') && (
                     <button onClick={() => setReportModal({ id: b.id, name: sitterName })}
                       style={{ marginTop:8, width:'100%', padding:'8px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#888', fontSize:12, cursor:'pointer' }}>
@@ -362,6 +370,14 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           booking={reviewingBooking}
           onClose={() => setReviewingBooking(null)}
           onSubmitted={() => { setReviewingBooking(null); window.location.reload(); }}
+        />
+      )}
+
+      {cancellingBooking && (
+        <CancellationPolicyModal
+          booking={cancellingBooking}
+          onClose={() => setCancellingBooking(null)}
+          onCancelled={() => { setCancellingBooking(null); loadBookings(); }}
         />
       )}
 
