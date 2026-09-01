@@ -162,7 +162,8 @@ export default function App() {
 
   // Map init
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current) return;
+    if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
     const tryInit = () => {
       if (!window.L) { setTimeout(tryInit, 500); return; }
       const L = window.L;

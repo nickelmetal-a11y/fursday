@@ -98,10 +98,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       }
     }
     setLoading(false);
-    loadUnreadMessages();
   };
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (sitterProfile) loadUnreadMessages();
+  }, [sitterProfile]);
 
   const acceptBooking = async (id) => {
     await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
