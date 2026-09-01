@@ -4,6 +4,19 @@
 
 ---
 
+## 🔒 SHARED-INSTANCE RULE (MANDATORY)
+
+Multiple Claude instances work on this project (e.g. Claude Code on Mac + another instance on Windows), and they do **not** share memory or chat history. This file is the only shared source of truth.
+
+1. **Before starting any task**, read this `CLAUDE.md` top to bottom. Do not act on assumptions from a previous session.
+2. **After finishing any task**, write it back here: update the feature table, phase roadmap, task queue, "Last Updated" line, and add any new rule or decision. Commit that change.
+3. Treat anything not written in `CLAUDE.md` (or `/memory/MEMORY.md`) as unknown to the other instance — if it matters, record it here.
+4. Keep this file the authority: config values, workflow, and status live here, not only in chat.
+
+A `SessionStart` hook in `.claude/settings.json` re-injects this rule automatically on this machine.
+
+---
+
 ## 📋 PROJECT OVERVIEW
 
 **Fursday** is a pet care marketplace connecting pet parents with vetted sitters for walks, boarding, daycare, etc.
@@ -245,6 +258,7 @@ npm start
 ---
 
 **Last Updated:** 2026-09-01 (Session 2)  
+**Setup note:** Added SHARED-INSTANCE RULE + `.claude/settings.json` SessionStart hook that re-injects "read CLAUDE.md first" on this machine.  
 **Status:** Phase 2 Complete ✅ | Phase 3 In Progress (1/3 features done)  
 **Completed Features This Session:** Walk Photo Reports (P2 P2), Cancellation Policy (P2 P3), Repeat Booking (P3 P1)  
 **Next Priority:** Favorites List (P3 P2) - 1 day remaining  

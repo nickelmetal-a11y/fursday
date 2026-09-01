@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Search, MapPin, Star, Filter } from 'lucide-react';
+import { ArrowLeft, Search, MapPin, Star, Filter, Heart } from 'lucide-react';
 import { supabase } from './supabase';
 
 const THEMES = {
@@ -12,6 +12,7 @@ const SERVICES = [
   { id: 'walk30', label: 'Walking', emoji: '🦮' },
   { id: 'boarding', label: 'Boarding', emoji: '🏠' },
   { id: 'daycare', label: 'Daycare', emoji: '☀️' },
+  { id: 'favorites', label: 'Favorites', emoji: '❤️' },
 ];
 
 const SERVICE_NAMES = {
@@ -37,10 +38,34 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
   const [search, setSearch] = useState('');
   const [activeService, setActiveService] = useState('all');
   const [sortBy, setSortBy] = useState('distance');
+  const [favorites, setFavorites] = useState([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const loadFavorites = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from('favorites').select('sitter_id').eq('pet_parent_id', user.id);
+      setFavorites(data?.map(f => f.sitter_id) || []);
+    }
+  };
+
+  const toggleFavorite = async (sitterId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (favorites.includes(sitterId)) {
+      await supabase.from('favorites').delete().eq('sitter_id', sitterId).eq('pet_parent_id', user.id);
+      setFavorites(favorites.filter(id => id !== sitterId));
+    } else {
+      await supabase.from('favorites').insert({ sitter_id: sitterId, pet_parent_id: user.id });
+      setFavorites([...favorites, sitterId]);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      await loadFavorites();
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
       if (cityRow) {
         const { data } = await supabase
@@ -79,12 +104,13 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
   useEffect(() => {
     let result = [...sitters];
     if (search) result = result.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
-    if (activeService !== 'all') result = result.filter(s => s.services.some(sv => sv.service_type === activeService));
+    if (activeService === 'favorites') result = result.filter(s => favorites.includes(s.id));
+    else if (activeService !== 'all') result = result.filter(s => s.services.some(sv => sv.service_type === activeService));
     if (sortBy === 'distance') result.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
     else if (sortBy === 'rating') result.sort((a, b) => b.rating - a.rating);
     else if (sortBy === 'price') result.sort((a, b) => a.minPrice - b.minPrice);
     setFiltered(result);
-  }, [search, activeService, sortBy, sitters]);
+  }, [search, activeService, sortBy, sitters, favorites]);
 
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
@@ -146,8 +172,14 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
               </div>
               <div style={{ flex:1 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a' }}>{s.name}</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:t.primary }}>from Rs.{Math.round(s.minPrice)}</div>
+                  <div>
+                    <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a' }}>{s.name}</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:t.primary, marginTop:2 }}>from Rs.{Math.round(s.minPrice)}</div>
+                  </div>
+                  <button onClick={() => toggleFavorite(s.id)}
+                    style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center' }}>
+                    <Heart size={20} fill={favorites.includes(s.id) ? t.primary : 'none'} color={favorites.includes(s.id) ? t.primary : '#DDD'} />
+                  </button>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:4 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:4 }}>
