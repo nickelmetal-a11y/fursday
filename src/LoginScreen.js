@@ -97,7 +97,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
             { emoji: '📍', text: 'Live GPS every walk' },
             { emoji: '💰', text: '₹25K vet insurance' },
           ].map((item, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+            <div key={i} style={{ flex: 1, textAlign: 'center', opacity: i === 2 ? 0.5 : 1 }}>
               <div style={{ fontSize: 20, marginBottom: 4 }}>{item.emoji}</div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>{item.text}</div>
             </div>
