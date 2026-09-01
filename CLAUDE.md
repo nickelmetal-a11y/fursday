@@ -122,11 +122,11 @@ vercel --prod
 - [x] Sitter profile display
 - [x] Integration with BookingsDashboard
 
-**Part 2: Walk Photo Reports** (IN PROGRESS - 60% complete)
-- [x] Sitter uploads 1-3 photos after walk (PhotoUploadModal.js complete)
-- [x] Photo upload integration in SitterDashboard (button for completed walks)
-- [ ] Photo carousel UI in BookingsDashboard (for parents viewing proof)
-- [ ] Parent confirmation flow
+**Part 2: Walk Photo Reports** ✅ LIVE (Complete)
+- [x] Sitter uploads 1-3 photos after walk (PhotoUploadModal.js)
+- [x] Photo upload integration in SitterDashboard (📸 button for completed walks)
+- [x] Photo carousel UI in BookingsDashboard (modal grid for parents viewing proof)
+- [x] Parent confirmation flow (Confirm button updates parent_confirmed_photos flag)
 
 **Part 3: Cancellation Policy** (2-3 days after Part 2)
 - [ ] Clear refund rules UI
@@ -144,15 +144,14 @@ vercel --prod
 
 ## 🚀 CURRENT TASK QUEUE
 
-| Priority | Task | Est. Time | Owner |
-|----------|------|-----------|-------|
-| 🔴 HIGH | Walk Photo Reports | 2 days | Claude |
-| 🔴 HIGH | Cancellation Policy | 1 day | Claude |
-| 🟡 MED | Repeat Booking | 1 day | Claude |
-| 🟡 MED | Favorites List | 1 day | Claude |
-| 🟡 MED | Receipts/Invoices | 1 day | Claude |
-| 🟢 LOW | Push notifications | 2 days | Later |
-| 🟢 LOW | Referral program | 2 days | Later |
+| Priority | Task | Est. Time | Status |
+|----------|------|-----------|--------|
+| 🔴 HIGH | Cancellation Policy (Phase 2 P3) | 1 day | Pending |
+| 🟡 MED | Repeat Booking (Phase 3) | 1 day | Pending |
+| 🟡 MED | Favorites List (Phase 3) | 1 day | Pending |
+| 🟡 MED | Receipts/Invoices (Phase 3) | 1 day | Pending |
+| 🟢 LOW | Push notifications (Phase 3) | 2 days | Later |
+| 🟢 LOW | Referral program (Phase 3) | 2 days | Later |
 
 ---
 
@@ -242,6 +241,6 @@ npm start
 ---
 
 **Last Updated:** 2026-09-01  
-**Status:** Phase 2 Part 1 Live (Ratings & Reviews) + Phase 2 Part 2 In Progress (Walk Photo Reports - sitter upload complete)  
-**Next:** Photo carousel in BookingsDashboard + Parent confirmation flow
+**Status:** Phase 2 Parts 1 & 2 Live (Ratings & Reviews + Walk Photo Reports)  
+**Next:** Phase 2 Part 3 - Cancellation Policy
 
