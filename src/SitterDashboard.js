@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, MapPin, Phone, Star, Calendar, Home, User, Search } from 'lucide-react';
 import { supabase } from './supabase';
 import PhotoUploadModal from './PhotoUploadModal';
+import SitterEarningsDashboard from './SitterEarningsDashboard';
 import { useSupportContact, openWhatsAppSupport } from './supportContact';
 
 const THEMES = {
@@ -151,11 +152,47 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     await supabase.from('bookings').update({ status:'active', started_at:new Date().toISOString(), start_verified_at:new Date().toISOString() }).eq('id', booking.id);
     setOtpError({ ...otpError, [booking.id]: null });
     setOtpEntry({ ...otpEntry, [booking.id]: '' });
+
+    // TIER 2: Send walk started notification to both parties
+    try {
+      const { notifyWalkStarted } = await import('./notificationService');
+      const { data: petData } = await supabase.from('pet_profiles').select('name').eq('id', booking.pet_id).single();
+      const { data: parentData } = await supabase.from('users').select('phone').eq('id', booking.pet_parent_id).single();
+
+      await notifyWalkStarted(
+        sitterProfile?.user_id,
+        sitterProfile?.users?.phone,
+        booking.pet_parent_id,
+        parentData?.phone,
+        petData?.name || 'Your pet',
+        sitterProfile?.users?.name || 'Sitter'
+      );
+    } catch(notifErr) { console.error('Walk start notification failed:', notifErr); }
+
     loadData();
   };
 
   const completeWithOtp = async (booking) => {
     await supabase.from('bookings').update({ status:'completed', completed_at:new Date().toISOString(), end_verified_at:['boarding','daycare'].includes(booking.service_type)?null:new Date().toISOString() }).eq('id', booking.id);
+
+    // TIER 2: Send walk completed notification to both parties
+    try {
+      const { notifyWalkCompleted } = await import('./notificationService');
+      const { data: parentData } = await supabase.from('users').select('email, phone').eq('id', booking.pet_parent_id).single();
+      const { data: petData } = await supabase.from('pet_profiles').select('name').eq('id', booking.pet_id).single();
+
+      await notifyWalkCompleted(
+        sitterProfile?.user_id,
+        sitterProfile?.users?.email,
+        sitterProfile?.users?.phone,
+        booking.pet_parent_id,
+        parentData?.email,
+        parentData?.phone,
+        petData?.name || 'Your pet',
+        sitterProfile?.users?.name || 'Sitter'
+      );
+    } catch(notifErr) { console.error('Walk complete notification failed:', notifErr); }
+
     loadData();
   };
 
@@ -307,6 +344,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       </div>
     );
   };
+
+  // Show earnings dashboard when earnings tab is selected
+  if (activeNav === 'earnings') {
+    return <SitterEarningsDashboard city={city} onBack={() => setActiveNav('jobs')} />;
+  }
 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>

@@ -62,6 +62,15 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         sender_type: userType,
         message: messageText,
       });
+
+      // TIER 1: Send message notification to other party
+      try {
+        const otherUserId = userType === 'sitter' ? booking.pet_parent_id : booking.sitter_id;
+        const senderName = userType === 'sitter' ? (booking?.sitterName || 'Sitter') : (booking?.parentName || 'Pet parent');
+
+        const { notifyMessageReceived } = await import('./notificationService');
+        await notifyMessageReceived(otherUserId, null, senderName);
+      } catch(notifErr) { console.error('Message notification failed:', notifErr); }
     } catch(e) { console.log('Send error:', e); }
   };
 

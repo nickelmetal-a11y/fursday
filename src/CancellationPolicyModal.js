@@ -23,6 +23,8 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
     if (!reason) return;
     setCancelling(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
       await supabase.from('bookings').update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
@@ -40,6 +42,43 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
         refund_percentage: refund.percentage,
         reason: reason,
       });
+
+      // TIER 1: Send cancellation notifications to both parties
+      try {
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(name, email, phone)')
+          .eq('id', booking.sitter_id)
+          .single();
+
+        if (user && sitterData) {
+          const { notifyBookingCancelled } = await import('./notificationService');
+
+          // Notify pet parent
+          await notifyBookingCancelled({
+            userId: booking.pet_parent_id,
+            userEmail: user.email,
+            userPhone: user.phone,
+            otherUserName: sitterData.users?.name,
+            reason: reason,
+            refundAmount: refundAmount.toFixed(2),
+            refundStatus: 'Processing',
+            bookingRef: booking.booking_ref,
+          });
+
+          // Notify sitter
+          await notifyBookingCancelled({
+            userId: booking.sitter_id,
+            userEmail: sitterData.users?.email,
+            userPhone: sitterData.users?.phone,
+            otherUserName: user.user_metadata?.name || 'A customer',
+            reason: reason,
+            refundAmount: 0,
+            refundStatus: 'Booking cancelled',
+            bookingRef: booking.booking_ref,
+          });
+        }
+      } catch(notifErr) { console.error('Cancellation notification failed:', notifErr); }
 
       onCancelled && onCancelled();
       onClose();

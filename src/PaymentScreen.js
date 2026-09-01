@@ -48,6 +48,37 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
             ? supabase.from('bookings').update({ payment_id: response.razorpay_payment_id, payment_status: 'paid', status: 'confirmed' }).eq('id', booking.id)
             : supabase.from('bookings').update({ payment_id: response.razorpay_payment_id, payment_status: 'paid', status: 'confirmed' }).eq('booking_ref', bookingRef);
           await updateQuery;
+
+          // TIER 1: Send booking confirmation notifications
+          try {
+            const { data: bookingData } = await supabase
+              .from('bookings')
+              .select('*, sitter_profiles(id, users(name, email, phone)), users(id, name, email, phone)')
+              .eq(booking?.id ? 'id' : 'booking_ref', booking?.id || bookingRef)
+              .single();
+
+            if (bookingData && user) {
+              const { notifyBookingConfirmed } = await import('./notificationService');
+              const cancellationDate = new Date(bookingData.scheduled_date);
+              cancellationDate.setDate(cancellationDate.getDate() - 1);
+
+              await notifyBookingConfirmed({
+                sitterId: bookingData.sitter_id,
+                sitterEmail: bookingData.sitter_profiles?.users?.email,
+                sitterPhone: bookingData.sitter_profiles?.users?.phone,
+                petParentId: user.id,
+                petParentEmail: user.email,
+                petParentPhone: user.phone,
+                petName: bookingData.pet_name,
+                sitterName: bookingData.sitter_profiles?.users?.name,
+                serviceType: bookingData.service_type,
+                dateTime: `${bookingData.scheduled_date} ${bookingData.scheduled_time}`,
+                amount: bookingData.gross_amount_paise,
+                bookingRef: bookingData.booking_ref,
+              });
+            }
+          } catch(notifErr) { console.error('Booking notification failed:', notifErr); }
+
         } catch(e) { console.log('Post-payment error:', e); }
         setLoading(false);
         setPaid(true);

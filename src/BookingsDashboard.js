@@ -5,6 +5,7 @@ import { useSupportContact, callSupport } from './supportContact';
 import ReviewModal from './ReviewModal';
 import CancellationPolicyModal from './CancellationPolicyModal';
 import ReceiptModal from './ReceiptModal';
+import DisputeForm from './DisputeForm';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -46,6 +47,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [cancellingBooking, setCancellingBooking] = useState(null);
   const [viewingReceipt, setViewingReceipt] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
+  const [filingDispute, setFilingDispute] = useState(null);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -327,10 +329,16 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                           Review
                         </button>
                       </div>
-                      <button onClick={() => onNav && onNav('book', { repeatBooking: b })}
-                        style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'1.5px solid '+t.primary, background:'white', color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        ↻ Book again
-                      </button>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <button onClick={() => onNav && onNav('book', { repeatBooking: b })}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid '+t.primary, background:'white', color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          ↻ Book again
+                        </button>
+                        <button onClick={() => setFilingDispute(b)}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#888', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          ⚖️ Dispute
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -407,6 +415,15 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           sitter={receiptData.sitter}
           pet={receiptData.pet}
           onClose={() => { setViewingReceipt(false); setReceiptData(null); }}
+        />
+      )}
+
+      {filingDispute && (
+        <DisputeForm
+          booking={filingDispute}
+          sitterName={filingDispute.sitter_profiles?.users?.name || 'Sitter'}
+          onClose={() => setFilingDispute(null)}
+          onDisputeFiled={() => { setFilingDispute(null); loadBookings(); }}
         />
       )}
 

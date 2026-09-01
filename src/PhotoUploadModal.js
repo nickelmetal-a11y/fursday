@@ -66,6 +66,32 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
       if (err) throw err;
 
       await supabase.from('bookings').update({ sitter_uploaded_photos: true }).eq('id', booking.id);
+
+      // TIER 1: Send walk proof notification to pet parent
+      try {
+        const { data: parentData } = await supabase
+          .from('users')
+          .select('email, phone')
+          .eq('id', booking.pet_parent_id)
+          .single();
+
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(name)')
+          .eq('id', booking.sitter_id)
+          .single();
+
+        if (parentData && sitterData) {
+          const { notifyWalkProofReceived } = await import('./notificationService');
+          await notifyWalkProofReceived(
+            booking.pet_parent_id,
+            parentData.email,
+            parentData.phone,
+            sitterData.users?.name
+          );
+        }
+      } catch(notifErr) { console.error('Photo notification failed:', notifErr); }
+
       setSubmitted(true);
       setTimeout(() => { onSubmitted && onSubmitted(); }, 1500);
     } catch (e) {

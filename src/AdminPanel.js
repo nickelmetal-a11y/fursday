@@ -62,6 +62,26 @@ export default function AdminPanel() {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ status: 'active' }).eq('id', id);
     if (user) await logSitterApproved(user.id, id);
+
+    // TIER 2: Send sitter approval notification
+    try {
+      const { data: sitterData } = await supabase
+        .from('sitter_profiles')
+        .select('users(id, email, phone, name)')
+        .eq('id', id)
+        .single();
+
+      if (sitterData?.users) {
+        const { createNotification } = await import('./notificationService');
+        await createNotification(
+          sitterData.users.id,
+          'sitter_approved',
+          '🎉 Account Approved!',
+          'You are now live and can start accepting bookings'
+        );
+      }
+    } catch(notifErr) { console.error('Approval notification failed:', notifErr); }
+
     showMsg('Sitter approved ✓');
     loadData();
   };
@@ -70,6 +90,25 @@ export default function AdminPanel() {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ status: 'rejected' }).eq('id', id);
     if (user) await logSitterRejected(user.id, id);
+
+    // TIER 2: Send rejection notification
+    try {
+      const { data: sitterData } = await supabase
+        .from('sitter_profiles')
+        .select('users(id, email)')
+        .eq('id', id)
+        .single();
+
+      if (sitterData?.users) {
+        const { notifySitterRejected } = await import('./notificationService');
+        await notifySitterRejected(
+          sitterData.users.id,
+          sitterData.users.email,
+          'Application did not meet our standards. Please reapply with improvements.'
+        );
+      }
+    } catch(notifErr) { console.error('Rejection notification failed:', notifErr); }
+
     showMsg('Sitter rejected');
     loadData();
   };
@@ -79,6 +118,28 @@ export default function AdminPanel() {
     const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
     await supabase.from('sitter_profiles').update({ status: newStatus }).eq('id', id);
     if (user) await logSitterSuspended(user.id, id, newStatus === 'suspended');
+
+    // TIER 2: Send suspension/reinstatement notification
+    if (newStatus === 'suspended') {
+      try {
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(id, email, phone)')
+          .eq('id', id)
+          .single();
+
+        if (sitterData?.users) {
+          const { notifySitterSuspended } = await import('./notificationService');
+          await notifySitterSuspended(
+            sitterData.users.id,
+            sitterData.users.email,
+            sitterData.users.phone,
+            'Your account has been suspended. Please contact support for details.'
+          );
+        }
+      } catch(notifErr) { console.error('Suspension notification failed:', notifErr); }
+    }
+
     showMsg(newStatus === 'suspended' ? 'Sitter suspended' : 'Sitter reinstated ✓');
     loadData();
   };
@@ -87,6 +148,27 @@ export default function AdminPanel() {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ is_top_sitter: !current }).eq('id', id);
     if (user) await logTopSitterToggled(user.id, id, !current);
+
+    // TIER 2: Send badge award notification
+    if (!current) {
+      try {
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(id, email, phone)')
+          .eq('id', id)
+          .single();
+
+        if (sitterData?.users) {
+          const { notifyTopSitterAwarded } = await import('./notificationService');
+          await notifyTopSitterAwarded(
+            sitterData.users.id,
+            sitterData.users.email,
+            sitterData.users.phone
+          );
+        }
+      } catch(notifErr) { console.error('Top Sitter notification failed:', notifErr); }
+    }
+
     showMsg(current ? 'Top Sitter badge removed' : 'Top Sitter badge awarded ⭐');
     loadData();
   };
@@ -95,6 +177,36 @@ export default function AdminPanel() {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', id);
     if (user) await logPayoutMarkedPaid(user.id, id, amount);
+
+    // TIER 2: Send payout notification to sitter
+    try {
+      const { data: bookingData } = await supabase
+        .from('bookings')
+        .select('sitter_id')
+        .eq('id', id)
+        .single();
+
+      if (bookingData) {
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(email, phone, name)')
+          .eq('id', bookingData.sitter_id)
+          .single();
+
+        if (sitterData?.users) {
+          const { notifyPayoutMarked } = await import('./notificationService');
+          await notifyPayoutMarked(
+            bookingData.sitter_id,
+            sitterData.users.email,
+            sitterData.users.phone,
+            amount * 100, // convert to paise
+            1, // booking count
+            new Date().toLocaleDateString('en-IN')
+          );
+        }
+      }
+    } catch(notifErr) { console.error('Payout notification failed:', notifErr); }
+
     showMsg('Payout marked as paid ✓');
     loadData();
   };

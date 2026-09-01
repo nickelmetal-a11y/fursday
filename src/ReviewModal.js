@@ -22,6 +22,30 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
         review_text: reviewText.trim(),
       });
       if (err) throw err;
+
+      // TIER 1: Send review notification to sitter
+      try {
+        const { data: sitterData } = await supabase
+          .from('sitter_profiles')
+          .select('users(name, email, phone)')
+          .eq('id', booking.sitter_id)
+          .single();
+
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (sitterData && user) {
+          const { notifyReviewReceived } = await import('./notificationService');
+          await notifyReviewReceived(
+            booking.sitter_id,
+            sitterData.users?.email,
+            rating,
+            user.user_metadata?.name || 'A pet parent',
+            booking.pet_name,
+            reviewText.trim()
+          );
+        }
+      } catch(notifErr) { console.error('Review notification failed:', notifErr); }
+
       onSubmitted && onSubmitted();
     } catch (e) {
       setError(e.message || 'Failed to submit review');
