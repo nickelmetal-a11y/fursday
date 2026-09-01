@@ -72,6 +72,7 @@ A `SessionStart` hook in `.claude/settings.json` re-injects this rule automatica
 | Repeat booking | BookingFlow.js, BookingsDashboard.js | ✅ Live (Phase 3 P1) |
 | Favorite sitters | ExploreScreen.js | ✅ Live (Phase 3 P2) |
 | Walk receipts | ReceiptModal.js, BookingsDashboard.js | ✅ Live (Phase 3 P3) |
+| Push notifications | NotificationCenter.js, notificationService.js | ✅ Infrastructure (Phase 4 P1) |
 
 ---
 
@@ -169,10 +170,27 @@ vercel --prod
 - [x] Download as HTML file
 - [x] Booking details: service, date, sitter, pet, pricing
 
-**Optional (Future):**
-- [ ] Push notifications (2 days)
-- [ ] Referral program (2 days)
-- [ ] Email receipts integration
+### 🟡 PHASE 4: ADVANCED FEATURES (IN PROGRESS)
+**Part 1: Push Notifications** ✅ INFRASTRUCTURE READY
+- [x] Notifications table with RLS
+- [x] NotificationCenter UI component  
+- [x] Real-time notification sync
+- [x] Notification service with trigger functions
+- [ ] Integration into booking flow (next step)
+- [ ] Integration into review system (next step)
+- [ ] Integration into messaging (next step)
+
+**Part 2: Referral Program** (2-3 days)
+- [ ] Referral code generation
+- [ ] Referral tracking & bonus tracking
+- [ ] Share referral UI
+- [ ] Bonus redemption
+
+**Future Enhancements:**
+- [ ] Email receipt delivery
+- [ ] SMS notifications
+- [ ] Advanced analytics dashboard
+- [ ] Sitter rating badges/certifications
 
 ---
 
@@ -274,10 +292,10 @@ npm start
 
 ---
 
-**Last Updated:** 2026-09-01 (Session 2 - Final)  
+**Last Updated:** 2026-09-01 (Session 2 - Extended)  
 **Setup note:** Added SHARED-INSTANCE RULE + `.claude/settings.json` SessionStart hook that re-injects "read CLAUDE.md first" on this machine.  
-**Status:** Phase 2 Complete ✅ | Phase 3 Complete ✅ | CORE MVP READY FOR PRODUCTION  
-**Completed This Session:** Walk Photos (P2 P2), Cancellation (P2 P3), Repeat Booking (P3 P1), Favorites (P3 P2), Walk Receipts (P3 P3)  
-**6 New Features Deployed:** 42+ total bookings × features working | 100% Phase 1 + Phase 2 + Phase 3 core complete  
-**Optional Future Work:** Push notifications (2d), Referral program (2d), Email receipts, SMS support
+**Status:** Phase 2 Complete ✅ | Phase 3 Complete ✅ | Phase 4 In Progress | MVP + ENHANCEMENTS ROLLING OUT  
+**Completed This Session:** Walk Photos (P2 P2), Cancellation (P2 P3), Repeat Booking (P3 P1), Favorites (P3 P2), Walk Receipts (P3 P3), Notifications Infrastructure (P4 P1)  
+**7 New Features Deployed:** 20+ total features | MVP complete (Phases 1-3) + Advanced Features (Phase 4) starting  
+**Next Priority:** Integrate notifications into booking/review flow → Referral program → Advanced analytics
 
