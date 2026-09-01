@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, MapPin, Phone, Star, ChevronRight, Calendar } from 'lucide-react';
 import { supabase } from './supabase';
 import { useSupportContact, callSupport } from './supportContact';
+import ReviewModal from './ReviewModal';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -36,6 +37,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [reportModal, setReportModal] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState(false);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -271,7 +273,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                         style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
                         View walk report
                       </button>
-                      <button onClick={() => onReview && onReview(b)}
+                      <button onClick={() => setReviewingBooking(b)}
                         style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                         Leave review
                       </button>
@@ -328,6 +330,40 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           </div>
         ))}
       </div>
+
+      {reviewingBooking && (
+        <ReviewModal
+          booking={reviewingBooking}
+          onClose={() => setReviewingBooking(null)}
+          onSubmitted={() => { setReviewingBooking(null); window.location.reload(); }}
+        />
+      )}
+
+      {reportModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999 }}>
+          <div style={{ background:'white', borderRadius:20, padding:24, maxWidth:380, width:'90%' }}>
+            <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:16 }}>Report a problem</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>Why are you reporting {reportModal.name}?</div>
+            {[
+              'Unprofessional behavior',
+              'Didn\'t follow my instructions',
+              'Pet seemed distressed',
+              'No-show or very late',
+              'Other'
+            ].map(reason => (
+              <button key={reason} onClick={() => { setReportReason(reason); setReportSent(true); submitReport(reportModal.id, reportModal.name); }}
+                style={{ display:'block', width:'100%', padding:'12px', textAlign:'left', fontSize:13, color:'#1a1a1a', background:'#F5F5F5', border:'none', borderRadius:10, marginBottom:8, cursor:'pointer' }}>
+                {reason}
+              </button>
+            ))}
+            {reportSent && <div style={{ marginTop:16, padding:12, background:'#E8F5E9', borderRadius:10, fontSize:12, color:'#2E7D32', textAlign:'center' }}>Report sent. Thank you!</div>}
+            <button onClick={() => { setReportModal(null); setReportReason(''); setReportSent(false); }}
+              style={{ marginTop:16, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#E0E0E0', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
