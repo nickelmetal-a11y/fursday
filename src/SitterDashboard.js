@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, MapPin, Phone, Star, Calendar, Home, User, Search } from 'lucide-react';
 import { supabase } from './supabase';
+import PhotoUploadModal from './PhotoUploadModal';
 import { useSupportContact, openWhatsAppSupport } from './supportContact';
 
 const THEMES = {
@@ -45,6 +46,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const [broadcastRequests, setBroadcastRequests] = useState([]);
   const [otpEntry, setOtpEntry] = useState({});
   const [otpError, setOtpError] = useState({});
+  const [uploadingPhotosFor, setUploadingPhotosFor] = useState(null);
 
   const loadUnreadMessages = async () => {
     if (!sitterProfile) return;
@@ -287,6 +289,19 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 )}
               </div>
             )}
+            {b.status === 'completed' && !b.sitter_uploaded_photos && (
+              <div style={{ marginTop:10 }}>
+                <button onClick={() => setUploadingPhotosFor(b)}
+                  style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#2196F3', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                  📸 Upload walk photos
+                </button>
+              </div>
+            )}
+            {b.status === 'completed' && b.sitter_uploaded_photos && (
+              <div style={{ marginTop:10, background:'#E8F5E9', borderRadius:12, padding:'10px 14px', textAlign:'center' }}>
+                <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>✅ Photos uploaded</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -451,6 +466,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           </div>
         ))}
       </div>
+      {uploadingPhotosFor && <PhotoUploadModal booking={uploadingPhotosFor} onClose={() => setUploadingPhotosFor(null)} onSubmitted={() => { setUploadingPhotosFor(null); loadData(); }} />}
     </div>
   );
 }
