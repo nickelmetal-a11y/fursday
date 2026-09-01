@@ -56,6 +56,7 @@
 | Ratings & Reviews | ReviewModal.js, BookingsDashboard.js | ✅ Live (Phase 2 P1) |
 | Walk photo reports | PhotoUploadModal.js, SitterDashboard.js, BookingsDashboard.js | ✅ Live (Phase 2 P2) |
 | Cancellation policy | CancellationPolicyModal.js, BookingsDashboard.js | ✅ Live (Phase 2 P3) |
+| Repeat booking | BookingFlow.js, BookingsDashboard.js | ✅ Live (Phase 3 P1) |
 
 ---
 
@@ -210,13 +211,14 @@ npm start
 
 ## 🎯 RULES FOR THIS SESSION
 
-1. **Read this file first** - Every session starts here
-2. **Check memory** - See `/memory/MEMORY.md` for context
-3. **Deploy after features** - Don't batch work across multiple features
-4. **Test in browser** - No feature is "done" without testing
-5. **Keep it simple** - No premature optimization
-6. **Ask before big changes** - Major refactors need approval
-7. **Focus on Phase 2** - Heat advisory, sitter photos, and ratings/reviews are done; continue with walk reports
+1. **READ THIS FILE FIRST** - Every session starts here before touching any code
+2. **Check memory** - See `/memory/MEMORY.md` for context from previous sessions  
+3. **UPDATE THIS FILE AFTER EVERY FEATURE** - Keep status, phase progress, next tasks current
+4. **Deploy after features** - Don't batch work across multiple features
+5. **Test in browser** - No feature is "done" without testing
+6. **Keep it simple** - No premature optimization
+7. **Ask before big changes** - Major refactors need approval
+8. **CRITICAL: Update CLAUDE.md daily** - End every work session by updating: current status, completed features, next tasks, estimated time remaining. This allows other Claude instances to pick up work immediately without re-discovering state
 
 ---
 
@@ -242,7 +244,9 @@ npm start
 
 ---
 
-**Last Updated:** 2026-09-01  
-**Status:** Phase 2 Complete (Ratings & Reviews + Walk Photo Reports + Cancellation Policy)  
-**Next:** Phase 3 - Repeat Booking, Favorites, Receipts
+**Last Updated:** 2026-09-01 (Session 2)  
+**Status:** Phase 2 Complete ✅ | Phase 3 In Progress (1/3 features done)  
+**Completed Features This Session:** Walk Photo Reports (P2 P2), Cancellation Policy (P2 P3), Repeat Booking (P3 P1)  
+**Next Priority:** Favorites List (P3 P2) - 1 day remaining  
+**Remaining Work:** Favorites (1d) → Receipts (1d) → Optional: Push notifications (2d), Referral (2d)
 
