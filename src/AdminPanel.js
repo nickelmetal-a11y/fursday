@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { CheckCircle, XCircle, Award, PauseCircle, PlayCircle } from 'lucide-react';
+import AdminAuditLogs from './AdminAuditLogs';
+import AdminDisputes from './AdminDisputes';
+import { logSitterApproved, logSitterRejected, logSitterSuspended, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || '';
 const ORANGE = '#FF6B35';
@@ -56,32 +59,42 @@ export default function AdminPanel() {
   useEffect(() => { if (authed) loadData(); }, [authed]);
 
   const approveSitter = async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ status: 'active' }).eq('id', id);
+    if (user) await logSitterApproved(user.id, id);
     showMsg('Sitter approved ✓');
     loadData();
   };
 
   const rejectSitter = async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ status: 'rejected' }).eq('id', id);
+    if (user) await logSitterRejected(user.id, id);
     showMsg('Sitter rejected');
     loadData();
   };
 
   const suspendSitter = async (id, currentStatus) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
     await supabase.from('sitter_profiles').update({ status: newStatus }).eq('id', id);
+    if (user) await logSitterSuspended(user.id, id, newStatus === 'suspended');
     showMsg(newStatus === 'suspended' ? 'Sitter suspended' : 'Sitter reinstated ✓');
     loadData();
   };
 
   const toggleTopSitter = async (id, current) => {
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ is_top_sitter: !current }).eq('id', id);
+    if (user) await logTopSitterToggled(user.id, id, !current);
     showMsg(current ? 'Top Sitter badge removed' : 'Top Sitter badge awarded ⭐');
     loadData();
   };
 
-  const markPayoutPaid = async (id) => {
+  const markPayoutPaid = async (id, amount) => {
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', id);
+    if (user) await logPayoutMarkedPaid(user.id, id, amount);
     showMsg('Payout marked as paid ✓');
     loadData();
   };
@@ -144,15 +157,17 @@ export default function AdminPanel() {
       </div>
 
       <div style={{ padding: '16px 20px 0' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'white', borderRadius: 12, padding: 4, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', gap: 4, background: 'white', borderRadius: 12, padding: 4, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
           {[
             { id: 'pending', label: 'Pending (' + pendingSitters.length + ')' },
-            { id: 'sitters', label: 'All sitters (' + sitters.length + ')' },
+            { id: 'sitters', label: 'Sitters (' + sitters.length + ')' },
             { id: 'bookings', label: 'Bookings (' + bookings.length + ')' },
             { id: 'payouts', label: 'Payouts (' + unpaidPayouts.length + ')' },
+            { id: 'disputes', label: 'Disputes' },
+            { id: 'audit', label: 'Audit' },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: tab === t.id ? ORANGE : 'transparent', color: tab === t.id ? 'white' : '#888', fontSize: 12, fontWeight: tab === t.id ? 700 : 400, cursor: 'pointer' }}>
+              style={{ padding: '8px 12px', borderRadius: 9, border: 'none', background: tab === t.id ? ORANGE : 'transparent', color: tab === t.id ? 'white' : '#888', fontSize: 11, fontWeight: tab === t.id ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {t.label}
             </button>
           ))}
@@ -278,7 +293,7 @@ export default function AdminPanel() {
                     <div style={{ fontSize: 12, color: '#888' }}>{b.service_type} · Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
                     <div style={{ fontSize: 11, color: '#2E7D32', fontWeight: 600 }}>Sitter gets: Rs.{Math.round((b.gross_amount_paise || 0) / 100 * 0.85)}</div>
                   </div>
-                  <button onClick={() => markPayoutPaid(b.id)}
+                  <button onClick={() => markPayoutPaid(b.id, Math.round((b.gross_amount_paise || 0) / 100))}
                     style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     Mark paid
                   </button>
@@ -288,6 +303,10 @@ export default function AdminPanel() {
             ))}
           </div>
         )}
+
+        {!loading && tab === 'disputes' && <AdminDisputes />}
+
+        {!loading && tab === 'audit' && <AdminAuditLogs />}
       </div>
     </div>
   );
