@@ -54,6 +54,8 @@
 | Report sitter | BookingsDashboard.js | ✅ Live |
 | Pet profile edit | PetProfile.js | ✅ Live |
 | Ratings & Reviews | ReviewModal.js, BookingsDashboard.js | ✅ Live (Phase 2 P1) |
+| Walk photo reports | PhotoUploadModal.js, SitterDashboard.js, BookingsDashboard.js | ✅ Live (Phase 2 P2) |
+| Cancellation policy | CancellationPolicyModal.js, BookingsDashboard.js | ✅ Live (Phase 2 P3) |
 
 ---
 
@@ -114,7 +116,7 @@ vercel --prod
 - [x] Sitter name loading (fixed)
 - [x] City-agnostic setup
 
-### 🟡 PHASE 2: TRUST & ACCOUNTABILITY (IN PROGRESS)
+### ✅ PHASE 2: TRUST & ACCOUNTABILITY (COMPLETE)
 **Part 1: Ratings & Reviews** ✅ LIVE
 - [x] 5-star rating modal
 - [x] Written review text (10+ chars)
@@ -128,17 +130,18 @@ vercel --prod
 - [x] Photo carousel UI in BookingsDashboard (modal grid for parents viewing proof)
 - [x] Parent confirmation flow (Confirm button updates parent_confirmed_photos flag)
 
-**Part 3: Cancellation Policy** (2-3 days after Part 2)
-- [ ] Clear refund rules UI
-- [ ] Auto-refund logic by timing
-- [ ] Dispute handling
+**Part 3: Cancellation Policy** ✅ LIVE (Complete)
+- [x] Clear refund rules UI (72h=100%, 24-72h=75%, <24h=0%)
+- [x] Auto-refund logic by timing (calculates percentage based on hours until booking)
+- [x] 3-step cancellation flow (policy → reason selection → confirmation)
+- [x] Refund tracking in database
 
-### 🟢 PHASE 3: RETENTION (3-4 days after Phase 2)
-- [ ] Repeat booking button
-- [ ] Favorite sitters list
-- [ ] Walk receipts/invoices
-- [ ] Push notifications
-- [ ] Referral program
+### 🟡 PHASE 3: RETENTION (NEXT - 5-6 days)
+- [ ] Repeat booking button (1 day)
+- [ ] Favorite sitters list (1 day)
+- [ ] Walk receipts/invoices (1 day)
+- [ ] Push notifications (2 days - optional)
+- [ ] Referral program (2 days - optional)
 
 ---
 
@@ -146,12 +149,11 @@ vercel --prod
 
 | Priority | Task | Est. Time | Status |
 |----------|------|-----------|--------|
-| 🔴 HIGH | Cancellation Policy (Phase 2 P3) | 1 day | Pending |
-| 🟡 MED | Repeat Booking (Phase 3) | 1 day | Pending |
-| 🟡 MED | Favorites List (Phase 3) | 1 day | Pending |
-| 🟡 MED | Receipts/Invoices (Phase 3) | 1 day | Pending |
-| 🟢 LOW | Push notifications (Phase 3) | 2 days | Later |
-| 🟢 LOW | Referral program (Phase 3) | 2 days | Later |
+| 🔴 HIGH | Repeat Booking (Phase 3 P1) | 1 day | Next |
+| 🔴 HIGH | Favorites List (Phase 3 P2) | 1 day | Next |
+| 🟡 MED | Receipts/Invoices (Phase 3 P3) | 1 day | Next |
+| 🟢 LOW | Push notifications | 2 days | Optional |
+| 🟢 LOW | Referral program | 2 days | Optional |
 
 ---
 
@@ -241,6 +243,6 @@ npm start
 ---
 
 **Last Updated:** 2026-09-01  
-**Status:** Phase 2 Parts 1 & 2 Live (Ratings & Reviews + Walk Photo Reports)  
-**Next:** Phase 2 Part 3 - Cancellation Policy
+**Status:** Phase 2 Complete (Ratings & Reviews + Walk Photo Reports + Cancellation Policy)  
+**Next:** Phase 3 - Repeat Booking, Favorites, Receipts
 
