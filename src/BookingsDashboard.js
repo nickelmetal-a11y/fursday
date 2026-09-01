@@ -302,14 +302,20 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                     </div>
                   )}
                   {b.status === 'completed' && (
-                    <div style={{ display:'flex', gap:8, marginTop:8 }}>
-                      <button onClick={() => onViewReport && onViewReport(b)}
-                        style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        View walk report
-                      </button>
-                      <button onClick={() => setReviewingBooking(b)}
-                        style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        Leave review
+                    <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:8 }}>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <button onClick={() => onViewReport && onViewReport(b)}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          View walk report
+                        </button>
+                        <button onClick={() => setReviewingBooking(b)}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          Leave review
+                        </button>
+                      </div>
+                      <button onClick={() => onNav && onNav('book', { repeatBooking: b })}
+                        style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'1.5px solid '+t.primary, background:'white', color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                        ↻ Book again
                       </button>
                     </div>
                   )}

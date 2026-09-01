@@ -48,16 +48,16 @@ function StepBar({ step }) {
   );
 }
 
-export default function BookingFlow({ onBack, sitter, city, initialService }) {
-  const [step, setStep] = useState(initialService ? 1 : 0);
-  const [selectedService, setSelectedService] = useState(initialService || null);
+export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking }) {
+  const [step, setStep] = useState(repeatBooking ? 1 : (initialService ? 1 : 0));
+  const [selectedService, setSelectedService] = useState(repeatBooking ? repeatBooking.service_type : (initialService || null));
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [validationError, setValidationError] = useState('');
   const [endDayOffset, setEndDayOffset] = useState(1);
   const [dropTime, setDropTime] = useState(null);
   const [pickTime, setPickTime] = useState(null);
-  const [selectedPet, setSelectedPet] = useState(null);
+  const [selectedPet, setSelectedPet] = useState(repeatBooking ? repeatBooking.pet_id : null);
   const [pets, setPets] = useState([]);
   const [petsLoading, setPetsLoading] = useState(true);
   const [notes, setNotes] = useState('');
