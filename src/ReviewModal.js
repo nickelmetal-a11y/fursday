@@ -27,14 +27,16 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(name, email, phone)')
+          .select('users(name, email, phone), rating')
           .eq('id', booking.sitter_id)
           .single();
 
         const { data: { user } } = await supabase.auth.getUser();
 
         if (sitterData && user) {
-          const { notifyReviewReceived } = await import('./notificationService');
+          const { notifyReviewReceived, notifyRatingUpdate } = await import('./notificationService');
+
+          // Send review notification
           await notifyReviewReceived(
             booking.sitter_id,
             sitterData.users?.email,
@@ -42,6 +44,15 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
             user.user_metadata?.name || 'A pet parent',
             booking.pet_name,
             reviewText.trim()
+          );
+
+          // TIER 3: Send rating update notification with old vs new rating
+          const oldRating = sitterData.rating || 5.0;
+          await notifyRatingUpdate(
+            booking.sitter_id,
+            sitterData.users?.phone,
+            oldRating,
+            rating
           );
         }
       } catch(notifErr) { console.error('Review notification failed:', notifErr); }

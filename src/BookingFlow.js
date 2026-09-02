@@ -163,6 +163,23 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         start_otp: startOtp,
         pet_id: selectedPet || null,
       });
+
+      // TIER 3: Send heat advisory notification if booking is during hot months
+      const isHotMonth = [4, 5, 6, 7, 8, 9].includes(bookingDate.getMonth() + 1);
+      if (isHotMonth && isWalker) {
+        try {
+          const { data: sitterData } = await supabase.from('sitter_profiles').select('users(phone)').eq('id', sitter?.id).single();
+          const { notifyHeatAdvisory } = await import('./notificationService');
+          await notifyHeatAdvisory(
+            sitter?.id,
+            sitterData?.users?.phone,
+            user?.id,
+            user?.phone,
+            pet?.name || 'Your pet',
+            bookingDate.toLocaleDateString('en-IN')
+          );
+        } catch(heatErr) { console.error('Heat advisory notification failed:', heatErr); }
+      }
     } catch(e) { console.log('Booking save error:', e); }
     setProcessing(false);
     setConfirmed(true);
