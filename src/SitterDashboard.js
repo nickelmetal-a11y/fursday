@@ -63,12 +63,38 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   const cancelBooking = async (bookingId) => {
     if (!window.confirm('Cancel this booking? The pet parent will be refunded.')) return;
+
+    // TIER 3: Get booking details before cancelling for notification
+    const { data: bookingData } = await supabase
+      .from('bookings')
+      .select('pet_parent_id, scheduled_date, pet_profiles(name), users(name, email, phone)')
+      .eq('id', bookingId)
+      .single();
+
     const { error } = await supabase
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('id', bookingId);
+
     if (error) alert('Error: ' + error.message);
-    else { alert('Booking cancelled. Pet parent will be refunded.'); loadData(); }
+    else {
+      // TIER 3: Notify pet parent that sitter cancelled
+      if (bookingData?.pet_parent_id) {
+        try {
+          const { notifySitterUnavailable } = await import('./notificationService');
+          await notifySitterUnavailable(
+            bookingData.pet_parent_id,
+            bookingData.users?.email,
+            bookingData.users?.phone,
+            sitterProfile?.users?.name || 'Your sitter',
+            bookingData.scheduled_date
+          );
+        } catch(unavailErr) { console.error('Sitter unavailable notification failed:', unavailErr); }
+      }
+
+      alert('Booking cancelled. Pet parent will be refunded.');
+      loadData();
+    }
   };
 
   const loadData = async () => {

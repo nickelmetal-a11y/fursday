@@ -25,6 +25,9 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // TIER 3: Calculate hours until refund deadline before cancelling
+      const hoursUntilBooking = (new Date(booking.scheduled_date) - new Date()) / (1000 * 60 * 60);
+
       await supabase.from('bookings').update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
@@ -42,6 +45,20 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
         refund_percentage: refund.percentage,
         reason: reason,
       });
+
+      // TIER 3: Send cancellation reminder notification with refund info
+      if (hoursUntilBooking > 0 && hoursUntilBooking < 72) {
+        try {
+          const { notifyCancellationReminder } = await import('./notificationService');
+          await notifyCancellationReminder(
+            user?.id,
+            user?.email,
+            user?.phone,
+            'System',
+            hoursUntilBooking
+          );
+        } catch(reminderErr) { console.error('Cancellation reminder failed:', reminderErr); }
+      }
 
       // TIER 1: Send cancellation notifications to both parties
       try {

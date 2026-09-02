@@ -207,7 +207,59 @@ export default function AdminPanel() {
       }
     } catch(notifErr) { console.error('Payout notification failed:', notifErr); }
 
+    // TIER 3: Check for referral bonuses and send notification
+    try {
+      const { data: referralBonus } = await supabase
+        .from('referral_bonuses')
+        .select('id, amount')
+        .eq('user_id', bookingData.sitter_id)
+        .eq('status', 'pending')
+        .single();
+
+      if (referralBonus) {
+        const { notifyReferralBonusPaid } = await import('./notificationService');
+        await notifyReferralBonusPaid(
+          bookingData.sitter_id,
+          sitterData?.users?.email,
+          sitterData?.users?.phone,
+          referralBonus.amount,
+          'Someone'
+        );
+        await supabase.from('referral_bonuses').update({ status: 'paid' }).eq('id', referralBonus.id);
+      }
+    } catch(referralErr) { console.error('Referral bonus notification failed:', referralErr); }
+
     showMsg('Payout marked as paid ✓');
+    loadData();
+  };
+
+  const awardPerformanceBadge = async (sitterId, badgeType) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase
+      .from('sitter_profiles')
+      .update({ performance_badges: [badgeType] })
+      .eq('id', sitterId);
+
+    // TIER 3: Send performance badge notification
+    try {
+      const { data: sitterData } = await supabase
+        .from('sitter_profiles')
+        .select('users(id, email, phone)')
+        .eq('id', sitterId)
+        .single();
+
+      if (sitterData?.users) {
+        const { notifyPerformanceBadge } = await import('./notificationService');
+        await notifyPerformanceBadge(
+          sitterData.users.id,
+          sitterData.users.email,
+          sitterData.users.phone,
+          badgeType
+        );
+      }
+    } catch(badgeErr) { console.error('Performance badge notification failed:', badgeErr); }
+
+    showMsg('Performance badge awarded! 🏆');
     loadData();
   };
 

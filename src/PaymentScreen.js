@@ -97,11 +97,25 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
     };
     try {
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (response) => {
+      rzp.on('payment.failed', async (response) => {
         setLoading(false);
         setFailed(true);
         setFailReason(response.error?.description || 'Payment failed. Please try a different method.');
         setRetryCount(c => c + 1);
+
+        // TIER 3: Send payment failed notification
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { notifyPaymentFailed } = await import('./notificationService');
+            await notifyPaymentFailed(
+              user.id,
+              user.email,
+              user.phone,
+              response.error?.description || 'Payment could not be processed'
+            );
+          }
+        } catch(notifErr) { console.error('Payment failed notification error:', notifErr); }
       });
       rzp.open();
     } catch(e) {
