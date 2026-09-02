@@ -104,6 +104,30 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
         .eq('pet_parent_id', user.id)
         .order('created_at', { ascending: false });
       setBookings(data || []);
+
+      // TIER 3: Check for no-shows (confirmed booking past scheduled time, still active)
+      if (data) {
+        for (const booking of data) {
+          const bookingTime = new Date(`${booking.scheduled_date}T${booking.scheduled_time}`);
+          const now = new Date();
+          const isNoShow = booking.status === 'active' && bookingTime < now && (now - bookingTime) > 60 * 60 * 1000; // 1 hour late
+
+          if (isNoShow) {
+            try {
+              const { notifyNoShow } = await import('./notificationService');
+              await notifyNoShow(
+                user.id,
+                user.email,
+                user.phone,
+                booking.sitter_profiles?.users?.name || 'Sitter',
+                booking.booking_ref
+              );
+              // Mark as alerted to avoid duplicate notifications
+              await supabase.from('bookings').update({ no_show_alerted: true }).eq('id', booking.id);
+            } catch(noShowErr) { console.error('No-show notification failed:', noShowErr); }
+          }
+        }
+      }
     }
     setLoading(false);
   };

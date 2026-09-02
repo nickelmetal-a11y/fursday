@@ -180,6 +180,17 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
           );
         } catch(heatErr) { console.error('Heat advisory notification failed:', heatErr); }
       }
+
+      // TIER 3: Create notification job for response timeout (1 hour expiry)
+      try {
+        const timeoutTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+        await supabase.from('notification_jobs').insert({
+          job_type: 'response_timeout',
+          booking_id: ref,
+          scheduled_for: timeoutTime.toISOString(),
+          status: 'pending'
+        });
+      } catch(timeoutErr) { console.error('Timeout job creation failed:', timeoutErr); }
     } catch(e) { console.log('Booking save error:', e); }
     setProcessing(false);
     setConfirmed(true);

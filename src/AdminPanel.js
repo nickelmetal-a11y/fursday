@@ -58,6 +58,21 @@ export default function AdminPanel() {
 
   useEffect(() => { if (authed) loadData(); }, [authed]);
 
+  const notifyAdminAction = async (sitterId, actionType, details) => {
+    try {
+      const { data: sitterData } = await supabase
+        .from('sitter_profiles')
+        .select('users(id, email, phone)')
+        .eq('id', sitterId)
+        .single();
+
+      if (sitterData?.users) {
+        const { notifyAdminAction: notifyAction } = await import('./notificationService');
+        await notifyAction(sitterData.users.id, sitterData.users.email, sitterData.users.phone, actionType, details);
+      }
+    } catch(err) { console.error('Admin action notification failed:', err); }
+  };
+
   const approveSitter = async (id) => {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('sitter_profiles').update({ status: 'active' }).eq('id', id);
@@ -109,6 +124,9 @@ export default function AdminPanel() {
       }
     } catch(notifErr) { console.error('Rejection notification failed:', notifErr); }
 
+    // TIER 3: Log admin action
+    await notifyAdminAction(id, 'rejection', 'Application was rejected by admin');
+
     showMsg('Sitter rejected');
     loadData();
   };
@@ -138,6 +156,11 @@ export default function AdminPanel() {
           );
         }
       } catch(notifErr) { console.error('Suspension notification failed:', notifErr); }
+    }
+
+    // TIER 3: Log admin action
+    if (newStatus === 'suspended') {
+      await notifyAdminAction(id, 'restriction', 'Your account has been temporarily suspended');
     }
 
     showMsg(newStatus === 'suspended' ? 'Sitter suspended' : 'Sitter reinstated ✓');
