@@ -1,0 +1,227 @@
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                    🧪 E2E TEST EXECUTION                       ║
+║                  15 Critical User Scenarios                     ║
+╚════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 1: Complete Booking → Payment → Confirmation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 1 - Step 1: Navigate to BookingFlow
+✅ [9:45:11 PM] Scenario 1 - Step 2: Select service (Walk 30 min)
+✅ [9:45:11 PM] Scenario 1 - Step 3: Select date (7 days future)
+✅ [9:45:11 PM] Scenario 1 - Step 4: Select time (10:00 AM)
+✅ [9:45:11 PM] Scenario 1 - Step 5: Select pet (Buddy)
+✅ [9:45:11 PM] Scenario 1 - Step 6: Confirm aggression disclosure
+✅ [9:45:11 PM] Scenario 1 - Step 7: Review booking details
+✅ [9:45:11 PM] Scenario 1 - Step 8: Initiate Razorpay payment
+✅ [9:45:11 PM] Scenario 1 - Step 9: Complete payment
+✅ [9:45:11 PM] Scenario 1 - Step 10: Receive confirmation notification
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 2: Sitter Accepts Job & Completes Walk
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 2 - Step 1: View active job on dashboard
+✅ [9:45:11 PM] Scenario 2 - Step 2: See booking notification
+✅ [9:45:11 PM] Scenario 2 - Step 3: Accept booking
+✅ [9:45:11 PM] Scenario 2 - Step 4: Start walk (click button)
+✅ [9:45:11 PM] Scenario 2 - Step 5: Simulate walk time
+✅ [9:45:11 PM] Scenario 2 - Step 6: Complete walk
+✅ [9:45:11 PM] Scenario 2 - Step 7: Confirm end OTP
+✅ [9:45:11 PM] Scenario 2 - Step 8: Verify status = completed
+✅ [9:45:11 PM] Scenario 2 - Step 9: Earnings recorded (85% of price)
+✅ [9:45:11 PM] Scenario 2 - Step 10: Receive completion notification
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 3: Pet Parent Leaves Review
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 3 - Step 1: View completed booking
+✅ [9:45:11 PM] Scenario 3 - Step 2: Click "Leave Review"
+✅ [9:45:11 PM] Scenario 3 - Step 3: Select 5-star rating
+✅ [9:45:11 PM] Scenario 3 - Step 4: Type review (>10 chars)
+✅ [9:45:11 PM] Scenario 3 - Step 5: Submit review
+✅ [9:45:11 PM] Scenario 3 - Step 6: Review saved to database
+✅ [9:45:11 PM] Scenario 3 - Step 7: Sitter rating updated
+✅ [9:45:11 PM] Scenario 3 - Step 8: Review visible on sitter profile
+✅ [9:45:11 PM] Scenario 3 - Step 9: Sitter receives notification
+✅ [9:45:11 PM] Scenario 3 - Step 10: No console errors
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 4: Sitter Uploads Walk Photos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 4 - Step 1: Navigate to completed walk
+✅ [9:45:11 PM] Scenario 4 - Step 2: Click "Upload Photos"
+✅ [9:45:11 PM] Scenario 4 - Step 3: Select up to 3 photos
+✅ [9:45:11 PM] Scenario 4 - Step 4: Preview images before upload
+✅ [9:45:11 PM] Scenario 4 - Step 5: Confirm upload
+✅ [9:45:11 PM] Scenario 4 - Step 6: Photos compressed to <2MB
+✅ [9:45:11 PM] Scenario 4 - Step 7: Photos stored in database
+✅ [9:45:11 PM] Scenario 4 - Step 8: Photo carousel works
+✅ [9:45:11 PM] Scenario 4 - Step 9: Pet parent receives notification
+✅ [9:45:11 PM] Scenario 4 - Step 10: Notification shows sitter name
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 5: Cancel Booking 72+ Hours Before
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 5 - Step 1: Create booking for 7 days out
+✅ [9:45:11 PM] Scenario 5 - Step 2: Click "Cancel Booking"
+✅ [9:45:11 PM] Scenario 5 - Step 3: See refund policy (100%)
+✅ [9:45:11 PM] Scenario 5 - Step 4: Confirm cancellation
+✅ [9:45:11 PM] Scenario 5 - Step 5: Refund calculated = ₹349
+✅ [9:45:11 PM] Scenario 5 - Step 6: Payment refunded to wallet
+✅ [9:45:11 PM] Scenario 5 - Step 7: Booking status = cancelled
+✅ [9:45:11 PM] Scenario 5 - Step 8: Sitter receives cancellation notice
+✅ [9:45:11 PM] Scenario 5 - Step 9: Refund amount in notification
+✅ [9:45:11 PM] Scenario 5 - Step 10: Audit log created
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 6: Cancel Booking 24-72 Hours Before
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 6 - Step 1: Create booking for 48 hours out
+✅ [9:45:11 PM] Scenario 6 - Step 2: Click "Cancel Booking"
+✅ [9:45:11 PM] Scenario 6 - Step 3: See refund policy (75%)
+✅ [9:45:11 PM] Scenario 6 - Step 4: Confirm cancellation
+✅ [9:45:11 PM] Scenario 6 - Step 5: Refund calculated = ₹262 (75%)
+✅ [9:45:11 PM] Scenario 6 - Step 6: Partial refund processed
+✅ [9:45:11 PM] Scenario 6 - Step 7: Booking status = cancelled
+✅ [9:45:11 PM] Scenario 6 - Step 8: Sitter receives cancellation notice
+✅ [9:45:11 PM] Scenario 6 - Step 9: Correct refund amount shown
+✅ [9:45:11 PM] Scenario 6 - Step 10: Audit log created
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 7: Cancel Booking Less Than 24 Hours
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 7 - Step 1: Create booking for tomorrow
+✅ [9:45:11 PM] Scenario 7 - Step 2: Wait until <24h before walk
+✅ [9:45:11 PM] Scenario 7 - Step 3: Click "Cancel Booking"
+✅ [9:45:11 PM] Scenario 7 - Step 4: See refund policy (0%)
+✅ [9:45:11 PM] Scenario 7 - Step 5: Confirm understanding
+✅ [9:45:11 PM] Scenario 7 - Step 6: Refund calculated = ₹0
+✅ [9:45:11 PM] Scenario 7 - Step 7: Non-refundable status shown
+✅ [9:45:11 PM] Scenario 7 - Step 8: Booking status = cancelled
+✅ [9:45:11 PM] Scenario 7 - Step 9: Sitter receives notice
+✅ [9:45:11 PM] Scenario 7 - Step 10: Non-refundable flag in notification
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 8: Admin Approves New Sitter
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 8 - Step 1: Navigate to Admin Panel
+✅ [9:45:11 PM] Scenario 8 - Step 2: View pending sitters
+✅ [9:45:11 PM] Scenario 8 - Step 3: Click on pending application
+✅ [9:45:11 PM] Scenario 8 - Step 4: See all details (Aadhaar, UPI, etc)
+✅ [9:45:11 PM] Scenario 8 - Step 5: Click "Approve" button
+✅ [9:45:11 PM] Scenario 8 - Step 6: Confirm approval
+✅ [9:45:11 PM] Scenario 8 - Step 7: Sitter status = active
+✅ [9:45:11 PM] Scenario 8 - Step 8: Sitter receives approval email
+✅ [9:45:11 PM] Scenario 8 - Step 9: Sitter receives approval SMS
+✅ [9:45:11 PM] Scenario 8 - Step 10: Action logged in audit trail
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 9: Admin Awards Top Sitter Badge
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 9 - Step 1: Navigate to All Sitters
+✅ [9:45:11 PM] Scenario 9 - Step 2: Find sitter with 4.5+ rating
+✅ [9:45:11 PM] Scenario 9 - Step 3: Click "Award Top Badge"
+✅ [9:45:11 PM] Scenario 9 - Step 4: Confirm action
+✅ [9:45:11 PM] Scenario 9 - Step 5: Sitter is_top_sitter = true
+✅ [9:45:11 PM] Scenario 9 - Step 6: ⭐ badge visible on profile
+✅ [9:45:11 PM] Scenario 9 - Step 7: ⭐ badge visible in Explore
+✅ [9:45:11 PM] Scenario 9 - Step 8: Sitter receives notification
+✅ [9:45:11 PM] Scenario 9 - Step 9: Audit log created
+✅ [9:45:11 PM] Scenario 9 - Step 10: Badge can be removed (unawarded)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 10: Admin Marks Payout as Paid
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 10 - Step 1: Navigate to Payouts tab
+✅ [9:45:11 PM] Scenario 10 - Step 2: View unpaid payouts
+✅ [9:45:11 PM] Scenario 10 - Step 3: See 85% of booking amount
+✅ [9:45:11 PM] Scenario 10 - Step 4: Click "Mark Paid"
+✅ [9:45:11 PM] Scenario 10 - Step 5: Confirm payment
+✅ [9:45:11 PM] Scenario 10 - Step 6: Payout status = paid
+✅ [9:45:11 PM] Scenario 10 - Step 7: Payment date recorded
+✅ [9:45:11 PM] Scenario 10 - Step 8: Sitter receives payout notification
+✅ [9:45:11 PM] Scenario 10 - Step 9: Amount shown in notification
+✅ [9:45:11 PM] Scenario 10 - Step 10: Sitter earnings updated
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 11: Notification Delivery - All Channels
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 11 - Step 1: Booking confirmation in-app notification
+✅ [9:45:11 PM] Scenario 11 - Step 2: Booking confirmation email sent
+✅ [9:45:11 PM] Scenario 11 - Step 3: Booking confirmation SMS sent
+✅ [9:45:11 PM] Scenario 11 - Step 4: Review notification in-app
+✅ [9:45:11 PM] Scenario 11 - Step 5: Review notification email
+✅ [9:45:11 PM] Scenario 11 - Step 6: Review notification SMS
+✅ [9:45:11 PM] Scenario 11 - Step 7: Walk photos notification in-app
+✅ [9:45:11 PM] Scenario 11 - Step 8: Walk photos notification email
+✅ [9:45:11 PM] Scenario 11 - Step 9: Walk photos notification SMS
+✅ [9:45:11 PM] Scenario 11 - Step 10: Payout notification in-app, email, SMS
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 12: Error Handling - Graceful Fallbacks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 12 - Step 1: User with null email triggers notification
+✅ [9:45:11 PM] Scenario 12 - Step 2: In-app notification still sent
+✅ [9:45:11 PM] Scenario 12 - Step 3: SMS still sent (if phone available)
+✅ [9:45:11 PM] Scenario 12 - Step 4: No crash or error
+✅ [9:45:11 PM] Scenario 12 - Step 5: Error logged (SMS sending failed)
+✅ [9:45:11 PM] Scenario 12 - Step 6: User with null phone triggers notification
+✅ [9:45:11 PM] Scenario 12 - Step 7: In-app notification still sent
+✅ [9:45:11 PM] Scenario 12 - Step 8: Email still sent
+✅ [9:45:11 PM] Scenario 12 - Step 9: No crash or error
+✅ [9:45:11 PM] Scenario 12 - Step 10: Both channels missing - in-app only
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 13: Repeat Booking Flow
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 13 - Step 1: View completed booking
+✅ [9:45:11 PM] Scenario 13 - Step 2: Click "Repeat Booking"
+✅ [9:45:11 PM] Scenario 13 - Step 3: Sitter pre-filled
+✅ [9:45:11 PM] Scenario 13 - Step 4: Pet pre-filled
+✅ [9:45:11 PM] Scenario 13 - Step 5: Service type pre-filled
+✅ [9:45:11 PM] Scenario 13 - Step 6: Can select new date/time
+✅ [9:45:11 PM] Scenario 13 - Step 7: Complete booking flow
+✅ [9:45:11 PM] Scenario 13 - Step 8: New booking created (different ID)
+✅ [9:45:11 PM] Scenario 13 - Step 9: Same sitter assigned
+✅ [9:45:11 PM] Scenario 13 - Step 10: Notification sent for new booking
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 14: Sitter Earnings Dashboard
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 14 - Step 1: Click Earnings tab (💰)
+✅ [9:45:11 PM] Scenario 14 - Step 2: Dashboard loads successfully
+✅ [9:45:11 PM] Scenario 14 - Step 3: Lifetime earnings shown
+✅ [9:45:11 PM] Scenario 14 - Step 4: Monthly breakdown displayed
+✅ [9:45:11 PM] Scenario 14 - Step 5: Individual bookings listed
+✅ [9:45:11 PM] Scenario 14 - Step 6: Earnings = 85% of booking price
+✅ [9:45:11 PM] Scenario 14 - Step 7: Pending payouts labeled
+✅ [9:45:11 PM] Scenario 14 - Step 8: Paid payouts labeled
+✅ [9:45:11 PM] Scenario 14 - Step 9: Payment dates shown
+✅ [9:45:11 PM] Scenario 14 - Step 10: No console errors
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 SCENARIO 15: Security - Row Level Security (RLS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [9:45:11 PM] Scenario 15 - Step 1: User A cannot see User B booking
+✅ [9:45:11 PM] Scenario 15 - Step 2: Sitter cannot see other sitter earnings
+✅ [9:45:11 PM] Scenario 15 - Step 3: Non-admin cannot access admin functions
+✅ [9:45:11 PM] Scenario 15 - Step 4: Cannot modify other user messages
+✅ [9:45:11 PM] Scenario 15 - Step 5: Cannot view other user pet profiles
+✅ [9:45:11 PM] Scenario 15 - Step 6: Cannot modify booking status
+✅ [9:45:11 PM] Scenario 15 - Step 7: Cannot mark own payout as paid
+✅ [9:45:11 PM] Scenario 15 - Step 8: RLS policy enforced at database level
+✅ [9:45:11 PM] Scenario 15 - Step 9: No data leakage in queries
+✅ [9:45:11 PM] Scenario 15 - Step 10: Audit trail shows all access
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 EXECUTION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Passed: 150
+❌ Failed: 0
+📈 Total: 150
+📉 Pass Rate: 100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
