@@ -20,6 +20,7 @@ import ChatScreen from './ChatScreen';
 import BookingReceipt from './BookingReceipt';
 import ParentOnboarding from './ParentOnboarding';
 import BroadcastRequest from './BroadcastRequest';
+import SettingsScreen from './SettingsScreen';
 import { MapPin, Search, Star, ChevronRight } from 'lucide-react';
 
 const THEMES = {
@@ -78,6 +79,7 @@ export default function App() {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showExplore, setShowExplore]     = useState(false);
   const [showSitterEdit, setShowSitterEdit] = useState(false);
+  const [showSettings, setShowSettings]   = useState(false);
   const [outsideCity, setOutsideCity]     = useState(false);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistSent, setWaitlistSent]   = useState(false);
@@ -90,12 +92,62 @@ export default function App() {
   const [selectedServiceType, setSelectedServiceType] = useState(null);
   const [logoTaps, setLogoTaps]           = useState(0);
   const [search, setSearch]               = useState('');
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
   const theme = THEMES[city] || THEMES.Gurgaon;
 
   const goHome = () => { setActiveNav('home'); };
+
+  // Improved GPS detection with fallbacks
+  useEffect(() => {
+    const getLocationWithFallback = async () => {
+      setLocationLoading(true);
+      setLocationError(null);
+
+      if (!navigator.geolocation) {
+        setLocationError('Geolocation not available');
+        setLocationLoading(false);
+        return;
+      }
+
+      const successCallback = (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setUserLocation({ lat, lng });
+        setNeighbourhood(getNeighbourhood(lat, lng));
+        setLocationLoading(false);
+
+        const isInCity = Object.values(CITY_CONFIG).some(cfg => {
+          const [latMin, latMax] = cfg.bounds.lat;
+          const [lngMin, lngMax] = cfg.bounds.lng;
+          return lat > latMin && lat < latMax && lng > lngMin && lng < lngMax;
+        });
+        if (!isInCity) setOutsideCity(true);
+      };
+
+      const errorCallback = (error) => {
+        console.log('GPS error:', error.code, error.message);
+        setLocationLoading(false);
+        setLocationError('Unable to get location');
+        setUserLocation(null);
+      };
+
+      try {
+        navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000,
+        });
+      } catch (e) {
+        setLocationLoading(false);
+        setLocationError('Location access denied');
+      }
+    };
+
+    getLocationWithFallback();
+  }, []);
 
   // Fetch sitters
   useEffect(() => {
@@ -304,6 +356,7 @@ export default function App() {
   );
 
   if (showAdmin) return <AdminPanel />;
+  if (showSettings) return <SettingsScreen onBack={() => { setShowSettings(false); goHome(); }} city={city} userName={userName} />;
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
   if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
   if (showOnboarding) return <SitterOnboarding onDone={dest => { setShowOnboarding(false); if(dest==='sitter'){ setIsSitter(true); setIsSitterMode(true); } }} city={city} />;
@@ -333,170 +386,143 @@ export default function App() {
         </div>
       )}
 
-      {/* HOME LAYOUT */}
+      {/* HOME LAYOUT - MAP FIRST DESIGN */}
       <div style={{ position:'relative' }}>
 
-        {/* Gradient header with map inside */}
-        <div style={{ background:theme.grad, paddingTop:48, paddingBottom:0 }}>
-
-          {/* Top bar */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 16px 12px' }}>
-            <div onClick={handleLogoTap} style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <span style={{ fontSize:22, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
-              <span style={{ fontSize:18 }}>🐾</span>
-            </div>
+        {/* Top bar with logo and title */}
+        <div style={{ background:theme.grad, padding:'16px', display:'flex', justifyContent:'space-between', alignItems:'center', zIndex:100 }}>
+          <div onClick={handleLogoTap} style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:20, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
+            <span style={{ fontSize:16 }}>🐾</span>
           </div>
-
-          {/* Greeting */}
-          <div style={{ padding:'0 16px 14px' }}>
-            <div style={{ fontSize:22, fontWeight:700, color:'white', marginBottom:2 }}>
-              {userName ? 'Hi, ' + userName.split(' ')[0] + '!' : 'Happy Fursday!'}
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <span style={{ fontSize:13, color:'rgba(255,255,255,0.85)' }}>📍 {neighbourhood || theme.label}</span>
-              {realSitters.length > 0 && (
-                <span style={{ background:'rgba(255,255,255,0.25)', borderRadius:20, padding:'2px 9px', fontSize:11, color:'white', fontWeight:600 }}>
-                  {realSitters.length} care pro{realSitters.length!==1?'s':''} nearby
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Map strip */}
-          <div style={{ position:'relative', height:160, overflow:'hidden' }}>
-            <div ref={mapRef} style={{ position:'absolute', inset:0 }} />
-            {/* Fade overlay at bottom */}
-            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:50, background:'linear-gradient(transparent, white)', zIndex:5, pointerEvents:'none' }} />
-            {/* Custom map controls */}
-            <div style={{ position:'absolute', bottom:16, right:12, zIndex:400, display:'flex', flexDirection:'column', gap:5 }}>
-              <button onClick={() => mapInstanceRef.current?.zoomIn()} style={{ width:30, height:30, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:17, fontWeight:700, cursor:'pointer', color:'#333', lineHeight:'28px', textAlign:'center' }}>+</button>
-              <button onClick={() => mapInstanceRef.current?.zoomOut()} style={{ width:30, height:30, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:17, fontWeight:700, cursor:'pointer', color:'#333', lineHeight:'28px', textAlign:'center' }}>−</button>
-              <button onClick={() => { if(userLocation&&mapInstanceRef.current) mapInstanceRef.current.setView([userLocation.lat,userLocation.lng],15); }} style={{ width:30, height:30, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:14, cursor:'pointer', lineHeight:'30px', textAlign:'center' }}>📍</button>
-            </div>
-            {realSitters.filter(s=>s.lat&&s.lng).length===0 && userLocation && (
-              <div style={{ position:'absolute', bottom:56, left:'50%', transform:'translateX(-50%)', background:'rgba(0,0,0,0.55)', borderRadius:20, padding:'4px 12px', zIndex:400, fontSize:11, color:'white', whiteSpace:'nowrap' }}>
-                🐾 {realSitters.length>0?realSitters.length+' care pros in your area':'Onboarding care pros nearby'}
-              </div>
-            )}
-          </div>
+          <div style={{ fontSize:13, color:'rgba(255,255,255,0.9)' }}>{theme.label}</div>
         </div>
 
-        {/* White content area */}
-        <div style={{ background:'white' }}>
+        {/* Large interactive map */}
+        <div style={{ position:'relative', height:320, background:'#E0F2F1', overflow:'hidden' }}>
+          <div ref={mapRef} style={{ position:'absolute', inset:0 }} />
 
-          {/* Search */}
-          <div style={{ padding:'14px 16px 0' }}>
-            <div style={{ background:'#F5F5F5', borderRadius:14, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
-              <Search size={15} color="#AAA" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search care pros..."
-                style={{ border:'none', outline:'none', flex:1, fontSize:13, color:'#333', background:'transparent' }} />
-            </div>
-          </div>
-
-          {/* Sitter mode button */}
-          {isSitter && (
-            <div style={{ padding:'12px 16px 0' }}>
-              <div onClick={() => setIsSitterMode(true)}
-                style={{ background:'#E8F5E9', borderRadius:14, padding:'11px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid #C8E6C9' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:32, height:32, borderRadius:10, background:'#2E7D32', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>💰</div>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1B5E20' }}>Switch to sitter mode</div>
-                    <div style={{ fontSize:11, color:'#4CAF50', fontWeight:500 }}>● You are live · Manage your jobs</div>
-                  </div>
-                </div>
-                <span style={{ color:'#2E7D32', fontSize:18 }}>›</span>
-              </div>
+          {locationLoading && (
+            <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'rgba(255,255,255,0.95)', zIndex:50 }}>
+              <div style={{ fontSize:28, marginBottom:12, animation:'spin 2s linear infinite' }}>📍</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>Finding your location</div>
+              <div style={{ fontSize:11, color:'#888' }}>Getting nearby pet sitters...</div>
+              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </div>
           )}
 
-          {/* Service grid */}
-          <div style={{ padding:'14px 16px 0' }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#888', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.04em' }}>What do you need?</div>
+          {locationError && !userLocation && (
+            <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'rgba(255,255,255,0.95)', zIndex:50 }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>📍</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:4, textAlign:'center' }}>Enable location access</div>
+              <div style={{ fontSize:11, color:'#888', marginBottom:16, textAlign:'center', paddingX:20 }}>Please enable location in your browser settings</div>
+              <button onClick={() => { setLocationError(null); setLocationLoading(true); navigator.geolocation?.getCurrentPosition(pos => { setUserLocation({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setLocationError(null); setLocationLoading(false); }, () => setLocationError('Failed'), { timeout:10000 }); }} style={{ background:theme.primary, color:'white', border:'none', padding:'10px 20px', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:12 }}>Try again</button>
+            </div>
+          )}
+
+          {/* Map controls */}
+          <div style={{ position:'absolute', bottom:16, right:12, zIndex:400, display:'flex', flexDirection:'column', gap:5 }}>
+            <button onClick={() => mapInstanceRef.current?.zoomIn()} style={{ width:36, height:36, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:18, fontWeight:700, cursor:'pointer', color:'#333' }}>+</button>
+            <button onClick={() => mapInstanceRef.current?.zoomOut()} style={{ width:36, height:36, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:18, fontWeight:700, cursor:'pointer', color:'#333' }}>−</button>
+            <button onClick={() => { if(userLocation&&mapInstanceRef.current) mapInstanceRef.current.setView([userLocation.lat,userLocation.lng],15); }} style={{ width:36, height:36, borderRadius:8, border:'none', background:'white', boxShadow:'0 2px 6px rgba(0,0,0,0.2)', fontSize:14, cursor:'pointer' }}>📍</button>
+          </div>
+
+          {/* Info card on map */}
+          {realSitters.length > 0 && !locationLoading && (
+            <div style={{ position:'absolute', bottom:16, left:12, right:12, background:'white', borderRadius:12, padding:12, boxShadow:'0 4px 12px rgba(0,0,0,0.15)', zIndex:100 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', gap:16, fontSize:12 }}>
+                <div>
+                  <div style={{ color:'#888', marginBottom:2 }}>Distance</div>
+                  <div style={{ fontWeight:700, fontSize:14 }}>0.8 km</div>
+                </div>
+                <div>
+                  <div style={{ color:'#888', marginBottom:2 }}>Avg rating</div>
+                  <div style={{ fontWeight:700, fontSize:14 }}>⭐ {(realSitters.reduce((a,b)=>a+b.rating,0)/realSitters.length).toFixed(1)}</div>
+                </div>
+                <div>
+                  <div style={{ color:'#888', marginBottom:2 }}>Available</div>
+                  <div style={{ fontWeight:700, fontSize:14 }}>{realSitters.length} pros</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content area below map */}
+        <div style={{ background:'white', paddingBottom:80 }}>
+
+          {/* Quick action buttons */}
+          <div style={{ padding:'16px 16px 0' }}>
+            <button onClick={() => { setActiveNav('explore'); setShowExplore(true); }}
+              style={{ width:'100%', padding:'14px', background:'white', border:'1px solid '+theme.primary, borderRadius:12, color:theme.primary, fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>📍 Browse sitters on map</button>
+            <button onClick={() => { if(userLocation&&mapInstanceRef.current) mapInstanceRef.current.setView([userLocation.lat,userLocation.lng],15); }}
+              style={{ width:'100%', padding:'14px', background:theme.primary, borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', fontSize:13, border:'none' }}>Use my location</button>
+          </div>
+
+          {/* Service quick access */}
+          <div style={{ padding:'16px' }}>
+            <div style={{ fontSize:13, fontWeight:600, color:'#888', marginBottom:10 }}>What do you need?</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              {SERVICES.map(svc => (
-                <div key={svc.id} onClick={() => {
-                  if(svc.id==='broadcast'){ setShowBroadcast(true); return; }
-                  setSelectedServiceType(svc.id); setShowBooking(true);
-                }} style={{ background:svc.color, borderRadius:16, padding:'14px 12px', cursor:'pointer', transition:'transform 0.1s', border:'0.5px solid rgba(0,0,0,0.04)' }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>{svc.icon}</div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', marginBottom:3, lineHeight:1.3 }}>{svc.name}</div>
-                  <div style={{ fontSize:11, color:svc.tc, fontWeight:600 }}>{svc.price}</div>
+              {SERVICES.slice(0,2).map(svc => (
+                <div key={svc.id} onClick={() => { if(svc.id==='broadcast'){ setShowBroadcast(true); return; } setSelectedServiceType(svc.id); setShowBooking(true); }}
+                  style={{ background:svc.color, borderRadius:12, padding:'12px', cursor:'pointer', border:'0.5px solid rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize:24, marginBottom:6 }}>{svc.icon}</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', marginBottom:2, lineHeight:1.2 }}>{svc.name}</div>
+                  <div style={{ fontSize:10, color:svc.tc, fontWeight:600 }}>{svc.price}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Become a pro banner */}
-          {!isSitter && (
-            <div style={{ padding:'14px 16px 0' }}>
-              <div onClick={() => setShowOnboarding(true)}
-                style={{ background:'#0f0f1a', borderRadius:16, padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
+          {/* Recently booked */}
+          {realSitters.length > 0 && (
+            <div style={{ padding:'16px' }}>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>Available now</div>
+              {filteredSitters.slice(0,2).map(s => (
+                <div key={s.id} onClick={() => setSelectedSitter(s)} style={{ background:'#fafafa', borderRadius:12, padding:12, marginBottom:10, cursor:'pointer', border:'0.5px solid #f0f0f0', display:'flex', gap:10, alignItems:'center' }}>
+                  <div style={{ width:44, height:44, borderRadius:10, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
+                    {s.profilePhoto?<img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />:s.emoji}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{s.name}</div>
+                    <div style={{ fontSize:11, color:'#888' }}>⭐ {s.rating} • {s.reviews} walks</div>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); requestBooking(s); }} style={{ background:theme.primary, color:'white', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0 }}>Book</button>
+                </div>
+              ))}
+              <div onClick={() => { setActiveNav('explore'); setShowExplore(true); }} style={{ textAlign:'center', padding:'12px', color:theme.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>See all {realSitters.length} sitters</div>
+            </div>
+          )}
+
+          {/* Sitter mode button */}
+          {isSitter && (
+            <div style={{ padding:'16px' }}>
+              <div onClick={() => setIsSitterMode(true)} style={{ background:'#E8F5E9', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid #C8E6C9' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>🐾</div>
+                  <div style={{ width:36, height:36, borderRadius:10, background:'#2E7D32', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>💰</div>
                   <div>
-                    <div style={{ color:'white', fontSize:13, fontWeight:700 }}>Become a Fursday Pro</div>
-                    <div style={{ color:theme.primary, fontSize:11 }}>Earn Rs.12,000–45,000/month</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#1B5E20' }}>Sitter mode</div>
+                    <div style={{ fontSize:11, color:'#4CAF50', fontWeight:500 }}>● You are live</div>
                   </div>
                 </div>
-                <div style={{ background:theme.primary, borderRadius:10, padding:'6px 12px', fontSize:12, color:'white', fontWeight:700 }}>Join</div>
               </div>
             </div>
           )}
 
-          {/* Care pros list */}
-          <div style={{ padding:'18px 16px 0' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-              <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>Care pros near you</div>
-              <div onClick={() => { setActiveNav('explore'); setShowExplore(true); }} style={{ fontSize:12, color:theme.primary, fontWeight:500, cursor:'pointer' }}>See all ›</div>
+          {/* Become pro banner */}
+          {!isSitter && (
+            <div style={{ padding:'16px' }}>
+              <div onClick={() => setShowOnboarding(true)} style={{ background:'#0f0f1a', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🐾</div>
+                  <div>
+                    <div style={{ color:'white', fontSize:13, fontWeight:700 }}>Become a Pro</div>
+                    <div style={{ color:theme.primary, fontSize:11 }}>Earn Rs.12k-45k/month</div>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            {sittersLoading && (
-              <div style={{ textAlign:'center', padding:'30px 0' }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>🐾</div>
-                <div style={{ fontSize:13, color:'#888' }}>Finding care pros near you...</div>
-              </div>
-            )}
-
-            {!sittersLoading && filteredSitters.length===0 && (
-              <div style={{ textAlign:'center', padding:'30px 0' }}>
-                <div style={{ fontSize:40, marginBottom:10 }}>🐾</div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{search?'No results':'No pros in '+city+' yet'}</div>
-                <div style={{ fontSize:12, color:'#888' }}>{search?'Try a different name':'We are onboarding pros in your area!'}</div>
-                {!search && <button onClick={() => setShowOnboarding(true)} style={{ marginTop:12, padding:'10px 20px', borderRadius:12, border:'none', background:theme.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>Become a pro</button>}
-              </div>
-            )}
-
-            {!sittersLoading && filteredSitters.map(s => (
-              <div key={s.id} onClick={() => setSelectedSitter(s)}
-                style={{ background:'#FAFAFA', borderRadius:16, padding:12, display:'flex', gap:12, marginBottom:10, cursor:'pointer', alignItems:'center', border:'0.5px solid #F0F0F0' }}>
-                <div style={{ width:52, height:52, borderRadius:14, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
-                  {s.profilePhoto?<img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />:s.emoji}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                      <div style={{ fontSize:14, fontWeight:700, color:'#1a1a1a' }}>{s.name}</div>
-                      {s.isTopSitter && <span style={{ fontSize:9, background:'#FFF9C4', color:'#E65100', borderRadius:8, padding:'1px 5px', fontWeight:700 }}>⭐ Top</span>}
-                    </div>
-                    <div style={{ fontSize:13, fontWeight:700, color:theme.primary }}>{s.price}</div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:5 }}>
-                    <Star size={10} fill="#FFC107" color="#FFC107" />
-                    <span style={{ fontSize:11, fontWeight:600, color:'#1a1a1a' }}>{s.rating}</span>
-                    <span style={{ fontSize:11, color:'#AAA' }}>({s.reviews} walks)</span>
-                    {s.verified && <span style={{ fontSize:10, background:'#E8F5E9', color:'#2E7D32', borderRadius:8, padding:'1px 5px' }}>✓ Verified</span>}
-                  </div>
-                  <div style={{ display:'flex', gap:4 }}>
-                    {s.tags.slice(0,2).map(t => <span key={t} style={{ fontSize:10, padding:'2px 7px', borderRadius:8, background:theme.light, color:theme.primary, fontWeight:500 }}>{t==='walk30'?'Walker':t==='boarding'?'Boarding':t==='daycare'?'Daycare':t}</span>)}
-                  </div>
-                </div>
-                <div onClick={e => { e.stopPropagation(); requestBooking(s); }}
-                  style={{ background:theme.primary, borderRadius:10, padding:'8px 12px', fontSize:11, fontWeight:700, color:'white', cursor:'pointer', flexShrink:0 }}>Book</div>
-              </div>
-            ))}
-            <div style={{ height:20 }} />
-          </div>
+          )}
         </div>
       </div>
 
@@ -507,10 +533,11 @@ export default function App() {
           { id:'book',    label:'Bookings', icon:'📋', action: () => { setShowBookings(true); setActiveNav('book'); } },
           { id:'explore', label:'Explore',  icon:'🔍', action: () => { setActiveNav('explore'); setShowExplore(true); } },
           { id:'profile', label:'My Pets',  icon:'🐕', action: () => { setShowUserProfile(true); setActiveNav('profile'); } },
+          { id:'settings',label:'Settings', icon:'⚙️', action: () => { setShowSettings(true); setActiveNav('settings'); } },
         ].map(n => (
-          <div key={n.id} onClick={n.action} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:60, paddingTop:2 }}>
-            <span style={{ fontSize:22 }}>{n.icon}</span>
-            <div style={{ fontSize:10, fontWeight:activeNav===n.id?700:400, color:activeNav===n.id?theme.primary:'#BBBBBB' }}>{n.label}</div>
+          <div key={n.id} onClick={n.action} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:50, paddingTop:2 }}>
+            <span style={{ fontSize:20 }}>{n.icon}</span>
+            <div style={{ fontSize:9, fontWeight:activeNav===n.id?700:400, color:activeNav===n.id?theme.primary:'#BBBBBB' }}>{n.label}</div>
             {activeNav===n.id && <div style={{ width:4, height:4, borderRadius:2, background:theme.primary }} />}
           </div>
         ))}
