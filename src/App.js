@@ -21,6 +21,7 @@ import BookingReceipt from './BookingReceipt';
 import ParentOnboarding from './ParentOnboarding';
 import BroadcastRequest from './BroadcastRequest';
 import SettingsScreen from './SettingsScreen';
+import { checkLocationRestriction, getLocationRestrictedMessage } from './geolocationService';
 import { MapPin, Search, Star, ChevronRight } from 'lucide-react';
 
 const THEMES = {
@@ -94,12 +95,27 @@ export default function App() {
   const [search, setSearch]               = useState('');
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
+  const [regionRestricted, setRegionRestricted] = useState(false);
+  const [userIP, setUserIP] = useState(null);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
   const theme = THEMES[city] || THEMES.Gurgaon;
 
   const goHome = () => { setActiveNav('home'); };
+
+  // Location restriction check (IP-based)
+  useEffect(() => {
+    const checkAccess = async () => {
+      const result = await checkLocationRestriction();
+      if (!result.allowed) {
+        setRegionRestricted(true);
+        setLocationLoading(false);
+      }
+      if (result.ip) setUserIP(result.ip);
+    };
+    checkAccess();
+  }, []);
 
   // Improved GPS detection with fallbacks
   useEffect(() => {
@@ -309,6 +325,25 @@ export default function App() {
   };
 
   // ── Screens ──────────────────────────────────────────────────────────────
+  if (regionRestricted) return (
+    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', padding:'0 24px', textAlign:'center', gap:16 }}>
+      <div style={{ fontSize:64 }}>🗺️</div>
+      <div style={{ fontSize:24, fontWeight:700, color:'white', marginBottom:8 }}>Coming Soon!</div>
+      <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginBottom:16, lineHeight:1.6 }}>
+        Fursday is currently available only in <strong>Delhi & NCR region</strong>.<br/><br/>
+        We're expanding to your area soon! Stay tuned! 🐾
+      </div>
+      {userIP && (
+        <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:16, padding:'8px 12px', background:'rgba(255,255,255,0.05)', borderRadius:8 }}>
+        Your IP: {userIP}
+        </div>
+      )}
+      <button onClick={() => window.location.reload()} style={{ marginTop:20, padding:'12px 24px', background:'#FF6B35', color:'white', border:'none', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:13 }}>
+        Check Again
+      </button>
+    </div>
+  );
+
   if (loading) return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
       <div style={{ fontSize:56 }}>🐾</div>
@@ -390,12 +425,11 @@ export default function App() {
       <div style={{ position:'relative' }}>
 
         {/* Top bar with logo and title */}
-        <div style={{ background:theme.grad, padding:'16px', display:'flex', justifyContent:'space-between', alignItems:'center', zIndex:100 }}>
+        <div style={{ background:theme.grad, padding:'16px', display:'flex', justifyContent:'flex-start', alignItems:'center', zIndex:100 }}>
           <div onClick={handleLogoTap} style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontSize:20, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
             <span style={{ fontSize:16 }}>🐾</span>
           </div>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,0.9)' }}>{theme.label}</div>
         </div>
 
         {/* Large interactive map */}
