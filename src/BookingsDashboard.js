@@ -231,7 +231,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                     <span style={{ fontSize:12, color:'#555' }}>{b.time_slot}</span>
                   </div>
                 </div>
-                {sitterRating && (
+                {sitterRating > 0 && (
                   <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom: needsPayment ? 8 : 0 }}>
                     <Star size={11} fill="#FFC107" color="#FFC107" />
                     <span style={{ fontSize:12, fontWeight:600, color:'#1a1a1a' }}>{sitterRating}</span>
@@ -291,6 +291,17 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                     )}
                   </div>
                 )}
+                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                  <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b, sitterName, sitterPhone); }}
+                    style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    <span>💬</span> Message
+                  </button>
+                  {sitterPhone && (
+                    <a onClick={(e) => e.stopPropagation()} href={'tel:'+sitterPhone} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#1a1a1a', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'center', textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                      <Phone size={14} /> Call
+                    </a>
+                  )}
+                </div>
               </div>
 
               {isOpen && (
@@ -299,24 +310,13 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                   {[
                     { label:'Booking ref', val:b.booking_ref },
                     { label:'Payment', val:b.payment_status },
-                    { label:'Notes', val:b.notes || 'None' },
+                    { label:'Notes', val:b.parent_notes || 'None' },
                   ].filter(x => x.val).map((x,i) => (
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #F8F8F8' }}>
                       <span style={{ fontSize:12, color:'#888' }}>{x.label}</span>
                       <span style={{ fontSize:12, color:'#1a1a1a', fontWeight:500 }}>{x.val}</span>
                     </div>
                   ))}
-                  <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                    <button onClick={() => onMessage && onMessage(b, sitterName, sitterPhone)}
-                      style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                      <span>💬</span> Message
-                    </button>
-                    {sitterPhone && (
-                      <a href={'tel:'+sitterPhone} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#1a1a1a', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'center', textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                        <Phone size={14} /> Call
-                      </a>
-                    )}
-                  </div>
                   {b.status === 'active' && (
                     <a onClick={(e) => { e.preventDefault(); callSupport(supportPhone); }} href="#"
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:8, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#FCEBEB', color:'#A32D2D', fontSize:13, fontWeight:700, cursor:'pointer', textDecoration:'none' }}>

@@ -1,6 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { supabase } from './supabase';
+
+const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxPx) { h = h * maxPx / w; w = maxPx; }
+      if (h > maxPx) { w = w * maxPx / h; h = maxPx; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.8);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
 
 const ORANGE = '#FF6B35';
 const ORANGE_LIGHT = '#FFF0EB';
@@ -44,6 +62,28 @@ export default function SitterOnboarding({ onDone, city }) {
   const [saving, setSaving] = useState(false);
   const [sitterLat, setSitterLat] = useState(null);
   const [sitterLng, setSitterLng] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert('Please log in first.'); setUploadingPhoto(false); return; }
+      const compressed = await compressImage(file);
+      const path = `onboarding-${user.id}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from('sitter-photos').upload(path, compressed);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
+      setPhotoUrl(publicUrl);
+    } catch (err) {
+      alert('Photo upload failed: ' + (err.message || err));
+    }
+    setUploadingPhoto(false);
+  };
 
   React.useEffect(() => {
     if (navigator.geolocation) {
@@ -83,49 +123,57 @@ export default function SitterOnboarding({ onDone, city }) {
     setSaving(true);
     await requestNotificationPermission();
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: cityRow, error: cityError } = await supabase.from('cities').select('id').eq('name', city).single();
-      console.log('City lookup:', city, cityRow, cityError);
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      console.log('User:', currentUser?.id);
       if (!currentUser) { alert('Not logged in! Please log in first.'); setSaving(false); return; }
-      if (!cityRow) { 
+      const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
+      if (!cityRow) {
         alert('City not found: ' + city + '. Please select Gurgaon or Pune.');
-        setSaving(false); 
-        return; 
+        setSaving(false);
+        return;
       }
-      if (currentUser && cityRow) {
-        await supabase.from('users').upsert({ id: currentUser.id, name, phone: '+91' + phone, city_id: cityRow.id });
-        const { data: sitter, error: sitterError } = await supabase.from('sitter_profiles').upsert({
-          user_id: currentUser.id, city_id: cityRow.id,
-          bio, experience_years: parseInt(experience) || 0,
-          experience_text: experience || null,
-          languages, status: 'pending',
-          availability_days: availableDays,
-          morning_slot: morningSlot,
-          afternoon_slot: afternoonSlot,
-          evening_slot: eveningSlot,
-          max_dogs: parseInt(maxDogs) || 1,
-          advance_notice: advanceNotice,
-        }).select().single();
-        if (sitter) {
-          const rows = activeServices.map(s => ({
-            sitter_id: sitter.id, service_type: s.id,
-            price_paise: prices[s.id] * 100, is_active: true,
-          }));
-          await supabase.from('sitter_services').insert(rows);
 
-          // Save PII to sitter_pii table
-          if (aadhaar || upiId) {
-            await supabase.from('sitter_pii').upsert({
-              sitter_id: sitter.id,
-              aadhaar_number: aadhaar || null,
-              upi_id: upiId || null,
-            });
-          }
-        }
+      const { error: userError } = await supabase.from('users').upsert(
+        { id: currentUser.id, name, phone: '+91' + phone, city_id: cityRow.id }
+      );
+      if (userError) { alert('Could not save your details: ' + userError.message); setSaving(false); return; }
+
+      const { data: sitter, error: sitterError } = await supabase.from('sitter_profiles').upsert({
+        user_id: currentUser.id, city_id: cityRow.id,
+        bio, experience_years: parseInt(experience) || 0,
+        experience_text: experience || null,
+        languages, status: 'pending',
+        availability_days: availableDays,
+        morning_slot: morningSlot,
+        afternoon_slot: afternoonSlot,
+        evening_slot: eveningSlot,
+        max_dogs: parseInt(maxDogs) || 1,
+        advance_notice: advanceNotice,
+        profile_photo_url: photoUrl,
+      }, { onConflict: 'user_id' }).select().single();
+      if (sitterError) { alert('Could not save your sitter profile: ' + sitterError.message); setSaving(false); return; }
+
+      // Replace any previous services (re-running onboarding shouldn't duplicate rows)
+      await supabase.from('sitter_services').delete().eq('sitter_id', sitter.id);
+      const rows = activeServices.map(s => ({
+        sitter_id: sitter.id, service_type: s.id,
+        price_paise: prices[s.id] * 100, is_active: true,
+      }));
+      const { error: servicesError } = await supabase.from('sitter_services').insert(rows);
+      if (servicesError) { alert('Could not save your services: ' + servicesError.message); setSaving(false); return; }
+
+      if (aadhaar || upiId) {
+        const { error: piiError } = await supabase.from('sitter_pii').upsert({
+          sitter_id: sitter.id,
+          aadhaar_number: aadhaar || null,
+          upi_id: upiId || null,
+        }, { onConflict: 'sitter_id' });
+        if (piiError) { alert('Could not save your verification details: ' + piiError.message); setSaving(false); return; }
       }
-    } catch(e) { console.log('Error:', e); }
+    } catch(e) {
+      alert('Something went wrong, please try again.');
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     setScreen(9);
   };
@@ -339,10 +387,13 @@ export default function SitterOnboarding({ onDone, city }) {
       <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>Profile photo</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 20, background: ORANGE_LIGHT, border: '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-            <span style={{ fontSize: 24 }}>📷</span>
-            <span style={{ fontSize: 10, color: ORANGE, marginTop: 2 }}>Add photo</span>
+          <div onClick={() => photoInputRef.current?.click()}
+            style={{ width: 72, height: 72, borderRadius: 20, background: photoUrl ? 'transparent' : ORANGE_LIGHT, border: photoUrl ? 'none' : '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
+            {uploadingPhoto ? <span style={{ fontSize: 11, color: ORANGE }}>...</span>
+              : photoUrl ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <><span style={{ fontSize: 24 }}>📷</span><span style={{ fontSize: 10, color: ORANGE, marginTop: 2 }}>Add photo</span></>}
           </div>
+          <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
           <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>A clear photo of your face increases bookings by 3x. Sitters with photos earn significantly more.</div>
         </div>
       </div>

@@ -288,27 +288,14 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             </div>
           )}
         </div>
-        {isOpen && (
-          <div style={{ padding: '0 16px 16px', borderTop: '1px solid #F5F5F5' }}>
-            <div style={{ fontSize: 11, color: '#AAA', margin: '12px 0 8px', fontWeight: 600, textTransform: 'uppercase' }}>Details</div>
-            {[
-              { label: 'Booking ref', val: b.booking_ref },
-              { label: 'Pet parent', val: b.users?.name },
-              { label: 'Notes', val: b.notes || 'None' },
-              { label: 'Payment', val: b.payment_method?.toUpperCase() },
-            ].filter(x => x.val).map((x, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8F8F8' }}>
-                <span style={{ fontSize: 12, color: '#888' }}>{x.label}</span>
-                <span style={{ fontSize: 12, color: '#1a1a1a', fontWeight: 500 }}>{x.val}</span>
-              </div>
-            ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button onClick={() => onMessage && onMessage(b)}
+        <div style={{ padding: '0 16px 16px' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b); }}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: 'none', background: t.light, color: t.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 <span>💬</span> Message
               </button>
               {b.users?.phone && (
-                <a href={'tel:' + b.users.phone}
+                <a onClick={(e) => e.stopPropagation()} href={'tel:' + b.users.phone}
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
                   <Phone size={14} /> Call
                 </a>
@@ -375,8 +362,23 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>✅ Photos uploaded</span>
               </div>
             )}
-          </div>
-        )}
+            {isOpen && (
+              <div style={{ marginTop: 12, borderTop: '1px solid #F5F5F5', paddingTop: 10 }}>
+                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>Details</div>
+                {[
+                  { label: 'Booking ref', val: b.booking_ref },
+                  { label: 'Pet parent', val: b.users?.name },
+                  { label: 'Notes', val: b.parent_notes || 'None' },
+                  { label: 'Payment', val: b.payment_status },
+                ].filter(x => x.val).map((x, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8F8F8' }}>
+                    <span style={{ fontSize: 12, color: '#888' }}>{x.label}</span>
+                    <span style={{ fontSize: 12, color: '#1a1a1a', fontWeight: 500 }}>{x.val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
       </div>
     );
   };

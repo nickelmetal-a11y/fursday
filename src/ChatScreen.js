@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Phone } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Image as ImageIcon } from 'lucide-react';
 import { supabase } from './supabase';
 
 const THEMES = {
@@ -7,12 +7,36 @@ const THEMES = {
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
+// A chat "message" is an image if it's a URL we uploaded to storage, rather
+// than freeform text — there's no separate photo_url column on messages.
+const isImageMessage = (msg) => typeof msg === 'string' && /\/storage\/v1\/object\/public\/chat-photos\//.test(msg);
+
+const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxPx) { h = h * maxPx / w; w = maxPx; }
+      if (h > maxPx) { w = w * maxPx / h; h = maxPx; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.8);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 export default function ChatScreen({ onBack, city, booking, userType }) {
   const t = THEMES[city] || THEMES.Gurgaon;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
   const bottomRef = useRef(null);
 
   const otherPartyName = userType === 'sitter'
@@ -80,6 +104,31 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
     } catch(e) { console.log('Send error:', e); }
   };
 
+  const sendPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !booking?.id) return;
+    setUploadingPhoto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const compressed = await compressImage(file);
+      const path = `${booking.id}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from('chat-photos').upload(path, compressed);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('chat-photos').getPublicUrl(path);
+      const { error: sendError } = await supabase.from('messages').insert({
+        booking_id: booking.id,
+        sender_id: user ? user.id : null,
+        sender_type: userType,
+        message: publicUrl,
+      });
+      if (sendError) throw sendError;
+    } catch (err) {
+      alert('Photo failed to send: ' + (err.message || err));
+    }
+    setUploadingPhoto(false);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
   const quickReplies = userType === 'sitter'
     ? ['On my way!', 'Running 5 min late', 'Walk completed ✓', 'Is the gate open?']
     : ['Thank you!', 'What time will you arrive?', 'Gate code is...', 'See you soon'];
@@ -119,8 +168,10 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           const isMine = m.sender_id === currentUserId;
           return (
             <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:10 }}>
-              <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize:14, color:isMine?'white':'#1a1a1a', lineHeight:1.4 }}>{m.message}</div>
+              <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImageMessage(m.message)?6:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+                {isImageMessage(m.message)
+                  ? <img src={m.message} alt="Shared" style={{ width:180, height:180, objectFit:'cover', borderRadius:14, display:'block' }} />
+                  : <div style={{ fontSize:14, color:isMine?'white':'#1a1a1a', lineHeight:1.4 }}>{m.message}</div>}
                 <div style={{ fontSize:10, color:isMine?'rgba(255,255,255,0.7)':'#AAA', marginTop:4, textAlign:'right' }}>
                   {new Date(m.created_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
                 </div>
@@ -145,6 +196,11 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
           placeholder="Type a message..."
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
+        <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
+        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
+          style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
+          <ImageIcon size={18} />
+        </button>
         <button onClick={sendMessage}
           style={{ width:44, height:44, borderRadius:22, border:'none', background:t.primary, color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <Send size={18} />
