@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Phone, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Image as ImageIcon, Calendar } from 'lucide-react';
 import { supabase } from './supabase';
 
 const THEMES = {
@@ -7,9 +7,19 @@ const THEMES = {
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
+const SERVICE_NAMES = { walk30: '30-min walk', walk60: '60-min walk', boarding: 'Home boarding', daycare: 'Doggy daycare', dropin: 'Drop-in visit', housesit: 'House sitting' };
+
 // A chat "message" is an image if it's a URL we uploaded to storage, rather
 // than freeform text — there's no separate photo_url column on messages.
 const isImageMessage = (msg) => typeof msg === 'string' && /\/storage\/v1\/object\/public\/chat-photos\//.test(msg);
+
+// Schedule-detail cards are also carried as plain text (no schema column for
+// them either) — a JSON payload behind a sentinel prefix, same trick as images.
+const SCHEDULE_PREFIX = 'FURSDAY_SCHEDULE::';
+const parseScheduleMessage = (msg) => {
+  if (typeof msg !== 'string' || !msg.startsWith(SCHEDULE_PREFIX)) return null;
+  try { return JSON.parse(msg.slice(SCHEDULE_PREFIX.length)); } catch { return null; }
+};
 
 const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
   const reader = new FileReader();
@@ -104,6 +114,28 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
     } catch(e) { console.log('Send error:', e); }
   };
 
+  const sendSchedule = async () => {
+    if (!booking?.id) return;
+    const payload = SCHEDULE_PREFIX + JSON.stringify({
+      service: booking.service || null,
+      date: booking.date || null,
+      time: booking.time || null,
+      price: booking.price || null,
+    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: sendError } = await supabase.from('messages').insert({
+        booking_id: booking.id,
+        sender_id: user ? user.id : null,
+        sender_type: userType,
+        message: payload,
+      });
+      if (sendError) alert('Could not share schedule: ' + sendError.message);
+    } catch (err) {
+      alert('Could not share schedule: ' + (err.message || err));
+    }
+  };
+
   const sendPhoto = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !booking?.id) return;
@@ -166,13 +198,27 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         )}
         {!loading && messages.map((m, i) => {
           const isMine = m.sender_id === currentUserId;
+          const schedule = parseScheduleMessage(m.message);
           return (
             <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:10 }}>
-              <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImageMessage(m.message)?6:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-                {isImageMessage(m.message)
+              <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImageMessage(m.message)?6:schedule?0:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', overflow:'hidden' }}>
+                {schedule ? (
+                  <div style={{ minWidth:200 }}>
+                    <div style={{ background:isMine?'rgba(255,255,255,0.15)':t.light, padding:'10px 14px', display:'flex', alignItems:'center', gap:6 }}>
+                      <Calendar size={14} color={isMine?'white':t.primary} />
+                      <span style={{ fontSize:12, fontWeight:700, color:isMine?'white':t.primary }}>Proposed schedule</span>
+                    </div>
+                    <div style={{ padding:'10px 14px' }}>
+                      {schedule.service && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>{SERVICE_NAMES[schedule.service] || schedule.service}</div>}
+                      {schedule.date && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>📅 {schedule.date}</div>}
+                      {schedule.time && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>🕐 {schedule.time}</div>}
+                      {schedule.price != null && <div style={{ fontSize:13, fontWeight:700, color:isMine?'white':t.primary }}>Rs.{Math.round(schedule.price/100)}</div>}
+                    </div>
+                  </div>
+                ) : isImageMessage(m.message)
                   ? <img src={m.message} alt="Shared" style={{ width:180, height:180, objectFit:'cover', borderRadius:14, display:'block' }} />
                   : <div style={{ fontSize:14, color:isMine?'white':'#1a1a1a', lineHeight:1.4 }}>{m.message}</div>}
-                <div style={{ fontSize:10, color:isMine?'rgba(255,255,255,0.7)':'#AAA', marginTop:4, textAlign:'right' }}>
+                <div style={{ fontSize:10, color:isMine?'rgba(255,255,255,0.7)':'#AAA', marginTop:schedule?0:4, padding:schedule?'0 14px 8px':0, textAlign:'right' }}>
                   {new Date(m.created_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
                 </div>
               </div>
@@ -196,6 +242,12 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
           placeholder="Type a message..."
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
+        {(booking?.date || booking?.time || booking?.price != null) && (
+          <button onClick={sendSchedule} title="Share schedule details"
+            style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+            <Calendar size={18} />
+          </button>
+        )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
         <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
           style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
