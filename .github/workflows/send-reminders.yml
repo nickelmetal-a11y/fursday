@@ -17,3 +17,13 @@ jobs:
           curl -sf -X GET "https://fursday.vercel.app/api/send-reminders" \
             -o response.json -w "HTTP %{http_code}\n"
           cat response.json
+      # Free-tier Supabase projects auto-pause after 7 days with zero
+      # activity, which would silently take the whole app down - not a
+      # "demand" problem, an "idle between work sessions" one. This ping
+      # (which the send-reminders call above already does anyway) is enough
+      # real activity to keep it from ever going quiet for that long.
+      - name: Keep Supabase project active
+        run: |
+          curl -sf "https://vucboyiklqdxpqbpfplt.supabase.co/rest/v1/cities?select=id&limit=1" \
+            -H "apikey: sb_publishable_Ka7fejAT4Qw6ba5osxQVSg_iq6E-tz4" \
+            -o /dev/null -w "keep-alive HTTP %{http_code}\n"
