@@ -48,6 +48,9 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef(null);
   const bottomRef = useRef(null);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [proposedDate, setProposedDate] = useState('');
+  const [proposedTime, setProposedTime] = useState('');
 
   const otherPartyName = userType === 'sitter'
     ? (booking?.parentName || 'Pet parent')
@@ -114,12 +117,18 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
     } catch(e) { console.log('Send error:', e); }
   };
 
+  const openScheduleForm = () => {
+    setProposedDate(booking?.date || new Date().toISOString().split('T')[0]);
+    setProposedTime(booking?.time || '09:00');
+    setShowScheduleForm(true);
+  };
+
   const sendSchedule = async () => {
-    if (!booking?.id) return;
+    if (!booking?.id || !proposedDate || !proposedTime) return;
     const payload = SCHEDULE_PREFIX + JSON.stringify({
       service: booking.service || null,
-      date: booking.date || null,
-      time: booking.time || null,
+      date: proposedDate,
+      time: proposedTime,
       price: booking.price || null,
     });
     try {
@@ -131,6 +140,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         message: payload,
       });
       if (sendError) alert('Could not share schedule: ' + sendError.message);
+      else setShowScheduleForm(false);
     } catch (err) {
       alert('Could not share schedule: ' + (err.message || err));
     }
@@ -228,6 +238,28 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         <div ref={bottomRef} />
       </div>
 
+      {showScheduleForm && (
+        <div style={{ padding:'12px 16px', background:t.light, borderTop:'1px solid #F0F0F0', flexShrink:0 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:t.primary, marginBottom:8 }}>Propose a date & time</div>
+          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+            <input type="date" value={proposedDate} onChange={e => setProposedDate(e.target.value)}
+              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', fontFamily:'inherit' }} />
+            <input type="time" value={proposedTime} onChange={e => setProposedTime(e.target.value)}
+              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', fontFamily:'inherit' }} />
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={() => setShowScheduleForm(false)}
+              style={{ flex:1, padding:'10px 0', borderRadius:10, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={sendSchedule} disabled={!proposedDate || !proposedTime}
+              style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              Send proposal
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ padding:'8px 16px', display:'flex', gap:6, overflowX:'auto', flexShrink:0 }}>
         {quickReplies.map((q, i) => (
           <button key={i} onClick={() => setText(q)}
@@ -243,7 +275,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           placeholder="Type a message..."
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
         {(booking?.date || booking?.time || booking?.price != null) && (
-          <button onClick={sendSchedule} title="Share schedule details"
+          <button onClick={openScheduleForm} title="Propose a date & time"
             style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
             <Calendar size={18} />
           </button>
