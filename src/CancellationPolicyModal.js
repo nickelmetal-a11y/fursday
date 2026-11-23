@@ -16,7 +16,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
   const [step, setStep] = useState('policy'); // policy, reason, confirming
   const [reason, setReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const refund = calculateRefund(booking.scheduled_date);
+  const refund = calculateRefund(booking.booking_date);
   const refundAmount = (booking.price || 0) * refund.percentage / 100;
 
   const cancelBooking = async () => {
@@ -26,25 +26,20 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       const { data: { user } } = await supabase.auth.getUser();
 
       // TIER 3: Calculate hours until refund deadline before cancelling
-      const hoursUntilBooking = (new Date(booking.scheduled_date) - new Date()) / (1000 * 60 * 60);
+      const hoursUntilBooking = (new Date(booking.booking_date) - new Date()) / (1000 * 60 * 60);
 
-      await supabase.from('bookings').update({
+      // NOTE: production `bookings` has no cancelled_at/cancelled_by/refund_percentage/
+      // refund_amount columns, and there is no `refunds` table at all — refund percentage
+      // is computed above for display only and is not currently persisted anywhere.
+      const { error } = await supabase.from('bookings').update({
         status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
         cancellation_reason: reason,
-        cancelled_by: 'pet_parent',
-        refund_percentage: refund.percentage,
-        refund_amount: refundAmount,
       }).eq('id', booking.id);
-
-      await supabase.from('refunds').insert({
-        booking_id: booking.id,
-        pet_parent_id: booking.pet_parent_id,
-        original_amount: booking.price || 0,
-        refund_amount: refundAmount,
-        refund_percentage: refund.percentage,
-        reason: reason,
-      });
+      if (error) {
+        alert('Could not cancel booking: ' + error.message);
+        setCancelling(false);
+        return;
+      }
 
       // TIER 3: Send cancellation reminder notification with refund info
       if (hoursUntilBooking > 0 && hoursUntilBooking < 72) {

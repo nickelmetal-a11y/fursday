@@ -19,12 +19,13 @@ export default function ParentOnboarding({ onDone, city, userName }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('pet_profiles').insert({
+        const { error } = await supabase.from('pet_profiles').insert({
           user_id: user.id,
           name: petName.trim(),
           breed: petBreed || null,
           age_years: parseInt(petAge) || null,
         });
+        if (error) { alert('Could not save pet: ' + error.message); setSaving(false); return; }
       }
     } catch(e) { console.log('Pet save error:', e); }
     setSaving(false);

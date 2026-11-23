@@ -9,7 +9,7 @@ import * as notificationService from './notificationService';
 jest.mock('./supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
-      insert: jest.fn().mockResolvedValue({ data: { id: '123' } }),
+      insert: jest.fn().mockReturnThis(),
       update: jest.fn().mockResolvedValue({ data: { id: '123' } }),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),

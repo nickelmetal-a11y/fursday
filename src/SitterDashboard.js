@@ -67,7 +67,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     // TIER 3: Get booking details before cancelling for notification
     const { data: bookingData } = await supabase
       .from('bookings')
-      .select('pet_parent_id, scheduled_date, pet_profiles(name), users(name, email, phone)')
+      .select('pet_parent_id, booking_date, pet_profiles(name), users(name, email, phone)')
       .eq('id', bookingId)
       .single();
 
@@ -87,7 +87,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             bookingData.users?.email,
             bookingData.users?.phone,
             sitterProfile?.users?.name || 'Your sitter',
-            bookingData.scheduled_date
+            bookingData.booking_date
           );
         } catch(unavailErr) { console.error('Sitter unavailable notification failed:', unavailErr); }
       }
@@ -136,23 +136,27 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   }, [sitterProfile]);
 
   const acceptBooking = async (id) => {
-    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
+    const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
+    if (error) { alert('Could not accept booking: ' + error.message); return; }
     loadData();
   };
 
   const declineBooking = async (id) => {
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+    const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+    if (error) { alert('Could not decline booking: ' + error.message); return; }
     loadData();
   };
 
   const startWalk = async (id) => {
-    await supabase.from('bookings').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('bookings').update({ status: 'active', start_verified_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('Could not start walk: ' + error.message); return; }
     loadData();
     if (onStartWalk) onStartWalk(id);
   };
 
   const completeBooking = async (id) => {
-    await supabase.from('bookings').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('bookings').update({ status: 'completed', end_verified_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('Could not complete booking: ' + error.message); return; }
     loadData();
   };
 
@@ -175,7 +179,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       setOtpError({ ...otpError, [booking.id]: 'Wrong OTP. Ask the pet parent for the code shown in their app.' });
       return;
     }
-    await supabase.from('bookings').update({ status:'active', started_at:new Date().toISOString(), start_verified_at:new Date().toISOString() }).eq('id', booking.id);
+    const { error: startError } = await supabase.from('bookings').update({ status:'active', start_verified_at:new Date().toISOString() }).eq('id', booking.id);
+    if (startError) {
+      setOtpError({ ...otpError, [booking.id]: 'Could not start walk: ' + startError.message });
+      return;
+    }
     setOtpError({ ...otpError, [booking.id]: null });
     setOtpEntry({ ...otpEntry, [booking.id]: '' });
 
@@ -199,7 +207,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   };
 
   const completeWithOtp = async (booking) => {
-    await supabase.from('bookings').update({ status:'completed', completed_at:new Date().toISOString(), end_verified_at:['boarding','daycare'].includes(booking.service_type)?null:new Date().toISOString() }).eq('id', booking.id);
+    const { error: completeError } = await supabase.from('bookings').update({ status:'completed', end_verified_at:['boarding','daycare'].includes(booking.service_type)?null:new Date().toISOString() }).eq('id', booking.id);
+    if (completeError) { alert('Could not complete booking: ' + completeError.message); return; }
 
     // TIER 2: Send walk completed notification to both parties
     try {
@@ -226,12 +235,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('sitter_profiles').select('id').eq('user_id', user.id).single();
     if (!profile) return;
-    await supabase.from('broadcast_responses').insert({
+    const { error } = await supabase.from('broadcast_responses').insert({
       request_id: req.id,
       sitter_id: profile.id,
       status: 'accepted',
       offered_price: req.service_type === 'walk30' ? 34900 : req.service_type === 'boarding' ? 84900 : 64900,
     });
+    if (error) { alert('Could not send response: ' + error.message); return; }
     setBroadcastRequests(prev => prev.filter(r => r.id !== req.id));
     alert('Response sent! The pet parent will be notified.');
   };
@@ -258,11 +268,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Calendar size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.scheduled_date || 'TBD'}</span>
+              <span style={{ fontSize: 12, color: '#555' }}>{b.booking_date || 'TBD'}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Clock size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.scheduled_time || 'TBD'}</span>
+              <span style={{ fontSize: 12, color: '#555' }}>{b.time_slot || 'TBD'}</span>
             </div>
           </div>
           {b.status === 'pending' && (

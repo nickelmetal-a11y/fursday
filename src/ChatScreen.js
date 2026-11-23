@@ -56,12 +56,18 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
     setText('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('messages').insert({
+      const { error: sendError } = await supabase.from('messages').insert({
         booking_id: booking.id,
         sender_id: user ? user.id : null,
         sender_type: userType,
         message: messageText,
       });
+      if (sendError) {
+        console.error('Send message failed:', sendError);
+        setText(messageText);
+        alert('Message failed to send. Please try again.');
+        return;
+      }
 
       // TIER 1: Send message notification to other party
       try {

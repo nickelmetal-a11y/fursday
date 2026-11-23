@@ -51,11 +51,12 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
-    await supabase.from('sitter_reports').insert({
+    const { error } = await supabase.from('sitter_reports').insert({
       booking_id: bookingId,
       reason: reportReason,
       reported_at: new Date().toISOString(),
     }).select();
+    if (error) { alert('Could not submit report: ' + error.message); return; }
     setReportModal(null);
     setReportReason('');
     setReportSent(true);
@@ -70,9 +71,10 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
   const confirmPhotoReport = async (booking) => {
     setConfirmingPhotos(true);
-    await supabase.from('walk_photo_reports').update({ parent_confirmed: true, confirmed_at: new Date().toISOString() }).eq('booking_id', booking.id);
-    await supabase.from('bookings').update({ parent_confirmed_photos: true }).eq('id', booking.id);
+    const { error: e1 } = await supabase.from('walk_photo_reports').update({ parent_confirmed: true, confirmed_at: new Date().toISOString() }).eq('booking_id', booking.id);
+    const { error: e2 } = await supabase.from('bookings').update({ parent_confirmed_photos: true }).eq('id', booking.id);
     setConfirmingPhotos(false);
+    if (e1 || e2) { alert('Could not confirm photos: ' + (e1 || e2).message); return; }
     setPhotoCarousel(null);
     loadBookings();
   };
@@ -108,7 +110,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
       // TIER 3: Check for no-shows (confirmed booking past scheduled time, still active)
       if (data) {
         for (const booking of data) {
-          const bookingTime = new Date(`${booking.scheduled_date}T${booking.scheduled_time}`);
+          const bookingTime = new Date(`${booking.booking_date}T${booking.time_slot}`);
           const now = new Date();
           const isNoShow = booking.status === 'active' && bookingTime < now && (now - bookingTime) > 60 * 60 * 1000; // 1 hour late
 
@@ -140,7 +142,11 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
       setEndOtpError({ ...endOtpError, [booking.id]: 'Wrong OTP. Ask the sitter for the code in their app.' });
       return;
     }
-    await supabase.from('bookings').update({ status:'completed', completed_at:new Date().toISOString(), end_verified_at:new Date().toISOString() }).eq('id', booking.id);
+    const { error } = await supabase.from('bookings').update({ status:'completed', end_verified_at:new Date().toISOString() }).eq('id', booking.id);
+    if (error) {
+      setEndOtpError({ ...endOtpError, [booking.id]: 'Could not confirm: ' + error.message });
+      return;
+    }
     setEndOtpError({ ...endOtpError, [booking.id]: null });
     loadBookings();
   };
@@ -165,7 +171,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           {[
             { id:'upcoming', label:'Upcoming', count:upcoming.length },
             { id:'active', label:'Active', count:active.length },
-            { id:'past', label:'Past', count:0 },
+            { id:'past', label:'Past', count:past.length },
           ].map(tb => (
             <button key={tb.id} onClick={() => setTab(tb.id)}
               style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:tab===tb.id?t.primary:'transparent', color:tab===tb.id?'white':'#888', fontSize:13, fontWeight:tab===tb.id?700:400, cursor:'pointer', position:'relative' }}>
@@ -218,11 +224,11 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                 <div style={{ display:'flex', gap:12, marginBottom:8 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                     <Calendar size={12} color={t.primary} />
-                    <span style={{ fontSize:12, color:'#555' }}>{b.scheduled_date}</span>
+                    <span style={{ fontSize:12, color:'#555' }}>{b.booking_date}</span>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                     <Clock size={12} color={t.primary} />
-                    <span style={{ fontSize:12, color:'#555' }}>{b.scheduled_time}</span>
+                    <span style={{ fontSize:12, color:'#555' }}>{b.time_slot}</span>
                   </div>
                 </div>
                 {sitterRating && (

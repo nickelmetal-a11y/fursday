@@ -104,7 +104,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
   const send = async () => {
     setSending(true);
     try {
-      await supabase.from('walk_reports').insert({
+      const { error } = await supabase.from('walk_reports').insert({
         booking_id: b.id || null,
         pee: r.pee, poo: r.poo, water: r.water, food: r.food,
         mood: r.mood, duration_mins: parseInt(r.mins) || null, distance_km: parseFloat(r.km) || null,
@@ -113,7 +113,12 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
         gate_in: r.gatein || null, gate_out: r.gateout || null,
         photo_urls: photos.map(p => p.url),
       });
-    } catch(err) { console.log('Report save error:', err); }
+      if (error) { alert('Could not send report: ' + error.message); setSending(false); return; }
+    } catch(err) {
+      alert('Could not send report: ' + err.message);
+      setSending(false);
+      return;
+    }
     setSending(false);
     setSent(true);
   };

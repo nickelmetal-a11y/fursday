@@ -50,6 +50,7 @@ export default function SitterEditProfile({ onBack, city }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photos, setPhotos] = useState([]);
   const fileInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
   const [availableDays, setAvailableDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   const [morningSlot, setMorningSlot] = useState(true);
   const [afternoonSlot, setAfternoonSlot] = useState(false);
@@ -109,6 +110,22 @@ export default function SitterEditProfile({ onBack, city }) {
       }
     }
     setLoading(false);
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const compressed = await compressImage(file);
+      const path = 'avatar-' + user.id + '-' + Date.now() + '.jpg';
+      const { error: uploadError } = await supabase.storage.from('sitter-photos').upload(path, compressed);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
+      setPhotoUrl(publicUrl);
+    } catch (e) { alert('Upload failed: ' + (e.message || e)); }
+    setUploadingPhoto(false);
   };
 
   const handlePhotoUpload = async (e) => {
@@ -216,13 +233,13 @@ export default function SitterEditProfile({ onBack, city }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div onClick={() => fileInputRef.current?.click()}
+            <div onClick={() => avatarInputRef.current?.click()}
               style={{ width: 72, height: 72, borderRadius: 22, background: photoUrl ? 'transparent' : 'rgba(255,255,255,0.2)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
               {photoUrl ? <img src={photoUrl} alt="profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={{ textAlign: 'center' }}><Camera size={20} color="white" /><div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, marginTop: 2 }}>Add photo</div></div>}
             </div>
             {uploadingPhoto && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: 'white', fontSize: 10 }}>...</div></div>}
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+            <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>{sitterProfile?.users?.name || 'My Sitter Profile'}</div>

@@ -54,7 +54,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [validationError, setValidationError] = useState('');
-  const [endDayOffset, setEndDayOffset] = useState(1);
+  const [endDayOffset, setEndDayOffset] = useState(null);
   const [dropTime, setDropTime] = useState(null);
   const [pickTime, setPickTime] = useState(null);
   const [selectedPet, setSelectedPet] = useState(repeatBooking ? repeatBooking.pet_id : null);
@@ -140,22 +140,25 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
     setProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
       const ref = 'FUR' + Math.floor(Math.random() * 900000 + 100000);
       const startOtp = String(Math.floor(1000 + Math.random() * 9000));
       setBookingRef(ref);
       const bookingDate = new Date();
       bookingDate.setDate(bookingDate.getDate() + selectedDay);
-      await supabase.from('bookings').insert({
+      const { error: bookingError } = await supabase.from('bookings').insert({
         pet_parent_id: user ? user.id : null,
         sitter_id: sitter?.id || null,
+        city_id: cityRow?.id || null,
         service_type: selectedService,
-        scheduled_date: bookingDate.toISOString().split('T')[0],
-        scheduled_time: selectedTime || dropTime || '07:00',
+        booking_date: bookingDate.toISOString().split('T')[0],
+        time_slot: selectedTime || dropTime || '07:00',
         gross_amount_paise: totalPrice * 100,
+        sitter_payout_paise: totalPrice * 100,
         end_date: isBoarding ? (() => { const d=new Date(); d.setDate(d.getDate()+endDayOffset); return d.toISOString().split('T')[0]; })() : null,
         pickup_time: isDaycare ? pickTime : null,
         status: 'pending',
-        notes: notes,
+        parent_notes: notes,
         address_flat: flat || null,
         address_tower: tower || null,
         address_society: floor || null,
@@ -163,6 +166,11 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         start_otp: startOtp,
         pet_id: selectedPet || null,
       });
+      if (bookingError) {
+        alert('Could not create booking: ' + bookingError.message);
+        setProcessing(false);
+        return;
+      }
 
       // TIER 3: Send heat advisory notification if booking is during hot months
       const isHotMonth = [4, 5, 6, 7, 8, 9].includes(bookingDate.getMonth() + 1);
@@ -191,7 +199,12 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
           status: 'pending'
         });
       } catch(timeoutErr) { console.error('Timeout job creation failed:', timeoutErr); }
-    } catch(e) { console.log('Booking save error:', e); }
+    } catch(e) {
+      console.error('Booking save error:', e);
+      alert('Could not create booking. Please try again.');
+      setProcessing(false);
+      return;
+    }
     setProcessing(false);
     setConfirmed(true);
   };
@@ -201,9 +214,10 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
     if (step === 1) {
       if (selectedDay === null) return false;
       if (isDaycare) return !!dropTime && !!pickTime;
+      if (isBoarding) return !!selectedTime && endDayOffset !== null && endDayOffset > selectedDay;
       return !!selectedTime;
     }
-    if (step === 2) return !!selectedPet;
+    if (step === 2) return !!selectedPet && aggressionConfirmed;
     return true;
   };
 
@@ -213,6 +227,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
       if (isDaycare && !dropTime) return 'Please select drop-off time';
       if (isDaycare && !pickTime) return 'Please select pick-up time';
       if (!isDaycare && !selectedTime) return 'Please select a time';
+      if (isBoarding && (endDayOffset === null || endDayOffset <= selectedDay)) return 'Please select a check-out date';
     }
     if (step === 2) {
       if (!selectedPet) return 'Please select a pet';

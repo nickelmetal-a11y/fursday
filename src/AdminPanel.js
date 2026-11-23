@@ -34,8 +34,8 @@ export default function AdminPanel() {
   const [actionMsg, setActionMsg] = useState('');
 
   const login = () => {
-    if (password === ADMIN_PASSWORD) setAuthed(true);
-    else setError('Wrong password');
+    if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) setAuthed(true);
+    else setError(ADMIN_PASSWORD ? 'Wrong password' : 'Admin password not configured (REACT_APP_ADMIN_PASSWORD missing)');
   };
 
   const showMsg = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), 2500); };
@@ -201,20 +201,24 @@ export default function AdminPanel() {
     await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', id);
     if (user) await logPayoutMarkedPaid(user.id, id, amount);
 
+    // bookingData/sitterData are read again below (referral bonus check),
+    // so they're declared here at function scope, not inside the try block.
+    let bookingData, sitterData;
+
     // TIER 2: Send payout notification to sitter
     try {
-      const { data: bookingData } = await supabase
+      ({ data: bookingData } = await supabase
         .from('bookings')
         .select('sitter_id')
         .eq('id', id)
-        .single();
+        .single());
 
       if (bookingData) {
-        const { data: sitterData } = await supabase
+        ({ data: sitterData } = await supabase
           .from('sitter_profiles')
           .select('users(email, phone, name)')
           .eq('id', bookingData.sitter_id)
-          .single();
+          .single());
 
         if (sitterData?.users) {
           const { notifyPayoutMarked } = await import('./notificationService');

@@ -12,7 +12,7 @@ const SERVICE_NAMES = {
 export default function ReceiptModal({ booking, sitter, pet, onClose }) {
   if (!booking || !sitter || !pet) return null;
 
-  const bookingDate = new Date(booking.scheduled_date);
+  const bookingDate = new Date(booking.booking_date);
   const completedDate = new Date(booking.completed_at || booking.created_at);
   const serviceName = SERVICE_NAMES[booking.service_type] || booking.service_type;
 

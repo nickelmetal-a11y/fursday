@@ -1,19 +1,22 @@
 import { supabase } from './supabase';
-import { sendBookingConfirmationEmail, sendReviewReceivedEmail, sendPayoutNotificationEmail, sendCancellationEmail } from './emailService';
+import { sendBookingConfirmationEmail, sendReviewReceivedEmail, sendPayoutNotificationEmail, sendCancellationEmail, sendPhotosUploadedEmail } from './emailService';
 import { sendBookingReminderSMS, sendPayoutNotificationSMS, sendPhotosUploadedSMS } from './smsService';
 
 export const createNotification = async (userId, type, title, body, actionUrl = null, bookingId = null) => {
   try {
-    await supabase.from('notifications').insert({
+    const { data, error } = await supabase.from('notifications').insert({
       user_id: userId,
       type,
       title,
       body,
       action_url: actionUrl,
       booking_id: bookingId,
-    });
+    }).select().single();
+    if (error) throw error;
+    return data || null;
   } catch (error) {
     console.error('Failed to create notification:', error);
+    return null;
   }
 };
 
@@ -553,10 +556,3 @@ export const getUserUnreadNotificationCount = async (userId) => {
     return 0;
   }
 };
-
-// Helper function to send photos uploaded email
-async function sendPhotosUploadedEmail(email, { sitterName }) {
-  // This could be implemented in emailService.js
-  // For now, we'll log it
-  console.log('Photos uploaded email would be sent to:', email);
-}

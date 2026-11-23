@@ -59,7 +59,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
 
             if (bookingData && user) {
               const { notifyBookingConfirmed } = await import('./notificationService');
-              const cancellationDate = new Date(bookingData.scheduled_date);
+              const cancellationDate = new Date(bookingData.booking_date);
               cancellationDate.setDate(cancellationDate.getDate() - 1);
 
               await notifyBookingConfirmed({
@@ -72,7 +72,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
                 petName: bookingData.pet_name,
                 sitterName: bookingData.sitter_profiles?.users?.name,
                 serviceType: bookingData.service_type,
-                dateTime: `${bookingData.scheduled_date} ${bookingData.scheduled_time}`,
+                dateTime: `${bookingData.booking_date} ${bookingData.time_slot}`,
                 amount: bookingData.gross_amount_paise,
                 bookingRef: bookingData.booking_ref,
               });

@@ -17,7 +17,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
       const { error: err } = await supabase.from('reviews').insert({
         booking_id: booking.id,
         sitter_id: booking.sitter_id,
-        pet_parent_id: booking.pet_parent_id,
+        reviewer_id: booking.pet_parent_id,
         rating,
         review_text: reviewText.trim(),
       });

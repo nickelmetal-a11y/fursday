@@ -29,8 +29,8 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
             { label:'Booking ref', val:b.ref || b.booking_ref },
             { label:'Service', val:b.service || b.service_type },
             { label:'Amount paid', val:'Rs.' + Math.round((b.amount || b.gross_amount_paise || 0) / 100) },
-            { label:'Date', val:b.scheduled_date || 'Confirmed' },
-            { label:'Time', val:b.scheduled_time || 'As booked' },
+            { label:'Date', val:b.booking_date || 'Confirmed' },
+            { label:'Time', val:b.time_slot || 'As booked' },
             { label:'Status', val:'✓ Paid & Confirmed' },
           ].filter(x => x.val).map((x,i,arr) => (
             <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.06)':'none' }}>

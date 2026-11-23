@@ -117,6 +117,25 @@ export const sendCancellationEmail = async (email, cancellationDetails) => {
   return sendEmail(email, 'Booking Cancelled - Refund: Rs.' + refundAmount, htmlContent);
 };
 
+export const sendPhotosUploadedEmail = async (email, photoDetails) => {
+  const { sitterName } = photoDetails;
+
+  const htmlContent = `
+    <div style="font-family: sans-serif; background: #F8F8F8; padding: 20px;">
+      <div style="max-width: 500px; margin: 0 auto; background: white; borderRadius: '12px'; padding: 24px;">
+        <h2 style="color: #FF6B35; margin-top: 0;">Walk Photos Uploaded 📸</h2>
+        <p>${sitterName} just uploaded photos from the walk.</p>
+
+        <div style="margin: 24px 0;">
+          <a href="${EMAIL_DOMAIN}" style="background: #FF6B35; color: white; padding: 12px 24px; textDecoration: 'none'; borderRadius: '8px'; display: 'inline-block'>View Photos</a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail(email, 'Walk Photos from ' + sitterName, htmlContent);
+};
+
 // Core send function
 async function sendEmail(to, subject, htmlContent) {
   if (!SENDGRID_KEY) {

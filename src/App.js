@@ -225,7 +225,7 @@ export default function App() {
         return lat > latMin && lat < latMax && lng > lngMin && lng < lngMax;
       });
       if (!isInCity) setOutsideCity(true);
-    }, () => {}, { timeout: 8000 });
+    }, () => {}, { timeout: 10000 });
   }, []);
 
   // Map init
@@ -305,7 +305,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || '') },
         body: JSON.stringify({
           booking_ref: full?.booking_ref, service_type: full?.service_type,
-          scheduled_date: full?.scheduled_date, scheduled_time: full?.scheduled_time,
+          scheduled_date: full?.booking_date, scheduled_time: full?.time_slot,
           end_date: full?.end_date, gross_amount_paise: full?.gross_amount_paise, start_otp: full?.start_otp,
           parent_name: parentRow?.name, parent_email: parentRow?.email,
           sitter_name: sitterName, sitter_email: sitterEmail,
@@ -318,7 +318,10 @@ export default function App() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
-      await supabase.from('bookings').insert({ pet_parent_id:user?.id, sitter_id:sitter.id, city_id:cityRow?.id, service_type:'walk30', scheduled_date:new Date().toISOString().split('T')[0], scheduled_time:'07:00', gross_amount_paise:29900, status:'pending', payment_status:'unpaid' });
+      const { data: petRow } = await supabase.from('pet_profiles').select('id').eq('user_id', user?.id).limit(1).single();
+      if (!petRow) { alert('Please add a pet profile before requesting a sitter.'); return; }
+      const { error } = await supabase.from('bookings').insert({ pet_parent_id:user?.id, sitter_id:sitter.id, city_id:cityRow?.id, pet_id:petRow.id, service_type:'walk30', booking_date:new Date().toISOString().split('T')[0], time_slot:'07:00', gross_amount_paise:29900, sitter_payout_paise:29900, status:'pending', payment_status:'unpaid' });
+      if (error) { alert('Could not send request: ' + error.message); return; }
       setRequestSentFor(sitter.name);
       setTimeout(() => setRequestSentFor(null), 3000);
     } catch(e) { console.log('Request error:', e); }

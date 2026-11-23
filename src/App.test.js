@@ -1,6 +1,47 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
 
+// App.js calls checkLocationRestriction() on mount, which otherwise hits the
+// real network (ipapi.co) or falls through to the global fetch stub in
+// setupTests.js and gets blocked ({} has no lat/lng). Mock it directly so
+// these UI tests exercise the Delhi/NCR-allowed app, not the "Coming Soon"
+// screen. Plain functions, not jest.fn() — CRA's Jest preset sets
+// `resetMocks: true`, which wipes a jest.fn()'s .mockResolvedValue() back
+// to undefined after the FIRST test in this file.
+jest.mock('./geolocationService', () => ({
+  checkLocationRestriction: () => Promise.resolve({ allowed: true, ip: '127.0.0.1' }),
+  getLocationRestrictedMessage: () => 'Coming soon to your area',
+}));
+
+// App.js gates the whole app (bottom nav, settings icon, etc.) behind a
+// Supabase session: `if (!user) return <LoginScreen .../>`. Without a mocked
+// session every render stays on the login screen, so tests that look for
+// logged-in-only UI (like the settings icon) can never find it. Chainable
+// query builder so `.from(...).select(...).eq(...).single()` all resolve,
+// same pattern as notificationService.test.js's Supabase mock. Plain
+// functions, not jest.fn() — CRA's `resetMocks: true` wipes a jest.fn()'s
+// .mockResolvedValue() back to undefined after the first test in the file.
+jest.mock('./supabase', () => {
+  const queryBuilder = {
+    select: () => queryBuilder,
+    eq: () => queryBuilder,
+    upsert: () => Promise.resolve({ data: null, error: null }),
+    single: () => Promise.resolve({ data: { name: 'Test User' }, error: null }),
+  };
+  return {
+    supabase: {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: { user: { id: 'test-user-1', email: 'test@example.com' } } } }),
+        getUser: () => Promise.resolve({ data: { user: { id: 'test-user-1', email: 'test@example.com' } } }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      },
+      from: () => queryBuilder,
+    },
+    sendLocalNotification: () => {},
+    requestNotifications: () => Promise.resolve(),
+  };
+});
+
 describe('Fursday App - Map First Design & Settings', () => {
 
   // ─── MAP FIRST HOMEPAGE TESTS ───────────────────────────────

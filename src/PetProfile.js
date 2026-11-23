@@ -82,8 +82,7 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
 
   const savePet = async () => {
     setSaving(true);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    console.log('Auth user:', user?.id, 'Auth error:', authError);
+    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const insertData = {
         user_id: user.id,
@@ -92,8 +91,11 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
         age_years: parseInt(pet.age) || 0,
         weight_kg: parseFloat(pet.weight) || 0,
         gender: pet.gender,
-        is_vaccinated: pet.vaccinated === 'yes',
+        // pet_profiles has no is_vaccinated/emergency_contact columns (those
+        // live on the separate, unused `pets` table) — folded into notes
+        // alongside the other free-text fields so the data isn't lost.
         notes: [
+          pet.vaccinated ? 'Vaccinated: ' + pet.vaccinated : '',
           pet.energy ? 'Energy: ' + pet.energy : '',
           pet.strangers ? 'With strangers: ' + pet.strangers : '',
           pet.leash ? 'On leash: ' + pet.leash : '',
@@ -102,9 +104,9 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
         ].filter(Boolean).join('. '),
         photo_url: photos[0] || null,
       };
-      console.log('Inserting pet:', insertData);
-      const { data, error } = await supabase.from('pet_profiles').insert(insertData);
-      console.log('Insert result:', data, 'Error:', error);
+      const { data, error } = petId
+        ? await supabase.from('pet_profiles').update(insertData).eq('id', petId)
+        : await supabase.from('pet_profiles').insert(insertData);
       if (error) { alert('Error saving pet: ' + error.message); setSaving(false); return; }
     } else {
       alert('Not logged in! Please log in first.');

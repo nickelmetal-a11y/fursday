@@ -66,7 +66,8 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Profile/i)).toBeInTheDocument();
+      // Exact match: a loose /Profile/i regex also matches the "Edit profile" button.
+      expect(screen.getByText('Profile')).toBeInTheDocument();
     });
   });
 
@@ -126,7 +127,9 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Notifications/i)).toBeInTheDocument();
+      // Exact match: a loose /Notifications/i regex also matches the
+      // "Push/Email/SMS notifications" toggle labels.
+      expect(screen.getByText('Notifications')).toBeInTheDocument();
     });
   });
 
@@ -220,9 +223,13 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      const select = screen.getAllByRole('combobox')[0];
-      fireEvent.change(select, { target: { value: 'Hindi' } });
-      expect(select.value).toBe('Hindi');
+      // combobox[0] is "Notification Frequency" (Immediate/Hourly/.../);
+      // the language select is the second one on the page.
+      const select = screen.getAllByRole('combobox')[1];
+      // The Hindi <option> has no explicit value attr, so its value is its
+      // text content, "हिन्दी (Hindi)" — not the bare string "Hindi".
+      fireEvent.change(select, { target: { value: 'हिन्दी (Hindi)' } });
+      expect(select.value).toBe('हिन्दी (Hindi)');
     });
   });
 
@@ -303,7 +310,11 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      const container = screen.getByText(/Settings/i).closest('div');
+      // getByText('Settings') returns the title div itself. The max-width
+      // lives on the outer page container, three levels up: title div ->
+      // flex:1 wrapper -> header row -> outer container.
+      const header = screen.getByText('Settings');
+      const container = header.parentElement.parentElement.parentElement;
       expect(container.style.maxWidth).toBe('390px');
     });
   });
@@ -328,7 +339,9 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      const scrollContainer = screen.getByText(/Settings/i).closest('[style*="minHeight"]');
+      // React serializes the inline style as kebab-case ("min-height: 100vh"),
+      // not the camelCase JS property name used in source.
+      const scrollContainer = screen.getByText('Settings').closest('[style*="min-height"]');
       expect(scrollContainer).toBeInTheDocument();
     });
   });
