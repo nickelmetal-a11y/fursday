@@ -108,11 +108,12 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
 
       // TIER 1: Send message notification to other party
       try {
-        const otherUserId = userType === 'sitter' ? booking.pet_parent_id : booking.sitter_id;
-        const senderName = userType === 'sitter' ? (booking?.sitterName || 'Sitter') : (booking?.parentName || 'Pet parent');
-
-        const { notifyMessageReceived } = await import('./notificationService');
-        await notifyMessageReceived(otherUserId, null, senderName);
+        if (booking?.recipientUserId) {
+          const { data: senderProfile } = await supabase.from('users').select('name').eq('id', user?.id).single();
+          const senderName = senderProfile?.name || (userType === 'sitter' ? 'Your sitter' : 'Pet parent');
+          const { notifyMessageReceived } = await import('./notificationService');
+          await notifyMessageReceived(booking.recipientUserId, null, senderName);
+        }
       } catch(notifErr) { console.error('Message notification failed:', notifErr); }
     } catch(e) { console.log('Send error:', e); }
   };
@@ -139,8 +140,16 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         sender_type: userType,
         message: payload,
       });
-      if (sendError) alert('Could not share schedule: ' + sendError.message);
-      else setShowScheduleForm(false);
+      if (sendError) { alert('Could not share schedule: ' + sendError.message); return; }
+      setShowScheduleForm(false);
+
+      if (booking?.recipientUserId) {
+        try {
+          const { data: senderProfile } = await supabase.from('users').select('name').eq('id', user?.id).single();
+          const { notifyScheduleProposed } = await import('./notificationService');
+          await notifyScheduleProposed(booking.recipientUserId, senderProfile?.name || 'The other party', proposedDate, proposedTime);
+        } catch (notifErr) { console.error('Schedule notification failed:', notifErr); }
+      }
     } catch (err) {
       alert('Could not share schedule: ' + (err.message || err));
     }
@@ -164,6 +173,14 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         message: publicUrl,
       });
       if (sendError) throw sendError;
+
+      if (booking?.recipientUserId) {
+        try {
+          const { data: senderProfile } = await supabase.from('users').select('name').eq('id', user?.id).single();
+          const { notifyMessageReceived } = await import('./notificationService');
+          await notifyMessageReceived(booking.recipientUserId, null, senderProfile?.name || 'The other party');
+        } catch (notifErr) { console.error('Photo notification failed:', notifErr); }
+      }
     } catch (err) {
       alert('Photo failed to send: ' + (err.message || err));
     }
@@ -281,11 +298,11 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           </button>
         )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
-        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
+        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} aria-label="Attach photo"
           style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
           <ImageIcon size={18} />
         </button>
-        <button onClick={sendMessage}
+        <button onClick={sendMessage} aria-label="Send message"
           style={{ width:44, height:44, borderRadius:22, border:'none', background:t.primary, color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <Send size={18} />
         </button>

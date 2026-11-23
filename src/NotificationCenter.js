@@ -10,6 +10,12 @@ const NOTIFICATION_TYPES = {
   message_received: { icon: '💬', label: 'New message', color: '#2196F3' },
   walk_proof: { icon: '📸', label: 'Walk proof received', color: '#FF6B35' },
   referral_bonus: { icon: '🎁', label: 'Referral bonus', color: '#6C5CE7' },
+  schedule_proposed: { icon: '📅', label: 'Schedule proposed', color: '#FF6B35' },
+  sitter_on_way: { icon: '🚶', label: 'Sitter on the way', color: '#2196F3' },
+  sitter_arrived: { icon: '📍', label: 'Sitter arrived', color: '#2E7D32' },
+  walk_started: { icon: '🦮', label: 'Walk started', color: '#2E7D32' },
+  walk_completed: { icon: '✓', label: 'Walk completed', color: '#2E7D32' },
+  booking_reminder: { icon: '⏰', label: 'Upcoming booking', color: '#FFC107' },
 };
 
 export default function NotificationCenter({ onClose }) {

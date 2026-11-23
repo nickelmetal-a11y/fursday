@@ -25,6 +25,15 @@ jest.mock('./supabase', () => {
       return Promise.resolve({ data: row, error: null });
     },
   };
+  // Returns whichever name the current test set as "my own name" - the real
+  // app looks this up by the logged-in user's id, which the mock auth below
+  // always reports as 'me-123' regardless of which side (parent/sitter)
+  // userType simulates.
+  const usersTable = {
+    select: () => usersTable,
+    eq: () => usersTable,
+    single: () => Promise.resolve({ data: { name: global.__mockSenderName || 'Someone' } }),
+  };
   const channel = {
     on: (_event, _config, handler) => {
       global.__realtimeHandler = handler;
@@ -37,7 +46,7 @@ jest.mock('./supabase', () => {
       auth: {
         getUser: () => Promise.resolve({ data: { user: { id: 'me-123' } } }),
       },
-      from: () => messagesTable,
+      from: (table) => (table === 'users' ? usersTable : messagesTable),
       channel: () => channel,
       removeChannel: () => {},
     },
@@ -58,6 +67,7 @@ beforeEach(() => {
   global.__mockMessages = [];
   global.__insertedRows = [];
   global.__realtimeHandler = null;
+  global.__mockSenderName = null;
   insertedRows = global.__insertedRows;
   notifyMessageReceivedMock = require('./notificationService').notifyMessageReceived;
   notifyMessageReceivedMock.mockClear();
@@ -103,11 +113,12 @@ describe('ChatScreen - sitter <-> parent interaction', () => {
   });
 
   test('parent sends a message: inserted with sender_type "parent" and notifies the sitter', async () => {
-    render(<ChatScreen booking={booking} userType="parent" onBack={() => {}} />);
+    global.__mockSenderName = 'Rahul'; // "me-123" is the parent in this test
+    render(<ChatScreen booking={{ ...booking, recipientUserId: 'sitter-user-9' }} userType="parent" onBack={() => {}} />);
     await waitFor(() => screen.getByPlaceholderText(/Type a message/i));
 
     fireEvent.change(screen.getByPlaceholderText(/Type a message/i), { target: { value: 'What time will you arrive?' } });
-    fireEvent.click(screen.getByRole('button', { name: '' })); // send icon button has no accessible name
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
     await waitFor(() => expect(insertedRows).toHaveLength(1));
     expect(insertedRows[0]).toMatchObject({
@@ -116,11 +127,12 @@ describe('ChatScreen - sitter <-> parent interaction', () => {
       sender_type: 'parent',
       message: 'What time will you arrive?',
     });
-    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('sitter-9', null, 'Rahul'));
+    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('sitter-user-9', null, 'Rahul'));
   });
 
   test('sitter sends a message: inserted with sender_type "sitter" and notifies the parent', async () => {
-    render(<ChatScreen booking={booking} userType="sitter" onBack={() => {}} />);
+    global.__mockSenderName = 'Priya'; // "me-123" is the sitter in this test
+    render(<ChatScreen booking={{ ...booking, recipientUserId: 'parent-9' }} userType="sitter" onBack={() => {}} />);
     await waitFor(() => screen.getByPlaceholderText(/Type a message/i));
 
     fireEvent.change(screen.getByPlaceholderText(/Type a message/i), { target: { value: 'On my way now' } });

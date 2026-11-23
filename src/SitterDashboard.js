@@ -47,6 +47,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const [broadcastRequests, setBroadcastRequests] = useState([]);
   const [otpEntry, setOtpEntry] = useState({});
   const [otpError, setOtpError] = useState({});
+  const [arrivalStatus, setArrivalStatus] = useState({});
   const [uploadingPhotosFor, setUploadingPhotosFor] = useState(null);
 
   const loadUnreadMessages = async () => {
@@ -134,6 +135,15 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   useEffect(() => {
     if (sitterProfile) loadUnreadMessages();
   }, [sitterProfile]);
+
+  const markArrival = async (b, status) => {
+    if (!b.pet_parent_id) return;
+    try {
+      const { notifySitterArriving } = await import('./notificationService');
+      await notifySitterArriving(b.pet_parent_id, sitterProfile?.users?.name || 'Your sitter', status);
+      setArrivalStatus(prev => ({ ...prev, [b.id]: status }));
+    } catch (err) { alert('Could not send update: ' + (err.message || err)); }
+  };
 
   const acceptBooking = async (id) => {
     const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
@@ -315,6 +325,16 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             )}
             {b.status === 'confirmed' && (
               <div style={{ marginTop:10, background:t.light, borderRadius:12, padding:'12px 14px' }}>
+                <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+                  <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrivalStatus[b.id]}
+                    style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid '+t.primary, background:arrivalStatus[b.id]==='on_way'?t.primary:'white', color:arrivalStatus[b.id]==='on_way'?'white':t.primary, fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]?'default':'pointer' }}>
+                    🚶 On my way
+                  </button>
+                  <button onClick={() => markArrival(b, 'arrived')} disabled={arrivalStatus[b.id]==='arrived'}
+                    style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid #2E7D32', background:arrivalStatus[b.id]==='arrived'?'#2E7D32':'white', color:arrivalStatus[b.id]==='arrived'?'white':'#2E7D32', fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]==='arrived'?'default':'pointer' }}>
+                    📍 Arrived
+                  </button>
+                </div>
                 <div style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>
                   {['boarding','daycare'].includes(b.service_type) ? 'Enter drop-off OTP to start' : 'Enter OTP to start the walk'}
                 </div>

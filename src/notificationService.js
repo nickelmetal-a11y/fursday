@@ -4,6 +4,9 @@ import { sendBookingReminderSMS, sendPayoutNotificationSMS, sendPhotosUploadedSM
 
 export const createNotification = async (userId, type, title, body, actionUrl = null, bookingId = null) => {
   try {
+    const { data: prefs } = await supabase.from('notification_preferences').select('push_enabled').eq('user_id', userId).single();
+    if (prefs && prefs.push_enabled === false) return null;
+
     const { data, error } = await supabase.from('notifications').insert({
       user_id: userId,
       type,
@@ -71,6 +74,20 @@ export const notifyMessageReceived = async (userId, userEmail, senderName) => {
 
   // Email notification (optional, could be too spammy)
   // await sendMessageEmail(userEmail, { senderName });
+};
+
+export const notifyScheduleProposed = async (userId, proposerName, date, time) => {
+  await createNotification(userId, 'schedule_proposed', `${proposerName} proposed a new time`, `${date} at ${time} — open the chat to confirm`);
+};
+
+export const notifySitterArriving = async (petParentId, sitterName, status) => {
+  const isArrived = status === 'arrived';
+  await createNotification(
+    petParentId,
+    isArrived ? 'sitter_arrived' : 'sitter_on_way',
+    isArrived ? `${sitterName} has arrived` : `${sitterName} is on the way`,
+    isArrived ? 'Your sitter is at the location now.' : 'Your sitter is heading over for the booking.'
+  );
 };
 
 export const notifyWalkProofReceived = async (petParentId, petParentEmail, petParentPhone, sitterName) => {

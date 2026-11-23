@@ -28,14 +28,26 @@ describe('SettingsScreen - App Store Ready', () => {
     supabase.auth.getUser.mockResolvedValue({
       data: { user: mockUser },
     });
-    supabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { phone: '+91-9876543210' },
+    supabase.from.mockImplementation((table) => {
+      if (table === 'notification_preferences') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null }),
+            }),
+          }),
+          upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { phone: '+91-9876543210' },
+            }),
           }),
         }),
-      }),
+      };
     });
   });
 

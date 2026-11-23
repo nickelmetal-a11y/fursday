@@ -44,6 +44,13 @@ export default function SettingsScreen({ onBack, city, userName }) {
 
         const { data: bookings } = await supabase.from('bookings').select('id').eq('pet_parent_id', user.id);
         setBookingCount(bookings?.length || 0);
+
+        const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).single();
+        if (prefs) {
+          setNotificationsEnabled(prefs.push_enabled);
+          setEmailNotifications(prefs.email_enabled);
+          setSmsNotifications(prefs.sms_enabled);
+        }
       }
       setLoading(false);
     };
@@ -88,6 +95,19 @@ export default function SettingsScreen({ onBack, city, userName }) {
         setErrors({ save: 'Failed to save profile' });
       }
     }
+  };
+
+  const saveNotificationPrefs = async (overrides = {}) => {
+    if (!user) return;
+    const prefs = {
+      user_id: user.id,
+      push_enabled: notificationsEnabled,
+      email_enabled: emailNotifications,
+      sms_enabled: smsNotifications,
+      ...overrides,
+    };
+    const { error } = await supabase.from('notification_preferences').upsert(prefs, { onConflict: 'user_id' });
+    if (error) console.error('Could not save notification preferences:', error.message);
   };
 
   const handleSignOut = async () => {
@@ -229,7 +249,7 @@ export default function SettingsScreen({ onBack, city, userName }) {
                 <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>Push notifications</div>
                 <div style={{ fontSize:11, color:'#888' }}>Get alerts in the app</div>
               </div>
-              <input type="checkbox" checked={notificationsEnabled} onChange={e => setNotificationsEnabled(e.target.checked)}
+              <input type="checkbox" checked={notificationsEnabled} onChange={e => { setNotificationsEnabled(e.target.checked); saveNotificationPrefs({ push_enabled: e.target.checked }); }}
                 style={{ width:20, height:20, cursor:'pointer', accentColor:theme.primary }} />
             </div>
 
@@ -238,7 +258,7 @@ export default function SettingsScreen({ onBack, city, userName }) {
                 <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>Email notifications</div>
                 <div style={{ fontSize:11, color:'#888' }}>Updates via email</div>
               </div>
-              <input type="checkbox" checked={emailNotifications} onChange={e => setEmailNotifications(e.target.checked)}
+              <input type="checkbox" checked={emailNotifications} onChange={e => { setEmailNotifications(e.target.checked); saveNotificationPrefs({ email_enabled: e.target.checked }); }}
                 style={{ width:20, height:20, cursor:'pointer', accentColor:theme.primary }} />
             </div>
 
@@ -247,7 +267,7 @@ export default function SettingsScreen({ onBack, city, userName }) {
                 <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>SMS notifications</div>
                 <div style={{ fontSize:11, color:'#888' }}>Text message updates</div>
               </div>
-              <input type="checkbox" checked={smsNotifications} onChange={e => setSmsNotifications(e.target.checked)}
+              <input type="checkbox" checked={smsNotifications} onChange={e => { setSmsNotifications(e.target.checked); saveNotificationPrefs({ sms_enabled: e.target.checked }); }}
                 style={{ width:20, height:20, cursor:'pointer', accentColor:theme.primary }} />
             </div>
 

@@ -102,7 +102,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     if (user) {
       const { data } = await supabase
         .from('bookings')
-        .select('*, sitter_profiles(id, users(name, phone), rating, total_bookings)')
+        .select('*, sitter_profiles(id, user_id, users(name, phone), rating, total_bookings)')
         .eq('pet_parent_id', user.id)
         .order('created_at', { ascending: false });
       setBookings(data || []);
@@ -292,7 +292,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                   </div>
                 )}
                 <div style={{ display:'flex', gap:8, marginTop:10 }}>
-                  <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b, sitterName, sitterPhone); }}
+                  <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b, sitterName, sitterPhone, b.sitter_profiles?.user_id); }}
                     style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                     <span>💬</span> Message
                   </button>
