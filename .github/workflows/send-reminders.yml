@@ -1,0 +1,19 @@
+name: Send booking reminders
+
+# Vercel's free (Hobby) plan only allows daily cron jobs, but booking
+# reminders need ~15-minute granularity to be useful. GitHub Actions has no
+# such restriction, so it pings the deployed API route on a schedule instead.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call send-reminders endpoint
+        run: |
+          curl -sf -X GET "https://fursday.vercel.app/api/send-reminders" \
+            -o response.json -w "HTTP %{http_code}\n"
+          cat response.json
