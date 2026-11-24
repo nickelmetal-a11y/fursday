@@ -376,7 +376,7 @@ export default function SitterEditProfile({ onBack, city }) {
                         <div style={{ fontSize: 11, color: '#888' }}>{s.sub}</div>
                       </div>
                     </div>
-                    <div onClick={() => toggleService(s.id)}
+                    <div onClick={() => toggleService(s.id)} role="switch" aria-checked={active} aria-label={s.name + ' toggle'}
                       style={{ width: 44, height: 24, borderRadius: 12, background: active ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ position: 'absolute', top: 2, left: active ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                     </div>
