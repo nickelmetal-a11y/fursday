@@ -8,6 +8,11 @@
 -- adds the INSERT policy that was always missing (ReviewModal.js's
 -- submitReview() has nothing to insert under if this wasn't already present
 -- via the dashboard).
+--
+-- Note: migration 003 named this column pet_parent_id, but the real
+-- production column is reviewer_id (ReviewModal.js already writes
+-- reviewer_id; confirmed by running this migration against production,
+-- which rejected pet_parent_id as nonexistent).
 alter table public.reviews enable row level security;
 
 drop policy if exists "Pet parents can review their own bookings" on public.reviews;
@@ -15,7 +20,7 @@ create policy "Pet parents can review their own bookings"
   on public.reviews
   for insert
   with check (
-    pet_parent_id = auth.uid()
+    reviewer_id = auth.uid()
     and exists (
       select 1 from public.bookings b
       where b.id = booking_id and b.pet_parent_id = auth.uid()
