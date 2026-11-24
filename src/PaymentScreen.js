@@ -111,7 +111,9 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
         setLoading(false);
         setFailed(true);
         setFailReason(response.error?.description || 'Payment failed. Please try a different method.');
-        setRetryCount(c => c + 1);
+        // retryCount only increments on "Try again" (below), not here — it
+        // and setFailed(true) would otherwise land in the same render batch,
+        // so "failed again" would show even on the very first failure.
 
         // TIER 3: Send payment failed notification
         try {
@@ -190,7 +192,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
           </div>
         ))}
       </div>
-      <button onClick={() => { setFailed(false); handleRazorpayPayment(); }}
+      <button onClick={() => { setFailed(false); setRetryCount(c => c + 1); handleRazorpayPayment(); }}
         style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <RefreshCw size={18} /> Try again
       </button>
