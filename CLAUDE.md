@@ -73,6 +73,12 @@ A `SessionStart` hook in `.claude/settings.json` re-injects this rule automatica
 | Favorite sitters | ExploreScreen.js | ✅ Live (Phase 3 P2) |
 | Walk receipts | ReceiptModal.js, BookingsDashboard.js | ✅ Live (Phase 3 P3) |
 | Push notifications | NotificationCenter.js, notificationService.js | ✅ Infrastructure (Phase 4 P1) |
+| Hindi/English UI toggle | i18n.js, LoginScreen.js, SitterDashboard.js | ✅ Live (Phase 4 P3) |
+| SOS button (active booking) | SitterDashboard.js, supportContact.js | ✅ Live (Phase 4 P3) |
+| Flat 15% commission | AdminPanel.js, SitterEarningsDashboard.js, TermsAndConditions.js | ✅ Live (Phase 4 P3) |
+| Founding Sitter perk (0% comm, first 20) | AdminPanel.js, SitterEarningsDashboard.js, migration 025 | ✅ Live (Phase 4 P3) |
+| Admin auth hardening (is_admin, RLS) | AdminPanel.js, migration 021 | ✅ Live (Phase 4 P3) |
+| Contact info column-level RLS | get_user_contact() RPC, migration 022 | ✅ Live (Phase 4 P3) |
 
 ---
 
@@ -299,7 +305,36 @@ npm start
 
 ---
 
-**Last Updated:** 2026-11-24 (Session 10 - Closed the admin/RLS security holes found during a punch-list cleanup; fixed a systemic notification-routing bug and two rounds of missed phone/email reads; added test coverage for every file touched; deployed repeatedly throughout, all code changes live — SQL migrations still need to be run by the user)
+**Last Updated:** 2026-11-24 (Session 11 - Ran all pending security migrations directly against production via a Postgres Session Pooler connection (service_role REST can't execute DDL); fixed a real onboarding bug affecting every new email signup; shipped flat 15% commission + Founding Sitter perk + Hindi/English UI toggle + sitter SOS button; seeded 2 Hindi-only test sitters and ran a 10-scenario Hindi/English messaging stress test (zero bugs found); all code deployed and live)
+
+**Session 11 (Windows) — Applied the Session 10 migration backlog to production, fixed a real onboarding bug, and shipped a same-day monetization + localization + safety batch.**
+
+**Migrations run directly against production this session** (service_role REST can't run DDL — had to find the Supabase Session Pooler host, `aws-1-ap-northeast-1.pooler.supabase.com:5432`, and run them via a direct `pg` connection): `008`-`012`, `021`, `022`, `023`, `024` (all from Session 10, previously staged but never applied), plus two new ones:
+- `024_reviews_rls.sql` — had to be corrected before it would apply: referenced `reviews.pet_parent_id`, which doesn't exist in production; real column is `reviewer_id` (matches the Session 9 schema-mismatch finding). Fixed and reapplied successfully.
+- `025_founding_sitter_perk.sql` — adds `sitter_profiles.is_founding_sitter boolean default false`.
+
+**Real bug found and fixed: new email signups were silently skipping onboarding.** A DB-level trigger (not in any tracked migration) auto-creates a `public.users` row on signup and backfills `name = email` as a placeholder. `App.js`'s "does this user need onboarding?" check was `if (user && !userName)` — a non-null placeholder name passed that check, so new users landed straight in the app with their email as their display name and no onboarding prompt ever shown. Found while auditing the user's own "nikhil" test account per their request. Fixed in `App.js`:
+```js
+const needsFirstLogin = user && (!userName || userName.trim().toLowerCase() === user.email?.toLowerCase());
+```
+
+**Monetization (confirmed with user: flat 15% commission on every booking, permanent, plus a sitter-acquisition perk):**
+- `AdminPanel.js` — fixed `markPayoutPaid()` to pass the NET (post-commission) amount, not gross (previously sitters were notified of the wrong, pre-commission payout figure). Added a "Founding Sitter" toggle (0% commission) capped at the first 20 sitters (`foundingSitterCount >= 20` disables further toggles), with a live counter banner.
+- `SitterEarningsDashboard.js` — commission rate now reads `sitter_profiles.is_founding_sitter` instead of a hardcoded `* 0.85`.
+- `TermsAndConditions.js`, `BookingFlow.js`, `PaymentScreen.js` — removed now-inaccurate "0% during pilot phase" / "pilot offer" language; commission messaging is consistent everywhere.
+
+**Localization: Hindi/English toggle shipped** (new `src/i18n.js` — `localStorage`-persisted, flat key→string dictionaries, no external library) — wired into `LoginScreen.js` and `SitterDashboard.js` (~25 strings: greeting, job states, buttons, OTP flow, bottom nav, support banner). Scoped to these two screens only for time; `SitterEditProfile.js`/`SitterOnboarding.js` not yet translated. **Gotcha:** `SitterDashboard.js` already used `t` as its theme-object variable everywhere (`t.primary` etc.) — the new `useLanguage()` hook's translate function had to be aliased to `tr` to avoid a silent variable collision.
+
+**Safety: SOS button added to the sitter's active-job card** (`SitterDashboard.js`, uses the existing `supportContact.js` helpers) — one-tap call or WhatsApp to platform support during a live booking. Inspired by a competitive check of Urban Company/Snabbit's service-worker support patterns (vernacular language + safety button + earnings transparency were the 3 asks; all 3 shipped today).
+
+**QA: Hindi/English messaging stress test — zero bugs found.** Seeded 2 new Hindi-only test sitter accounts (सुनीता देवी, राम सिंह) and ran 10 real data-level message scenarios on a live test booking (pure Hindi, pure English, code-mixed, emoji, Devanagari+Latin numerals, a 300+ char paragraph, conjunct-heavy text, a JSON schedule payload with Hindi inside a string value, a lone danda, Hindi+emoji) — all 10 round-tripped byte-perfect. Confirmed the only string-slicing in the chat pipeline (`ChatScreen.js`'s `FURSDAY_SCHEDULE::` prefix strip) only ever operates on a pure-ASCII boundary, so it can't corrupt Devanagari regardless of message content. (Note: hit a real UTF-8 corruption bug in my own `curl -d` seeding script on Windows/Git-Bash — inline command-line args mangled multi-byte text — fixed by writing JSON payloads to a file first and using `curl --data-binary "@file"`. This was a tooling issue on my end, not an app bug.)
+
+**Deployed to production throughout** — commit `2860297` confirmed live via `curl` (HTTP 200) and manual verification.
+
+**Known, deliberately not touched this session:** duplicate "Ananya Sharma (TEST)" parent account naming (cosmetic, user's call); "Sitter Test 1" account's incomplete profile (same root-cause as the onboarding bug above — will self-heal on next login via the `App.js` fix, or can be cleaned up later); the `booking_ref` DB trigger (still overwrites app-supplied values, re-confirmed present, not yet examined); the orphaned `pets` legacy table; 2 critical `npm audit` findings in `@capacitor/android`/`@capacitor/ios` (pre-existing, mobile-only, not yet shipped — deferred per [[feedback_defer_cost_until_demand]]); Hindi translation for `SitterEditProfile.js`/`SitterOnboarding.js`.
+
+---
+
 **Session 10 (Windows) — Worked through the Session 9 punch list (admin auth, phone/email hardening, disputes/referrals/promo/availability tables, GPS tracking, dead code) and found more real bugs along the way.**
 
 **Security/RLS (new migrations `021`, `022`, `023` — run in that order, after `008`-`012` which may never have actually been applied; all are idempotent/safe to re-run):**
@@ -330,7 +365,7 @@ npm start
 **Verification:** `CI=true npx react-scripts build` and `CI=true npx react-scripts test --watchAll=false` both clean throughout, re-run after every commit this session. `npm run build` now also works as a plain PowerShell/cmd command (see `cross-env` above).
 
 **Still open / next session:**
-- **SQL not yet run against production as of writing** — migrations `008`-`012`, `021`, `022`, `023`, `024` need to be run in that exact order via Supabase SQL Editor (see the note on migration `022` about deploying code first), and at least one real account needs `update public.users set is_admin = true where email = '...'` run manually before AdminPanel will show any data again. Code has no service_role access available this session to run these directly — they're staged and waiting on the user.
+- ~~SQL not yet run against production~~ **Resolved in Session 11** — migrations `008`-`012`, `021`-`025` all applied directly to production via a pooler connection; both of the user's own `is_admin` accounts flipped `true`. See Session 11 notes above.
 - The `booking_ref` trigger itself (cosmetic now that nothing depends on the fallback, but still surprising behavior) and the orphaned `pets` table — both still open from Session 9, neither touched this session (would need DB introspection this session couldn't do without a service_role key).
 - `npm audit` (triggered by adding `cross-env`) reports 2 critical findings in `@capacitor/android`/`@capacitor/ios` (GHSA-rvm3-566m-v7fv, a remote-content-via-internal-HTTP-proxy issue, fixed in `@capacitor/*@8.4.3+`) — pre-existing, unrelated to anything changed this session, and specific to the not-yet-shipped mobile shells, not the deployed web app. Not acted on solo while the user was away; worth a deliberate look (and testing the iOS/Android build still works after bumping) rather than a blind `npm audit fix`.
 
