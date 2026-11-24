@@ -44,31 +44,41 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
       handler: async (response) => {
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          const updateQuery = booking && booking.id
-            ? supabase.from('bookings').update({ payment_id: response.razorpay_payment_id, payment_status: 'paid', status: 'confirmed' }).eq('id', booking.id)
-            : supabase.from('bookings').update({ payment_id: response.razorpay_payment_id, payment_status: 'paid', status: 'confirmed' }).eq('booking_ref', bookingRef);
-          await updateQuery;
+          // booking.id is always set by the time this screen is reached (see
+          // App.js's onPayNow) — a DB trigger overwrites booking_ref on
+          // insert anyway, so a ref-based fallback lookup could never work.
+          const { error: updateError } = await supabase
+            .from('bookings')
+            .update({ payment_id: response.razorpay_payment_id, payment_status: 'paid', status: 'confirmed' })
+            .eq('id', booking.id);
+          if (updateError) console.error('Could not update booking after payment:', updateError.message);
 
           // TIER 1: Send booking confirmation notifications
           try {
             const { data: bookingData } = await supabase
               .from('bookings')
-              .select('*, sitter_profiles(id, users(name, email, phone)), users(id, name, email, phone)')
-              .eq(booking?.id ? 'id' : 'booking_ref', booking?.id || bookingRef)
+              .select('*, sitter_profiles(id, users(name, id)), users(id, name)')
+              .eq('id', booking.id)
               .single();
 
             if (bookingData && user) {
+              const sitterUserId = bookingData.sitter_profiles?.users?.id;
+              const { data: sitterContact } = sitterUserId
+                ? await supabase.rpc('get_user_contact', { target_id: sitterUserId })
+                : { data: null };
+              const { data: parentContact } = await supabase.rpc('get_user_contact', { target_id: user.id });
+
               const { notifyBookingConfirmed } = await import('./notificationService');
               const cancellationDate = new Date(bookingData.booking_date);
               cancellationDate.setDate(cancellationDate.getDate() - 1);
 
               await notifyBookingConfirmed({
-                sitterId: bookingData.sitter_id,
-                sitterEmail: bookingData.sitter_profiles?.users?.email,
-                sitterPhone: bookingData.sitter_profiles?.users?.phone,
+                sitterId: sitterUserId, // notifications.user_id is a real users.id FK, not sitter_profiles.id
+                sitterEmail: sitterContact?.[0]?.email,
+                sitterPhone: sitterContact?.[0]?.phone,
                 petParentId: user.id,
-                petParentEmail: user.email,
-                petParentPhone: user.phone,
+                petParentEmail: parentContact?.[0]?.email || user.email,
+                petParentPhone: parentContact?.[0]?.phone,
                 petName: bookingData.pet_name,
                 sitterName: bookingData.sitter_profiles?.users?.name,
                 serviceType: bookingData.service_type,

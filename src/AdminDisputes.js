@@ -46,7 +46,7 @@ export default function AdminDisputes() {
     }
     setResolving(true);
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('disputes')
         .update({
           status: 'resolved',
@@ -56,6 +56,7 @@ export default function AdminDisputes() {
           resolved_at: new Date().toISOString(),
         })
         .eq('id', disputeId);
+      if (updateError) throw updateError;
 
       // TIER 2: Send dispute resolved notification
       try {
@@ -69,16 +70,17 @@ export default function AdminDisputes() {
           const reportedUserId = disputeData.reported_user_id;
           const { data: userData } = await supabase
             .from('users')
-            .select('email, phone, name')
+            .select('name')
             .eq('id', reportedUserId)
             .single();
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: reportedUserId });
 
           if (userData) {
             const { notifyDisputeResolved } = await import('./notificationService');
             await notifyDisputeResolved(
               reportedUserId,
-              userData.email,
-              userData.phone,
+              contact?.[0]?.email,
+              contact?.[0]?.phone,
               'Admin',
               resolution,
               refundAmount ? parseFloat(refundAmount) * 100 : 0

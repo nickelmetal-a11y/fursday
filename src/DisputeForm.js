@@ -26,12 +26,12 @@ export default function DisputeForm({ booking, sitterName, onClose, onDisputeFil
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: disputeData } = await supabase
+      const { error: disputeError } = await supabase
         .from('disputes')
         .insert({
           booking_id: booking.id,
           reported_user_id: booking.sitter_id,
-          reporter_id: user.id,
+          reported_by: user.id,
           dispute_type: disputeType,
           title,
           description,
@@ -40,21 +40,23 @@ export default function DisputeForm({ booking, sitterName, onClose, onDisputeFil
         })
         .select()
         .single();
+      if (disputeError) throw disputeError;
 
       // TIER 2: Send dispute filed notification to sitter
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(id, email, phone, name)')
+          .select('users(id, name)')
           .eq('id', booking.sitter_id)
           .single();
 
         if (sitterData?.users) {
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
           const { notifyDisputeFiled } = await import('./notificationService');
           await notifyDisputeFiled(
             sitterData.users.id,
-            sitterData.users.email,
-            sitterData.users.phone,
+            contact?.[0]?.email,
+            contact?.[0]?.phone,
             'Pet Parent',
             disputeType,
             title

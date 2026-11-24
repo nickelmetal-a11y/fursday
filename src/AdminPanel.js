@@ -27,6 +27,8 @@ export default function AdminPanel() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [adminChecked, setAdminChecked] = useState(false);
+  const [isRealAdmin, setIsRealAdmin] = useState(false);
   const [tab, setTab] = useState('pending');
   const [sitters, setSitters] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -44,9 +46,14 @@ export default function AdminPanel() {
     setLoading(true);
     const { data: s } = await supabase
       .from('sitter_profiles')
-      .select('*, users(name, phone, email), cities(name), sitter_services(service_type, price_paise)')
+      .select('*, users(name), cities(name), sitter_services(service_type, price_paise)')
       .order('created_at', { ascending: false });
-    setSitters(s || []);
+    const sittersWithContact = await Promise.all((s || []).map(async (sitter) => {
+      if (!sitter.users) return sitter;
+      const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitter.user_id });
+      return { ...sitter, users: { ...sitter.users, phone: contact?.[0]?.phone, email: contact?.[0]?.email } };
+    }));
+    setSitters(sittersWithContact);
     const { data: b } = await supabase
       .from('bookings')
       .select('*, cities(name)')
@@ -56,19 +63,37 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
-  useEffect(() => { if (authed) loadData(); }, [authed]);
+  // The password above is a client-side speed bump, not real auth (it's the
+  // same shared anon key as the rest of the app). The actual security
+  // boundary is RLS, which checks is_admin on whichever Supabase account is
+  // really logged into this browser (see migration 021) — so an admin also
+  // needs to be logged into the main app as an is_admin account, not just
+  // past this password screen, before any of these tables are readable.
+  useEffect(() => {
+    if (!authed) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setIsRealAdmin(false); setAdminChecked(true); return; }
+      const { data } = await supabase.from('users').select('is_admin').eq('id', user.id).single();
+      setIsRealAdmin(!!data?.is_admin);
+      setAdminChecked(true);
+    })();
+  }, [authed]);
+
+  useEffect(() => { if (authed && isRealAdmin) loadData(); }, [authed, isRealAdmin]);
 
   const notifyAdminAction = async (sitterId, actionType, details) => {
     try {
       const { data: sitterData } = await supabase
         .from('sitter_profiles')
-        .select('users(id, email, phone)')
+        .select('users(id)')
         .eq('id', sitterId)
         .single();
 
       if (sitterData?.users) {
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
         const { notifyAdminAction: notifyAction } = await import('./notificationService');
-        await notifyAction(sitterData.users.id, sitterData.users.email, sitterData.users.phone, actionType, details);
+        await notifyAction(sitterData.users.id, contact?.[0]?.email, contact?.[0]?.phone, actionType, details);
       }
     } catch(err) { console.error('Admin action notification failed:', err); }
   };
@@ -82,7 +107,7 @@ export default function AdminPanel() {
     try {
       const { data: sitterData } = await supabase
         .from('sitter_profiles')
-        .select('users(id, email, phone, name)')
+        .select('users(id, name)')
         .eq('id', id)
         .single();
 
@@ -110,15 +135,16 @@ export default function AdminPanel() {
     try {
       const { data: sitterData } = await supabase
         .from('sitter_profiles')
-        .select('users(id, email)')
+        .select('users(id)')
         .eq('id', id)
         .single();
 
       if (sitterData?.users) {
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
         const { notifySitterRejected } = await import('./notificationService');
         await notifySitterRejected(
           sitterData.users.id,
-          sitterData.users.email,
+          contact?.[0]?.email,
           'Application did not meet our standards. Please reapply with improvements.'
         );
       }
@@ -142,16 +168,17 @@ export default function AdminPanel() {
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(id, email, phone)')
+          .select('users(id)')
           .eq('id', id)
           .single();
 
         if (sitterData?.users) {
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
           const { notifySitterSuspended } = await import('./notificationService');
           await notifySitterSuspended(
             sitterData.users.id,
-            sitterData.users.email,
-            sitterData.users.phone,
+            contact?.[0]?.email,
+            contact?.[0]?.phone,
             'Your account has been suspended. Please contact support for details.'
           );
         }
@@ -177,16 +204,17 @@ export default function AdminPanel() {
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(id, email, phone)')
+          .select('users(id)')
           .eq('id', id)
           .single();
 
         if (sitterData?.users) {
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
           const { notifyTopSitterAwarded } = await import('./notificationService');
           await notifyTopSitterAwarded(
             sitterData.users.id,
-            sitterData.users.email,
-            sitterData.users.phone
+            contact?.[0]?.email,
+            contact?.[0]?.phone
           );
         }
       } catch(notifErr) { console.error('Top Sitter notification failed:', notifErr); }
@@ -216,16 +244,17 @@ export default function AdminPanel() {
       if (bookingData) {
         ({ data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(email, phone, name)')
+          .select('user_id, users(name)')
           .eq('id', bookingData.sitter_id)
           .single());
 
         if (sitterData?.users) {
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.user_id });
           const { notifyPayoutMarked } = await import('./notificationService');
           await notifyPayoutMarked(
-            bookingData.sitter_id,
-            sitterData.users.email,
-            sitterData.users.phone,
+            sitterData.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
+            contact?.[0]?.email,
+            contact?.[0]?.phone,
             amount * 100, // convert to paise
             1, // booking count
             new Date().toLocaleDateString('en-IN')
@@ -239,16 +268,19 @@ export default function AdminPanel() {
       const { data: referralBonus } = await supabase
         .from('referral_bonuses')
         .select('id, amount')
-        .eq('user_id', bookingData.sitter_id)
+        .eq('user_id', sitterData?.user_id) // referral_bonuses.user_id is a real users.id FK, not sitter_profiles.id
         .eq('status', 'pending')
         .single();
 
       if (referralBonus) {
+        const { data: contact } = sitterData?.user_id
+          ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
+          : { data: null };
         const { notifyReferralBonusPaid } = await import('./notificationService');
         await notifyReferralBonusPaid(
-          bookingData.sitter_id,
-          sitterData?.users?.email,
-          sitterData?.users?.phone,
+          sitterData?.user_id,
+          contact?.[0]?.email,
+          contact?.[0]?.phone,
           referralBonus.amount,
           'Someone'
         );
@@ -271,16 +303,17 @@ export default function AdminPanel() {
     try {
       const { data: sitterData } = await supabase
         .from('sitter_profiles')
-        .select('users(id, email, phone)')
+        .select('users(id)')
         .eq('id', sitterId)
         .single();
 
       if (sitterData?.users) {
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
         const { notifyPerformanceBadge } = await import('./notificationService');
         await notifyPerformanceBadge(
           sitterData.users.id,
-          sitterData.users.email,
-          sitterData.users.phone,
+          contact?.[0]?.email,
+          contact?.[0]?.phone,
           badgeType
         );
       }
@@ -309,6 +342,26 @@ export default function AdminPanel() {
       <button onClick={login}
         style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
         Sign in
+      </button>
+    </div>
+  );
+
+  if (!adminChecked) return (
+    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', fontFamily: 'sans-serif' }}>
+      Checking admin access...
+    </div>
+  );
+
+  if (!isRealAdmin) return (
+    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', fontFamily: 'sans-serif', textAlign: 'center' }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Not signed in as an admin</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24, lineHeight: 1.6 }}>
+        The password got you past the gate, but the database only trusts a real Fursday login marked as admin. Log into the main app with an admin account in this browser, then reload this page.
+      </div>
+      <button onClick={() => window.location.reload()}
+        style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+        Reload
       </button>
     </div>
   );

@@ -27,19 +27,22 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(name, email, phone), rating')
+          .select('user_id, users(name), rating')
           .eq('id', booking.sitter_id)
           .single();
 
         const { data: { user } } = await supabase.auth.getUser();
 
         if (sitterData && user) {
+          const { data: sitterContact } = sitterData.user_id
+            ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
+            : { data: null };
           const { notifyReviewReceived, notifyRatingUpdate } = await import('./notificationService');
 
           // Send review notification
           await notifyReviewReceived(
-            booking.sitter_id,
-            sitterData.users?.email,
+            sitterData.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
+            sitterContact?.[0]?.email,
             rating,
             user.user_metadata?.name || 'A pet parent',
             booking.pet_name,
@@ -49,8 +52,8 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
           // TIER 3: Send rating update notification with old vs new rating
           const oldRating = sitterData.rating || 5.0;
           await notifyRatingUpdate(
-            booking.sitter_id,
-            sitterData.users?.phone,
+            sitterData.user_id,
+            sitterContact?.[0]?.phone,
             oldRating,
             rating
           );

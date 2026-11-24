@@ -62,60 +62,33 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     setUnreadMessages(data || []);
   };
 
-  const cancelBooking = async (bookingId) => {
-    if (!window.confirm('Cancel this booking? The pet parent will be refunded.')) return;
-
-    // TIER 3: Get booking details before cancelling for notification
-    const { data: bookingData } = await supabase
-      .from('bookings')
-      .select('pet_parent_id, booking_date, pet_profiles(name), users(name, email, phone)')
-      .eq('id', bookingId)
-      .single();
-
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', bookingId);
-
-    if (error) alert('Error: ' + error.message);
-    else {
-      // TIER 3: Notify pet parent that sitter cancelled
-      if (bookingData?.pet_parent_id) {
-        try {
-          const { notifySitterUnavailable } = await import('./notificationService');
-          await notifySitterUnavailable(
-            bookingData.pet_parent_id,
-            bookingData.users?.email,
-            bookingData.users?.phone,
-            sitterProfile?.users?.name || 'Your sitter',
-            bookingData.booking_date
-          );
-        } catch(unavailErr) { console.error('Sitter unavailable notification failed:', unavailErr); }
-      }
-
-      alert('Booking cancelled. Pet parent will be refunded.');
-      loadData();
-    }
-  };
-
   const loadData = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
         .from('sitter_profiles')
-        .select('*, users(name, phone)')
+        .select('*, users(name)')
         .eq('user_id', user.id)
         .single();
+      if (profile) {
+        const { data: ownContact } = await supabase.rpc('get_user_contact', { target_id: user.id });
+        profile.users = { ...profile.users, phone: ownContact?.[0]?.phone, email: ownContact?.[0]?.email };
+      }
       setSitterProfile(profile);
 
       if (profile) {
         const { data: bkgs } = await supabase
           .from('bookings')
-          .select('*, users(name, phone)')
+          .select('*, users(name)')
           .eq('sitter_id', profile.id)
           .order('created_at', { ascending: false });
-        setBookings(bkgs || []);
+        const bkgsWithContact = await Promise.all((bkgs || []).map(async (b) => {
+          if (!b.pet_parent_id) return b;
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: b.pet_parent_id });
+          return { ...b, users: { ...b.users, phone: contact?.[0]?.phone, email: contact?.[0]?.email } };
+        }));
+        setBookings(bkgsWithContact);
 
         // Load open broadcast requests for this city
         const { data: reqs } = await supabase
@@ -201,7 +174,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     try {
       const { notifyWalkStarted } = await import('./notificationService');
       const { data: petData } = await supabase.from('pet_profiles').select('name').eq('id', booking.pet_id).single();
-      const { data: parentData } = await supabase.from('users').select('phone').eq('id', booking.pet_parent_id).single();
+      const { data: parentContact } = await supabase.rpc('get_user_contact', { target_id: booking.pet_parent_id });
+      const parentData = parentContact?.[0];
 
       await notifyWalkStarted(
         sitterProfile?.user_id,
@@ -223,7 +197,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     // TIER 2: Send walk completed notification to both parties
     try {
       const { notifyWalkCompleted } = await import('./notificationService');
-      const { data: parentData } = await supabase.from('users').select('email, phone').eq('id', booking.pet_parent_id).single();
+      const { data: parentContact } = await supabase.rpc('get_user_contact', { target_id: booking.pet_parent_id });
+      const parentData = parentContact?.[0];
       const { data: petData } = await supabase.from('pet_profiles').select('name').eq('id', booking.pet_id).single();
 
       await notifyWalkCompleted(

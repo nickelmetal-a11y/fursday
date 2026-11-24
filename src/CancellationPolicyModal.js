@@ -28,12 +28,12 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       // TIER 3: Calculate hours until refund deadline before cancelling
       const hoursUntilBooking = (new Date(booking.booking_date) - new Date()) / (1000 * 60 * 60);
 
-      // NOTE: production `bookings` has no cancelled_at/cancelled_by/refund_percentage/
-      // refund_amount columns, and there is no `refunds` table at all — refund percentage
-      // is computed above for display only and is not currently persisted anywhere.
       const { error } = await supabase.from('bookings').update({
         status: 'cancelled',
         cancellation_reason: reason,
+        cancelled_at: new Date().toISOString(),
+        refund_percentage: refund.percentage,
+        refund_amount_paise: Math.round(refundAmount * 100),
       }).eq('id', booking.id);
       if (error) {
         alert('Could not cancel booking: ' + error.message);
@@ -59,11 +59,14 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       try {
         const { data: sitterData } = await supabase
           .from('sitter_profiles')
-          .select('users(name, email, phone)')
+          .select('user_id, users(name)')
           .eq('id', booking.sitter_id)
           .single();
 
         if (user && sitterData) {
+          const { data: sitterContact } = sitterData.user_id
+            ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
+            : { data: null };
           const { notifyBookingCancelled } = await import('./notificationService');
 
           // Notify pet parent
@@ -80,9 +83,9 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
 
           // Notify sitter
           await notifyBookingCancelled({
-            userId: booking.sitter_id,
-            userEmail: sitterData.users?.email,
-            userPhone: sitterData.users?.phone,
+            userId: sitterData.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
+            userEmail: sitterContact?.[0]?.email,
+            userPhone: sitterContact?.[0]?.phone,
             otherUserName: user.user_metadata?.name || 'A customer',
             reason: reason,
             refundAmount: 0,

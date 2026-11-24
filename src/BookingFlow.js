@@ -176,11 +176,14 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
       const isHotMonth = [4, 5, 6, 7, 8, 9].includes(bookingDate.getMonth() + 1);
       if (isHotMonth && isWalker) {
         try {
-          const { data: sitterData } = await supabase.from('sitter_profiles').select('users(phone)').eq('id', sitter?.id).single();
+          const { data: sitterData } = await supabase.from('sitter_profiles').select('user_id').eq('id', sitter?.id).single();
+          const { data: sitterContact } = sitterData?.user_id
+            ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
+            : { data: null };
           const { notifyHeatAdvisory } = await import('./notificationService');
           await notifyHeatAdvisory(
-            sitter?.id,
-            sitterData?.users?.phone,
+            sitterData?.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
+            sitterContact?.[0]?.phone,
             user?.id,
             user?.phone,
             pet?.name || 'Your pet',
@@ -189,16 +192,6 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         } catch(heatErr) { console.error('Heat advisory notification failed:', heatErr); }
       }
 
-      // TIER 3: Create notification job for response timeout (1 hour expiry)
-      try {
-        const timeoutTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
-        await supabase.from('notification_jobs').insert({
-          job_type: 'response_timeout',
-          booking_id: ref,
-          scheduled_for: timeoutTime.toISOString(),
-          status: 'pending'
-        });
-      } catch(timeoutErr) { console.error('Timeout job creation failed:', timeoutErr); }
     } catch(e) {
       console.error('Booking save error:', e);
       alert('Could not create booking. Please try again.');
