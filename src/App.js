@@ -289,13 +289,15 @@ export default function App() {
   const sendBookingEmail = async (booking) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: parentRow } = await supabase.from('users').select('name,email').eq('id', user?.id).single();
+      const { data: parentRow } = await supabase.from('users').select('name').eq('id', user?.id).single();
+      const { data: ownContact } = await supabase.rpc('get_user_contact', { target_id: user?.id });
+      const parentEmail = ownContact?.[0]?.email;
       let sitterName = '', sitterEmail = '';
       if (booking.sitter_id) {
-        const { data: sp } = await supabase.from('sitter_profiles').select('user_id').eq('id', booking.sitter_id).single();
+        const { data: sp } = await supabase.from('sitter_profiles').select('user_id, users(name)').eq('id', booking.sitter_id).single();
         if (sp?.user_id) {
-          const { data: su } = await supabase.from('users').select('name,email').eq('id', sp.user_id).single();
-          sitterName = su?.name || ''; sitterEmail = su?.email || '';
+          const { data: sitterContact } = await supabase.rpc('get_user_contact', { target_id: sp.user_id });
+          sitterName = sp.users?.name || ''; sitterEmail = sitterContact?.[0]?.email || '';
         }
       }
       const { data: full } = await supabase.from('bookings').select('*').eq('id', booking.id).single();
@@ -307,7 +309,7 @@ export default function App() {
           booking_ref: full?.booking_ref, service_type: full?.service_type,
           scheduled_date: full?.booking_date, scheduled_time: full?.time_slot,
           end_date: full?.end_date, gross_amount_paise: full?.gross_amount_paise, start_otp: full?.start_otp,
-          parent_name: parentRow?.name, parent_email: parentRow?.email,
+          parent_name: parentRow?.name, parent_email: parentEmail,
           sitter_name: sitterName, sitter_email: sitterEmail,
         }),
       });

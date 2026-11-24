@@ -34,13 +34,12 @@ export default function SettingsScreen({ onBack, city, userName }) {
       setUserNameEdit(userName || '');
 
       if (user) {
-        const { data } = await supabase.from('users').select('phone, created_at').eq('id', user.id).single();
-        if (data) {
-          setUserPhone(data.phone || '');
-          if (data.created_at) {
-            setMemberSince(new Date(data.created_at).toLocaleDateString());
-          }
+        const { data } = await supabase.from('users').select('created_at').eq('id', user.id).single();
+        if (data?.created_at) {
+          setMemberSince(new Date(data.created_at).toLocaleDateString());
         }
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: user.id });
+        setUserPhone(contact?.[0]?.phone || '');
 
         const { data: bookings } = await supabase.from('bookings').select('id').eq('pet_parent_id', user.id);
         setBookingCount(bookings?.length || 0);

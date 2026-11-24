@@ -35,6 +35,15 @@ as $$
         where (b.pet_parent_id = auth.uid() and target_id = sp.user_id)
            or (sp.user_id = auth.uid() and target_id = b.pet_parent_id)
       )
+      -- A pet parent also needs to see the phone of a sitter who has bid on
+      -- their open broadcast request (BroadcastRequest.js), before any
+      -- actual booking exists yet to satisfy the check above.
+      or exists (
+        select 1 from public.broadcast_responses br
+        join public.broadcast_requests req on req.id = br.request_id
+        join public.sitter_profiles sp on sp.id = br.sitter_id
+        where req.pet_parent_id = auth.uid() and sp.user_id = target_id
+      )
     );
 $$;
 

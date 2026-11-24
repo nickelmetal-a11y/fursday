@@ -81,10 +81,16 @@ export default function BroadcastRequest({ onBack, city, onSitterAccepted }) {
       setLoadingResponses(true);
       const { data } = await supabase
         .from('broadcast_responses')
-        .select('*, sitter_profiles(*, users(name, phone))')
+        .select('*, sitter_profiles(*, users(name))')
         .eq('request_id', requestId)
         .eq('status', 'accepted');
-      setResponses(data || []);
+      const dataWithContact = await Promise.all((data || []).map(async (r) => {
+        const sitterUserId = r.sitter_profiles?.user_id;
+        if (!sitterUserId) return r;
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterUserId });
+        return { ...r, sitter_profiles: { ...r.sitter_profiles, users: { ...r.sitter_profiles.users, phone: contact?.[0]?.phone } } };
+      }));
+      setResponses(dataWithContact);
       setLoadingResponses(false);
     };
     loadResponses();

@@ -9,6 +9,11 @@ jest.mock('./supabase', () => ({
       signOut: jest.fn(),
     },
     from: jest.fn(),
+    // Plain function, not jest.fn().mockResolvedValue(...) — CRA's jest
+    // config sets resetMocks:true, which wipes a mockResolvedValue set
+    // inside this factory after the first test in the file; every later
+    // test would get `undefined` back instead of the canned response.
+    rpc: () => Promise.resolve({ data: [{ phone: '+91-9876543210', email: null }], error: null }),
   },
 }));
 
@@ -28,6 +33,10 @@ describe('SettingsScreen - App Store Ready', () => {
     supabase.auth.getUser.mockResolvedValue({
       data: { user: mockUser },
     });
+    // supabase.rpc is a plain function (see note above), not a jest.fn(), so
+    // jest.clearAllMocks() won't reset a test-local override of it back to
+    // this default — restore it explicitly before every test.
+    supabase.rpc = () => Promise.resolve({ data: [{ phone: '+91-9876543210', email: null }], error: null });
     supabase.from.mockImplementation((table) => {
       if (table === 'notification_preferences') {
         return {
@@ -108,15 +117,7 @@ describe('SettingsScreen - App Store Ready', () => {
   });
 
   test('shows "Not added" when phone is missing', async () => {
-    supabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { phone: null },
-          }),
-        }),
-      }),
-    });
+    supabase.rpc = () => Promise.resolve({ data: [{ phone: null, email: null }], error: null });
 
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 

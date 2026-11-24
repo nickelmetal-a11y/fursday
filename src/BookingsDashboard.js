@@ -102,10 +102,16 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     if (user) {
       const { data } = await supabase
         .from('bookings')
-        .select('*, sitter_profiles(id, user_id, users(name, phone), rating, total_bookings)')
+        .select('*, sitter_profiles(id, user_id, users(name), rating, total_bookings)')
         .eq('pet_parent_id', user.id)
         .order('created_at', { ascending: false });
-      setBookings(data || []);
+      const dataWithContact = await Promise.all((data || []).map(async (b) => {
+        const sitterUserId = b.sitter_profiles?.user_id;
+        if (!sitterUserId) return b;
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterUserId });
+        return { ...b, sitter_profiles: { ...b.sitter_profiles, users: { ...b.sitter_profiles.users, phone: contact?.[0]?.phone } } };
+      }));
+      setBookings(dataWithContact);
 
       // TIER 3: Check for no-shows (confirmed booking past scheduled time, still active)
       if (data) {

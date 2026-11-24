@@ -70,7 +70,7 @@ export default function SitterEditProfile({ onBack, city }) {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data: profile } = await supabase.from('sitter_profiles').select('*, users(name, phone)').eq('user_id', user.id).single();
+    const { data: profile } = await supabase.from('sitter_profiles').select('*, users(name)').eq('user_id', user.id).single();
     if (profile) {
       setSitterProfile(profile);
       setBio(profile.bio || '');
