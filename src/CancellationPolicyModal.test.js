@@ -114,9 +114,9 @@ describe('CancellationPolicyModal - refund tiers', () => {
     expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument();
   });
 
-  // UT-CAN-09. Production `bookings` has no refund_percentage/refund_amount
-  // columns and there is no `refunds` table — the modal only persists the
-  // status change and reason; the refund % shown is display-only.
+  // UT-CAN-09. bookings.cancelled_at/refund_percentage/refund_amount_paise
+  // (migration 014, safety-netted by 023) back the displayed refund tier —
+  // this must actually get written, not just shown.
   test('confirming cancellation writes exactly one bookings update with the right fields', async () => {
     render(
       <CancellationPolicyModal
@@ -134,7 +134,10 @@ describe('CancellationPolicyModal - refund tiers', () => {
     expect(updateCalls[0]).toMatchObject({
       status: 'cancelled',
       cancellation_reason: 'Change of plans',
+      refund_percentage: 75,
+      refund_amount_paise: 26175, // 349 * 0.75 = 261.75 -> paise, rounded
     });
+    expect(typeof updateCalls[0].cancelled_at).toBe('string');
 
     await waitFor(() => expect(onCancelled).toHaveBeenCalled());
     expect(onClose).toHaveBeenCalled();

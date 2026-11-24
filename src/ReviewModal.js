@@ -98,7 +98,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
         )}
 
         {/* Review text */}
-        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder="Tell other pet parents about your experience... (optional)"
+        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder="Tell other pet parents about your experience... (min. 10 characters)"
           style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, resize:'none', minHeight:80, fontFamily:'inherit', boxSizing:'border-box', marginBottom:12, outline:'none' }} />
         <div style={{ fontSize:11, color:'#AAA', marginBottom:16 }}>{reviewText.length}/500</div>
 
