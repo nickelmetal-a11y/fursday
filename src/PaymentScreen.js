@@ -225,7 +225,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
             { label: 'Service', val: serviceName },
             { label: 'Booking ref', val: bookingRef },
             
-            { label: 'Platform fee', val: 'Rs.0 (pilot offer)' },
+            { label: 'Platform fee', val: 'Rs.0' },
           ].map((x, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 3 ? '1px solid #F5F5F5' : 'none' }}>
               <span style={{ fontSize: 13, color: '#888' }}>{x.label}</span>

@@ -224,6 +224,13 @@ export default function AdminPanel() {
     loadData();
   };
 
+  const toggleFoundingSitter = async (id, current) => {
+    const { error } = await supabase.from('sitter_profiles').update({ is_founding_sitter: !current }).eq('id', id);
+    if (error) { alert('Could not update: ' + error.message); return; }
+    showMsg(current ? 'Founding Sitter perk removed' : 'Founding Sitter perk granted — 0% commission 🎉');
+    loadData();
+  };
+
   const markPayoutPaid = async (id, amount) => {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', id);
@@ -323,12 +330,18 @@ export default function AdminPanel() {
     loadData();
   };
 
+  // Flat 15% commission for everyone (TermsAndConditions.js #7), except the
+  // first 20 launch sitters an admin has marked "Founding Sitter" — they pay
+  // 0% until an admin turns it back off (see migration 025).
+  const sitterRate = (sitterId) => sitters.find(s => s.id === sitterId)?.is_founding_sitter ? 1 : 0.85;
+  const foundingSitterCount = sitters.filter(s => s.is_founding_sitter).length;
+
   const pendingSitters = sitters.filter(s => s.status === 'pending');
   const activeSitters = sitters.filter(s => s.status === 'active');
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const unpaidPayouts = completedBookings.filter(b => b.payout_status !== 'paid');
   const totalGMV = completedBookings.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
-  const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * 0.85, 0);
+  const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * sitterRate(b.sitter_id), 0);
 
   if (!authed) return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', fontFamily: 'sans-serif' }}>
@@ -467,6 +480,9 @@ export default function AdminPanel() {
 
         {!loading && tab === 'sitters' && (
           <div>
+            <div style={{ background: foundingSitterCount >= 20 ? '#FCEBEB' : '#FFF0EB', borderRadius: 12, padding: '10px 14px', marginBottom: 12, fontSize: 12, fontWeight: 600, color: foundingSitterCount >= 20 ? '#A32D2D' : ORANGE }}>
+              🎉 Founding Sitters (0% commission): {foundingSitterCount}/20{foundingSitterCount >= 20 ? ' — batch full' : ''}
+            </div>
             {sitters.map(s => (
               <div key={s.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -474,6 +490,7 @@ export default function AdminPanel() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{s.users?.name || 'Unknown'}</div>
                       {s.is_top_sitter && <span style={{ fontSize: 10, background: '#FFF9C4', color: '#E65100', borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>⭐ TOP</span>}
+                      {s.is_founding_sitter && <span style={{ fontSize: 10, background: '#FFF0EB', color: ORANGE, borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>🎉 FOUNDING</span>}
                     </div>
                     <div style={{ fontSize: 12, color: '#888' }}>{s.users?.phone} · {s.cities?.name}</div>
                     <div style={{ fontSize: 11, color: '#AAA', marginTop: 2 }}>{s.total_bookings || 0} bookings · UPI: {s.upi_id || 'not set'}</div>
@@ -493,6 +510,11 @@ export default function AdminPanel() {
                       {s.status === 'suspended' ? <><PlayCircle size={12} /> Reinstate</> : <><PauseCircle size={12} /> Suspend</>}
                     </button>
                   )}
+                  <button onClick={() => toggleFoundingSitter(s.id, s.is_founding_sitter)}
+                    disabled={!s.is_founding_sitter && foundingSitterCount >= 20}
+                    style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: s.is_founding_sitter ? '#FFE0CC' : '#F5F5F5', color: s.is_founding_sitter ? ORANGE : (!s.is_founding_sitter && foundingSitterCount >= 20) ? '#CCC' : '#888', fontSize: 12, fontWeight: 600, cursor: (!s.is_founding_sitter && foundingSitterCount >= 20) ? 'not-allowed' : 'pointer' }}>
+                    {s.is_founding_sitter ? '🎉 Remove Founding (0% comm.)' : 'Make Founding Sitter'}
+                  </button>
                   <button onClick={() => toggleTopSitter(s.id, s.is_top_sitter)}
                     style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: s.is_top_sitter ? '#FFF9C4' : '#F5F5F5', color: s.is_top_sitter ? '#E65100' : '#888', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Award size={12} /> {s.is_top_sitter ? 'Remove Top Badge' : 'Give Top Badge'}
@@ -524,27 +546,31 @@ export default function AdminPanel() {
             <div style={{ background: '#FFF3E0', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#E65100' }}>{unpaidPayouts.length} payouts pending</div>
-                <div style={{ fontSize: 12, color: '#888' }}>Total due to sitters (85%)</div>
+                <div style={{ fontSize: 12, color: '#888' }}>Total due to sitters</div>
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#E65100' }}>Rs.{Math.round(totalPayoutsDue).toLocaleString('en-IN')}</div>
             </div>
             {unpaidPayouts.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>All payouts up to date ✓</div>}
-            {unpaidPayouts.map(b => (
+            {unpaidPayouts.map(b => {
+              const netAmount = Math.round((b.gross_amount_paise || 0) / 100 * sitterRate(b.sitter_id));
+              const isFounding = sitters.find(s => s.id === b.sitter_id)?.is_founding_sitter;
+              return (
               <div key={b.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{b.booking_ref}</div>
                     <div style={{ fontSize: 12, color: '#888' }}>{b.service_type} · Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
-                    <div style={{ fontSize: 11, color: '#2E7D32', fontWeight: 600 }}>Sitter gets: Rs.{Math.round((b.gross_amount_paise || 0) / 100 * 0.85)}</div>
+                    <div style={{ fontSize: 11, color: '#2E7D32', fontWeight: 600 }}>Sitter gets: Rs.{netAmount}{isFounding ? ' (Founding — 0% commission)' : ''}</div>
                   </div>
-                  <button onClick={() => markPayoutPaid(b.id, Math.round((b.gross_amount_paise || 0) / 100))}
+                  <button onClick={() => markPayoutPaid(b.id, netAmount)}
                     style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     Mark paid
                   </button>
                 </div>
                 <div style={{ fontSize: 11, color: '#AAA' }}>{new Date(b.created_at).toLocaleDateString('en-IN')}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

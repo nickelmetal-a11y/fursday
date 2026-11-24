@@ -13,7 +13,7 @@ const SECTIONS = [
   },
   {
     title: '2. Payments and escrow',
-    content: "All payments are collected by Fursday via Razorpay on behalf of the Sitter. Funds are held by Fursday until the service is marked as completed. Fursday releases the Sitter share within 48 hours of service completion. During the pilot phase, Fursday charges 0% platform commission. Post-pilot, Fursday charges 15% commission on the gross booking value, deducted before payout to the Sitter. Razorpay charges a 2.36% payment processing fee which is absorbed by Fursday during the pilot phase.",
+    content: "All payments are collected by Fursday via Razorpay on behalf of the Sitter. Funds are held by Fursday until the service is marked as completed. Fursday releases the Sitter share within 48 hours of service completion. Fursday charges a flat 15% commission on the gross booking value, deducted before payout to the Sitter — Sitters receive 85% of every booking. Razorpay's payment processing fee is absorbed by Fursday.",
   },
   {
     title: '3. Cancellation and refund policy',
@@ -33,7 +33,7 @@ const SECTIONS = [
   },
   {
     title: '7. Platform commission and pricing',
-    content: "During the pilot phase, Fursday charges 0% commission. Sitters receive 100% of the booking value net of payment processing fees. Post-pilot phase, announced with 30 days notice, Fursday will charge 15% commission on the gross booking value. Sitters will receive 85% of the booking value. Fursday reserves the right to change commission rates with 30 days advance notice to all Sitters.",
+    content: "Fursday charges a flat 15% commission on the gross booking value. Sitters receive 85% of the booking value on every completed service — this rate is shown the same way everywhere in the app, with no hidden deductions. Fursday reserves the right to change commission rates with 30 days advance notice to all Sitters.",
   },
   {
     title: '8. Dispute resolution',

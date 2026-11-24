@@ -526,7 +526,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
               {[
                 { label:service.name, val:'Rs.'+service.price },
                 getPriceAdjustment()>0?{ label:'Size/needs adjustment', val:'+Rs.'+getPriceAdjustment() }:null,
-                { label:'Platform fee', val:'Rs.0', note:'Pilot offer' },
+                { label:'Platform fee', val:'Rs.0' },
                               ].filter(Boolean).map((item,i,arr) => (
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:i<arr.length-1?'1px solid #F5F5F5':'none' }}>
                   <div>

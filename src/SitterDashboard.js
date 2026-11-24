@@ -3,7 +3,8 @@ import { CheckCircle, Clock, MapPin, Phone, Star, Calendar, Home, User, Search }
 import { supabase } from './supabase';
 import PhotoUploadModal from './PhotoUploadModal';
 import SitterEarningsDashboard from './SitterEarningsDashboard';
-import { useSupportContact, openWhatsAppSupport } from './supportContact';
+import { useSupportContact, openWhatsAppSupport, callSupport } from './supportContact';
+import { useLanguage } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -36,7 +37,8 @@ const STATUS_COLORS = {
 
 export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile }) {
   const t = THEMES[city] || THEMES.Gurgaon;
-  const { whatsapp: supportWa } = useSupportContact();
+  const { whatsapp: supportWa, phone: supportPhone } = useSupportContact();
+  const { lang, setLang, t: tr } = useLanguage();
   const [tab, setTab] = useState('new');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -263,13 +265,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           {b.status === 'pending' && (
             <div style={{ marginTop: 8, background: t.light, borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: t.primary }} />
-              <span style={{ fontSize: 12, color: t.primary, fontWeight: 600 }}>New booking request — respond within 1 hour</span>
+              <span style={{ fontSize: 12, color: t.primary, fontWeight: 600 }}>{tr('newBookingBanner')}</span>
             </div>
           )}
           {b.status === 'active' && (
             <div style={{ marginTop: 8, background: '#E8F5E9', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: '#2E7D32' }} />
-              <span style={{ fontSize: 12, color: '#2E7D32', fontWeight: 600 }}>Walk in progress</span>
+              <span style={{ fontSize: 12, color: '#2E7D32', fontWeight: 600 }}>{tr('walkInProgress')}</span>
             </div>
           )}
         </div>
@@ -277,12 +279,12 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b); }}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: 'none', background: t.light, color: t.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                <span>💬</span> Message
+                <span>💬</span> {tr('message')}
               </button>
               {b.users?.phone && (
                 <a onClick={(e) => e.stopPropagation()} href={'tel:' + b.users.phone}
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                  <Phone size={14} /> Call
+                  <Phone size={14} /> {tr('call')}
                 </a>
               )}
             </div>
@@ -290,11 +292,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button onClick={() => acceptBooking(b.id)}
                   style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  Accept ✓
+                  {tr('accept')} ✓
                 </button>
                 <button onClick={() => declineBooking(b.id)}
                   style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                  Decline
+                  {tr('decline')}
                 </button>
               </div>
             )}
@@ -303,43 +305,49 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 <div style={{ display:'flex', gap:8, marginBottom:12 }}>
                   <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrivalStatus[b.id]}
                     style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid '+t.primary, background:arrivalStatus[b.id]==='on_way'?t.primary:'white', color:arrivalStatus[b.id]==='on_way'?'white':t.primary, fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]?'default':'pointer' }}>
-                    🚶 On my way
+                    🚶 {tr('onMyWay')}
                   </button>
                   <button onClick={() => markArrival(b, 'arrived')} disabled={arrivalStatus[b.id]==='arrived'}
                     style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid #2E7D32', background:arrivalStatus[b.id]==='arrived'?'#2E7D32':'white', color:arrivalStatus[b.id]==='arrived'?'white':'#2E7D32', fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]==='arrived'?'default':'pointer' }}>
-                    📍 Arrived
+                    📍 {tr('arrived')}
                   </button>
                 </div>
                 <div style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>
-                  {['boarding','daycare'].includes(b.service_type) ? 'Enter drop-off OTP to start' : 'Enter OTP to start the walk'}
+                  {['boarding','daycare'].includes(b.service_type) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk')}
                 </div>
-                <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>Ask {b.users?.name || 'the pet parent'} for the 4-digit code shown in their app.</div>
+                <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>{tr('otpHint', { name: b.users?.name || 'the pet parent' })}</div>
                 <div style={{ display:'flex', gap:8 }}>
                   <input value={otpEntry[b.id] || ''} onChange={e => setOtpEntry({ ...otpEntry, [b.id]: e.target.value.replace(/\D/g,'').slice(0,4) })}
                     placeholder="0000" inputMode="numeric" maxLength={4}
                     style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:18, letterSpacing:6, textAlign:'center', outline:'none', boxSizing:'border-box' }} />
                   <button onClick={() => verifyStartOtp(b)}
-                    style={{ padding:'0 20px', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>Start</button>
+                    style={{ padding:'0 20px', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>{tr('start')}</button>
                 </div>
                 {otpError[b.id] && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{otpError[b.id]}</div>}
               </div>
             )}
             {b.status === 'active' && (
               <div style={{ marginTop:10 }}>
+                {(supportPhone || supportWa) && (
+                  <button onClick={(e) => { e.stopPropagation(); supportPhone ? callSupport(supportPhone) : openWhatsAppSupport(supportWa, 'SOS: I need help during an active booking'); }}
+                    style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'none', background:'#C62828', color:'white', fontSize:13, fontWeight:700, cursor:'pointer', marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    {tr('sos')}
+                  </button>
+                )}
                 {['boarding','daycare'].includes(b.service_type) ? (
                   <div style={{ background:'#E8F5E9', borderRadius:12, padding:'12px 14px' }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'#1B5E20', marginBottom:6 }}>Show pick-up OTP to pet parent</div>
-                    <div style={{ fontSize:11, color:'#388E3C', marginBottom:8 }}>When {b.users?.name || 'the parent'} collects their dog, show them this code.</div>
+                    <div style={{ fontSize:12, fontWeight:600, color:'#1B5E20', marginBottom:6 }}>{tr('pickupOtpTitle')}</div>
+                    <div style={{ fontSize:11, color:'#388E3C', marginBottom:8 }}>{tr('pickupOtpHint', { name: b.users?.name || 'the parent' })}</div>
                     <div style={{ background:'white', borderRadius:10, padding:'10px', textAlign:'center', fontSize:26, fontWeight:800, letterSpacing:8, color:'#2E7D32', marginBottom:8 }}>{b.end_otp || '----'}</div>
                     <button onClick={() => completeWithOtp(b)}
                       style={{ width:'100%', padding:'10px 0', borderRadius:10, border:'none', background:'#2E7D32', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                      Parent collected the dog ✓
+                      {tr('parentCollected')}
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => completeWithOtp(b)}
                     style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#2E7D32', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-                    Complete walk ✓
+                    {tr('completeWalk')}
                   </button>
                 )}
               </div>
@@ -348,13 +356,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div style={{ marginTop:10 }}>
                 <button onClick={() => setUploadingPhotosFor(b)}
                   style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#2196F3', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-                  📸 Upload walk photos
+                  {tr('uploadPhotos')}
                 </button>
               </div>
             )}
             {b.status === 'completed' && b.sitter_uploaded_photos && (
               <div style={{ marginTop:10, background:'#E8F5E9', borderRadius:12, padding:'10px 14px', textAlign:'center' }}>
-                <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>✅ Photos uploaded</span>
+                <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>{tr('photosUploaded')}</span>
               </div>
             )}
             {isOpen && (
@@ -386,11 +394,16 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
       <div style={{ background:'#0f0f1a', padding:'48px 16px 16px' }}>
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+          <div onClick={() => setLang(lang === 'hi' ? 'en' : 'hi')} style={{ background:'rgba(255,255,255,0.1)', borderRadius:20, padding:'4px 10px', fontSize:11, fontWeight:700, color:'white', cursor:'pointer' }}>
+            {lang === 'hi' ? 'English' : 'हिन्दी'}
+          </div>
+        </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <div>
-            <div style={{ color:'white', fontSize:18, fontWeight:700 }}>Hi, {sitterProfile?.users?.name?.split(' ')[0] || 'there'} 👋</div>
+            <div style={{ color:'white', fontSize:18, fontWeight:700 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || 'there'} 👋</div>
             <div style={{ color:sitterProfile?.status==='active'?'#4CAF50':'#FFC107', fontSize:11, fontWeight:500, marginTop:2 }}>
-              {sitterProfile?.status==='active'?'● You are live':'○ Pending approval'}
+              {sitterProfile?.status==='active'?tr('live'):tr('pendingApproval')}
             </div>
           </div>
           <div style={{ background:'#FF6B35', borderRadius:20, padding:'4px 12px', fontSize:11, color:'white', fontWeight:700 }}>
@@ -398,13 +411,18 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           </div>
         </div>
         <div style={{ textAlign:'center', marginBottom:12 }}>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', marginBottom:3 }}>This month so far</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', marginBottom:3 }}>{tr('thisMonth')}</div>
           <div style={{ fontSize:32, fontWeight:800, color:'#FF6B35' }}>Rs.{totalEarnings.toLocaleString('en-IN')}</div>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2 }}>Payout on 5th of next month</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2 }}>{tr('payoutNote')}</div>
         </div>
-        {(() => { const w=bookings.filter(b=>b.status==='completed').length; const tiers=[{max:25,next:'Silver',comm:12},{max:75,next:'Gold',comm:10},{max:150,next:'Platinum',comm:5},{max:300,next:'Elite',comm:0}]; const tier=tiers.find(t=>w<t.max); const prev=tiers[tiers.indexOf(tier)-1]; const pMin=prev?prev.max:0; const pct=tier?Math.min(100,Math.round((w-pMin)/(tier.max-pMin)*100)):100; return (<div style={{ marginBottom:14 }}><div style={{ background:'rgba(255,255,255,0.1)', borderRadius:4, height:6, marginBottom:5 }}><div style={{ width:pct+'%', background:'#FF6B35', borderRadius:4, height:6 }} /></div>{tier?<div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textAlign:'right' }}>{tier.max-w} more walks → {tier.next} ({tier.comm}% commission)</div>:<div style={{ fontSize:10, color:'#FF6B35', textAlign:'center', fontWeight:600 }}>Elite Pro — 0% commission 🎉</div>}</div>); })()}
+        {/* Status badges only (Bronze/Silver/Gold/.../Elite Pro) — these are
+            recognition tiers, not commission tiers. Fursday charges a flat
+            15% commission on every booking regardless of tier; see
+            TermsAndConditions.js #7. A commission reduction promise doesn't
+            belong here unless it's actually wired to payout math. */}
+        {(() => { const w=bookings.filter(b=>b.status==='completed').length; const tiers=[{max:25,next:'Silver Pro 🥈'},{max:75,next:'Gold Pro 🥇'},{max:150,next:'Platinum Pro 🥈'},{max:300,next:'Elite Pro 🏆'}]; const tier=tiers.find(t=>w<t.max); const prev=tiers[tiers.indexOf(tier)-1]; const pMin=prev?prev.max:0; const pct=tier?Math.min(100,Math.round((w-pMin)/(tier.max-pMin)*100)):100; return (<div style={{ marginBottom:14 }}><div style={{ background:'rgba(255,255,255,0.1)', borderRadius:4, height:6, marginBottom:5 }}><div style={{ width:pct+'%', background:'#FF6B35', borderRadius:4, height:6 }} /></div>{tier?<div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textAlign:'right' }}>{tier.max-w} more walks → {tier.next}</div>:<div style={{ fontSize:10, color:'#FF6B35', textAlign:'center', fontWeight:600 }}>Elite Pro — top tier 🎉</div>}</div>); })()}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
-          {[{label:'New requests',val:newBookings.length},{label:'Your rating',val:(sitterProfile?.rating||5.0).toFixed(1)+' ⭐'},{label:'Total walks',val:bookings.filter(b=>b.status==='completed').length}].map((s,i) => (
+          {[{label:tr('newRequests'),val:newBookings.length},{label:tr('yourRating'),val:(sitterProfile?.rating||5.0).toFixed(1)+' ⭐'},{label:tr('totalWalks'),val:bookings.filter(b=>b.status==='completed').length}].map((s,i) => (
             <div key={i} style={{ background:'rgba(255,255,255,0.07)', borderRadius:10, padding:'8px 6px', textAlign:'center' }}>
               <div style={{ fontSize:16, fontWeight:700, color:'white' }}>{s.val}</div>
               <div style={{ fontSize:9, color:'rgba(255,255,255,0.4)', marginTop:2, lineHeight:1.3 }}>{s.label}</div>
@@ -426,11 +444,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         )}
         <div style={{ background: 'white', borderRadius: 14, padding: 4, display: 'flex', gap: 4, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {[
-            { id: 'new', label: 'New (' + newBookings.length + ')' },
+            { id: 'new', label: tr('tabNew') + ' (' + newBookings.length + ')' },
             { id: 'requests', label: '📢 ' + broadcastRequests.length },
-            { id: 'upcoming', label: 'Upcoming' },
-            { id: 'active', label: 'Active' },
-            { id: 'past', label: 'Past' },
+            { id: 'upcoming', label: tr('tabUpcoming') },
+            { id: 'active', label: tr('tabActive') },
+            { id: 'past', label: tr('tabPast') },
           ].map(tb => (
             <button key={tb.id} onClick={() => setTab(tb.id)}
               style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', background: tab === tb.id ? t.primary : 'transparent', color: tab === tb.id ? 'white' : '#888', fontSize: 12, fontWeight: tab === tb.id ? 700 : 400, cursor: 'pointer' }}>
@@ -462,7 +480,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         {loading && (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <div style={{ fontSize: 32 }}>🐾</div>
-            <div style={{ fontSize: 14, color: '#888', marginTop: 8 }}>Loading your jobs...</div>
+            <div style={{ fontSize: 14, color: '#888', marginTop: 8 }}>{tr('loadingJobs')}</div>
           </div>
         )}
 
@@ -472,10 +490,10 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               {tab === 'new' ? '📋' : tab === 'upcoming' ? '📅' : tab === 'active' ? '🦮' : '✅'}
             </div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#1a1a1a', marginBottom: 6 }}>
-              {tab === 'new' ? 'No new requests' : tab === 'upcoming' ? 'No upcoming jobs' : tab === 'active' ? 'No active walks' : 'No past jobs'}
+              {tab === 'new' ? tr('noNewRequests') : tab === 'upcoming' ? tr('noUpcomingJobs') : tab === 'active' ? tr('noActiveWalks') : tr('noPastJobs')}
             </div>
             <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6 }}>
-              {tab === 'new' ? 'New booking requests will appear here. Make sure your profile is live!' : 'Your confirmed bookings will appear here.'}
+              {tab === 'new' ? tr('newRequestHint') : tr('confirmedHint')}
             </div>
           </div>
         )}
@@ -483,13 +501,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         {tab === 'requests' && (
           <div>
             <div style={{ fontSize:13, color:'#888', marginBottom:12, lineHeight:1.5 }}>
-              Open requests from pet parents near you. Accept to let them know you are available.
+              {tr('openRequestsHint')}
             </div>
             {broadcastRequests.length === 0 && (
               <div style={{ textAlign:'center', padding:'40px 20px' }}>
                 <div style={{ fontSize:48, marginBottom:12 }}>📢</div>
-                <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>No open requests</div>
-                <div style={{ fontSize:13, color:'#888' }}>When pet parents broadcast a request, it will appear here.</div>
+                <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('noOpenRequests')}</div>
+                <div style={{ fontSize:13, color:'#888' }}>{tr('openRequestsEmptyHint')}</div>
               </div>
             )}
             {broadcastRequests.map(req => (
@@ -508,7 +526,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 {req.notes && <div style={{ fontSize:12, color:'#666', background:'#F8F8F8', borderRadius:10, padding:'8px 12px', marginBottom:10 }}>{req.notes}</div>}
                 <button onClick={() => acceptBroadcast(req)}
                   style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-                  Accept this request
+                  {tr('acceptThisRequest')}
                 </button>
               </div>
             ))}
@@ -522,16 +540,16 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           <div onClick={() => openWhatsAppSupport(supportWa, 'Hi Fursday, I am a sitter and need help with')}
             style={{ background:'#25D366', borderRadius:14, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
             <span style={{ fontSize:18 }}>💬</span>
-            <div style={{ fontSize:13, fontWeight:600, color:'white' }}>Need help? Chat with Fursday support</div>
+            <div style={{ fontSize:13, fontWeight:600, color:'white' }}>{tr('needHelp')}</div>
           </div>
         </div>
       )}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #E0E0E0', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px', zIndex: 100 }}>
         {[
-          { id: 'home', label: 'Home', emoji: '🏠' },
-          { id: 'jobs', label: 'My Jobs', emoji: '📋' },
-          { id: 'earnings', label: 'Earnings', emoji: '💰' },
-          { id: 'profile', label: 'Edit profile', emoji: '\u270F\uFE0F' },
+          { id: 'home', label: tr('homeNav'), emoji: '🏠' },
+          { id: 'jobs', label: tr('jobsNav'), emoji: '📋' },
+          { id: 'earnings', label: tr('earningsNav'), emoji: '💰' },
+          { id: 'profile', label: tr('editProfileNav'), emoji: '\u270F\uFE0F' },
         ].map(n => (
           <div key={n.id} onClick={() => { if(n.id === 'home') onBack(); else if(n.id === 'profile') { if(onEditProfile) onEditProfile(); } else setActiveNav(n.id); }}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>

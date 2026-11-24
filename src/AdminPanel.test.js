@@ -204,8 +204,10 @@ describe('AdminPanel sitter actions', () => {
     fireEvent.click(await screen.findByText('Mark paid'));
 
     const { notifyPayoutMarked, notifyReferralBonusPaid } = require('./notificationService');
+    // 34900 paise gross * 0.85 (flat 15% commission) = 29665 paise net,
+    // rounded to the nearest rupee by markPayoutPaid's caller -> 29700.
     await waitFor(() => expect(notifyPayoutMarked).toHaveBeenCalledWith(
-      'sitter-user-9', 'sitter@test.com', '9111111111', 34900, 1, expect.any(String)
+      'sitter-user-9', 'sitter@test.com', '9111111111', 29700, 1, expect.any(String)
     ));
     await waitFor(() => expect(notifyReferralBonusPaid).toHaveBeenCalledWith(
       'sitter-user-9', 'sitter@test.com', '9111111111', 100, 'Someone'

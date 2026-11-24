@@ -16,6 +16,7 @@ export default function SitterEarningsDashboard({ city, onBack }) {
     paidOutTotal: 0,
     completedBookings: 0,
     lastPayoutDate: null,
+    isFoundingSitter: false,
   });
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState('all'); // all, month, week
@@ -34,11 +35,12 @@ export default function SitterEarningsDashboard({ city, onBack }) {
       // Get sitter profile
       const { data: sitterProfile } = await supabase
         .from('sitter_profiles')
-        .select('id')
+        .select('id, is_founding_sitter')
         .eq('user_id', user.id)
         .single();
 
       if (!sitterProfile) return;
+      const commissionRate = sitterProfile.is_founding_sitter ? 1 : 0.85;
 
       // Get all completed bookings for this sitter
       const { data: bookings } = await supabase
@@ -53,14 +55,15 @@ export default function SitterEarningsDashboard({ city, onBack }) {
         return;
       }
 
-      // Calculate earnings (sitter gets 85%, platform gets 15%)
+      // Calculate earnings: flat 15% commission, or 0% for a Founding Sitter
+      // (admin-granted launch perk for the first 20 sitters, see migration 025)
       let totalEarnings = 0;
       let completedCount = 0;
       let monthlyMap = {};
       let breakdownList = [];
 
       bookings.forEach(booking => {
-        const earningsPaise = Math.floor(booking.gross_amount_paise * 0.85); // 85%
+        const earningsPaise = Math.floor(booking.gross_amount_paise * commissionRate);
         const earningsRs = earningsPaise / 100;
         totalEarnings += earningsRs;
         completedCount += 1;
@@ -103,6 +106,7 @@ export default function SitterEarningsDashboard({ city, onBack }) {
         monthlyEarnings,
         completedBookings: completedCount,
         lastPayoutDate: lastPaidOut,
+        isFoundingSitter: sitterProfile.is_founding_sitter,
       });
       setBreakdown(breakdownList);
     } catch (error) {
@@ -151,6 +155,12 @@ export default function SitterEarningsDashboard({ city, onBack }) {
           <div style={{ fontSize: 12, opacity: 0.8 }}>Track your walker income 💰</div>
         </div>
       </div>
+
+      {earnings.isFoundingSitter && (
+        <div style={{ margin: '16px 16px 0', background: '#FFF0EB', border: '1.5px solid ' + t.primary, borderRadius: 14, padding: '10px 14px', fontSize: 12, fontWeight: 700, color: t.primary, textAlign: 'center' }}>
+          🎉 You're a Founding Sitter — 0% commission on every booking
+        </div>
+      )}
 
       {/* Total Earnings Card */}
       <div style={{ padding: '20px', background: 'white', margin: '16px', borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>

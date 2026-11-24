@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
 import { Shield } from 'lucide-react';
+import { useLanguage } from './i18n';
 
 const ORANGE = '#FF6B35';
 const DARK = '#0f0f1a';
@@ -20,6 +21,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   const [showTermsError, setShowTermsError] = useState(false);
   const [showTermsLocal, setShowTermsLocal] = useState(false);
   const [showPrivacyLocal, setShowPrivacyLocal] = useState(false);
+  const { lang, setLang, t: tr } = useLanguage();
 
   const sendOtp = async () => {
     if (!email.includes('@')) { setError('Enter a valid email address'); return; }
@@ -78,15 +80,20 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: DARK, fontFamily: '-apple-system, sans-serif', display: 'flex', flexDirection: 'column', padding: '0 24px' }}>
-      <div style={{ paddingTop: 80, marginBottom: 48 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16 }}>
+        <div onClick={() => setLang(lang === 'hi' ? 'en' : 'hi')} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+          {lang === 'hi' ? 'English' : 'हिन्दी'}
+        </div>
+      </div>
+      <div style={{ paddingTop: 24, marginBottom: 48 }}>
         <div style={{ width: 56, height: 56, borderRadius: 16, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 24 }}>
           🐾
         </div>
         <div style={{ fontSize: 28, fontWeight: 700, color: 'white', marginBottom: 8, letterSpacing: -0.5 }}>
-          Welcome to Fursday
+          {tr('welcome')}
         </div>
         <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-          {step === 'email' ? 'Trusted pet care, right at your doorstep.' : 'Enter the 6-digit code we sent to your email.'}
+          {step === 'email' ? tr('taglineEmail') : tr('taglineOtp')}
         </div>
       </div>
 
@@ -113,7 +120,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
 
       {step === 'email' && (
         <div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Your email</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{tr('yourEmail')}</div>
           <input value={email} onChange={e => setEmail(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendOtp()}
             placeholder="your@email.com" type="email" style={{ ...inp, marginBottom: 16 }} />
@@ -138,12 +145,12 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
 
           <button onClick={sendOtp} disabled={loading}
             style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: email.includes('@') && termsAccepted ? ORANGE : 'rgba(255,255,255,0.1)', color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}>
-            {loading ? 'Sending...' : 'Continue with email →'}
+            {loading ? tr('sending') : tr('continueWithEmail')}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <Shield size={12} color="rgba(255,255,255,0.2)" />
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>No password needed · Secure OTP login</span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>{tr('noPasswordNeeded')}</span>
           </div>
         </div>
       )}
@@ -153,7 +160,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
           <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ fontSize: 20 }}>📧</span>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-              Code sent to <span style={{ color: ORANGE, fontWeight: 600 }}>{email}</span>.<br/>Check your inbox and enter the 6-digit code.
+              {tr('codeSentTo')} <span style={{ color: ORANGE, fontWeight: 600 }}>{email}</span>.<br/>{tr('checkInbox')}
             </div>
           </div>
           <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
@@ -162,15 +169,15 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
             style={{ ...inp, fontSize: 32, letterSpacing: 12, textAlign: 'center', marginBottom: 12 }} />
           <button onClick={verifyOtp} disabled={loading || otp.length < 6}
             style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: otp.length === 6 ? ORANGE : 'rgba(255,255,255,0.1)', color: 'white', fontSize: 15, fontWeight: 600, cursor: otp.length === 6 ? 'pointer' : 'not-allowed', marginBottom: 12 }}>
-            {loading ? 'Verifying...' : 'Sign in'}
+            {loading ? tr('verifying') : tr('signIn')}
           </button>
           <button onClick={() => { setStep('email'); setOtp(''); setError(''); }}
             style={{ width: '100%', padding: 12, borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 14, cursor: 'pointer', marginBottom: 12 }}>
-            Use a different email
+            {tr('useDifferentEmail')}
           </button>
           <div style={{ textAlign: 'center' }}>
             <span onClick={sendOtp} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', textDecoration: 'underline' }}>
-              Resend code
+              {tr('resendCode')}
             </span>
           </div>
         </div>
