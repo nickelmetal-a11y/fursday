@@ -364,7 +364,15 @@ export default function App() {
     setUserName(data?.name || null);
   }} />;
 
-  if (user && !userName) return <FirstLoginPrompt user={user} onDone={name => { setUserName(name); setShowParentOnboarding(true); }} />;
+  // A DB-side default/trigger backfills users.name to the login email when
+  // it's otherwise null (likely to satisfy a NOT NULL constraint written
+  // for the old phone-first signup flow). That makes this check think
+  // onboarding is already done, so FirstLoginPrompt — and the real-name /
+  // city / pet-or-sitter-role setup that follows it — gets silently
+  // skipped for every brand-new email signup. Treat "name equals the
+  // login email" as "no real name set yet" too.
+  const needsFirstLogin = user && (!userName || userName.trim().toLowerCase() === user.email?.toLowerCase());
+  if (needsFirstLogin) return <FirstLoginPrompt user={user} onDone={name => { setUserName(name); setShowParentOnboarding(true); }} />;
   if (showParentOnboarding) return <ParentOnboarding onDone={() => setShowParentOnboarding(false)} city={city} userName={userName} />;
 
   const activeCities = Object.keys(CITY_CONFIG).map(c => CITY_CONFIG[c].displayName).join(' and ');
