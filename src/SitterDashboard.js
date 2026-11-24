@@ -315,7 +315,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 </div>
                 <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>Ask {b.users?.name || 'the pet parent'} for the 4-digit code shown in their app.</div>
                 <div style={{ display:'flex', gap:8 }}>
-                  <input value={otpEntry[b.id] || ''} onChange={e => setOtpEntry({ ...otpEntry, [b.id]: e.target.value.replace(/D/g,'').slice(0,4) })}
+                  <input value={otpEntry[b.id] || ''} onChange={e => setOtpEntry({ ...otpEntry, [b.id]: e.target.value.replace(/\D/g,'').slice(0,4) })}
                     placeholder="0000" inputMode="numeric" maxLength={4}
                     style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:18, letterSpacing:6, textAlign:'center', outline:'none', boxSizing:'border-box' }} />
                   <button onClick={() => verifyStartOtp(b)}
