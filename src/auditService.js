@@ -4,7 +4,12 @@ export const logAdminAction = async (adminId, action, resourceType, resourceId, 
   try {
     const userAgent = navigator.userAgent;
 
-    await supabase.from('admin_audit_logs').insert({
+    // Supabase resolves {data, error} on an RLS/DB failure rather than
+    // throwing, so the fallback write below only ever fired for a genuine
+    // thrown exception (e.g. a network failure) — a denied insert (a real
+    // possibility now that admin_audit_logs has a real INSERT policy, see
+    // migration 021) was silently swallowed with zero record of it.
+    const { error } = await supabase.from('admin_audit_logs').insert({
       admin_id: adminId,
       action,
       resource_type: resourceType,
@@ -15,6 +20,7 @@ export const logAdminAction = async (adminId, action, resourceType, resourceId, 
       user_agent: userAgent,
       status: 'success',
     });
+    if (error) throw error;
   } catch (error) {
     console.error('Failed to log admin action:', error);
     // Log error but don't throw - don't block user action if logging fails
@@ -32,7 +38,7 @@ export const logAdminAction = async (adminId, action, resourceType, resourceId, 
 
 export const logAdminActionFailed = async (adminId, action, resourceType, resourceId, errorMessage) => {
   try {
-    await supabase.from('admin_audit_logs').insert({
+    const { error } = await supabase.from('admin_audit_logs').insert({
       admin_id: adminId,
       action,
       resource_type: resourceType,
@@ -41,6 +47,7 @@ export const logAdminActionFailed = async (adminId, action, resourceType, resour
       error_message: errorMessage,
       user_agent: navigator.userAgent,
     });
+    if (error) throw error;
   } catch (error) {
     console.error('Failed to log admin error action:', error);
   }
