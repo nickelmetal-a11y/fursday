@@ -407,62 +407,109 @@ export default function AdminPanel({ onBack }) {
     </div>
   );
 
+  const navItems = [
+    { id: 'overview', icon: '📊', label: 'Overview' },
+    { id: 'pending', icon: '⏳', label: 'Pending (' + pendingSitters.length + ')' },
+    { id: 'sitters', icon: '🧑‍🤝‍🧑', label: 'Sitters (' + sitters.length + ')' },
+    { id: 'bookings', icon: '📅', label: 'Bookings (' + bookings.length + ')' },
+    { id: 'payouts', icon: '💰', label: 'Payouts (' + unpaidPayouts.length + ')' },
+    { id: 'disputes', icon: '⚖️', label: 'Disputes' },
+    { id: 'promotions', icon: '🎟️', label: 'Promotions' },
+    { id: 'audit', icon: '📜', label: 'Audit' },
+  ];
+  const activeNavItem = navItems.find(n => n.id === tab);
+
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F4F5F7', fontFamily: 'sans-serif' }}>
       {actionMsg && (
         <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#2E7D32', color: 'white', borderRadius: 12, padding: '10px 20px', fontSize: 13, fontWeight: 600, zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           {actionMsg}
         </div>
       )}
 
-      <div style={{ background: '#0f0f1a', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🐾</div>
-          <span style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>Fursday Admin</span>
+      {/* Sidebar */}
+      <div style={{ width: 220, flexShrink: 0, background: '#13131F', display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'sticky', top: 0, height: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: 24 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🐾</div>
+          <span style={{ color: 'white', fontSize: 16, fontWeight: 700 }}>Fursday Admin</span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {onBack && (
-            <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
-          )}
-          <button onClick={loadData} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>Refresh</button>
-          <button onClick={() => setAuthed(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
-        </div>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, padding: '20px 20px 0' }}>
-        {[
-          { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
-          { label: 'Active sitters', val: activeSitters.length, color: '#2E7D32' },
-          { label: 'Bookings', val: bookings.length, color: '#1565C0' },
-          { label: 'GMV', val: 'Rs.' + totalGMV.toLocaleString('en-IN'), color: ORANGE },
-          { label: 'Payouts due', val: 'Rs.' + Math.round(totalPayoutsDue).toLocaleString('en-IN'), color: '#C62828' },
-        ].map((s, i) => (
-          <div key={i} style={{ background: 'white', borderRadius: 14, padding: '14px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.val}</div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ padding: '16px 20px 0' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'white', borderRadius: 12, padding: 4, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-          {[
-            { id: 'pending', label: 'Pending (' + pendingSitters.length + ')' },
-            { id: 'sitters', label: 'Sitters (' + sitters.length + ')' },
-            { id: 'bookings', label: 'Bookings (' + bookings.length + ')' },
-            { id: 'payouts', label: 'Payouts (' + unpaidPayouts.length + ')' },
-            { id: 'disputes', label: 'Disputes' },
-            { id: 'promotions', label: 'Promotions' },
-            { id: 'audit', label: 'Audit' },
-          ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ padding: '8px 12px', borderRadius: 9, border: 'none', background: tab === t.id ? ORANGE : 'transparent', color: tab === t.id ? 'white' : '#888', fontSize: 11, fontWeight: tab === t.id ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {t.label}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {navItems.map(n => (
+            <button key={n.id} onClick={() => setTab(n.id)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', marginBottom: 2, background: tab === n.id ? ORANGE : 'transparent', color: tab === n.id ? 'white' : 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: tab === n.id ? 700 : 500, cursor: 'pointer', textAlign: 'left' }}>
+              <span>{n.icon}</span><span>{n.label}</span>
             </button>
           ))}
         </div>
 
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {onBack && (
+            <button onClick={onBack} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
+          )}
+          <button onClick={() => setAuthed(false)} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '24px 28px', overflow: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a1a' }}>{activeNavItem?.label.replace(/\s*\(\d+\)$/, '')}</div>
+          <button onClick={loadData} style={{ background: 'white', border: '1px solid #E8E8E8', borderRadius: 8, padding: '7px 14px', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
+        </div>
+
         {loading && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Loading...</div>}
+
+        {!loading && tab === 'overview' && (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
+              {[
+                { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
+                { label: 'Active sitters', val: activeSitters.length, color: '#2E7D32' },
+                { label: 'Bookings', val: bookings.length, color: '#1565C0' },
+                { label: 'GMV', val: 'Rs.' + totalGMV.toLocaleString('en-IN'), color: ORANGE },
+                { label: 'Payouts due', val: 'Rs.' + Math.round(totalPayoutsDue).toLocaleString('en-IN'), color: '#C62828' },
+              ].map((s, i) => (
+                <div key={i} style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{s.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Recent bookings</div>
+              {bookings.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 24, color: '#888', fontSize: 13 }}>No bookings yet</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: '#999', textAlign: 'left', borderBottom: '1px solid #F0F0F0' }}>
+                      <th style={{ padding: '6px 8px 6px 0', fontWeight: 600 }}>Ref</th>
+                      <th style={{ fontWeight: 600 }}>Sitter</th>
+                      <th style={{ fontWeight: 600 }}>Service</th>
+                      <th style={{ fontWeight: 600 }}>Amount</th>
+                      <th style={{ fontWeight: 600 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookings.slice(0, 8).map(b => (
+                      <tr key={b.id} style={{ borderBottom: '1px solid #F8F8F8' }}>
+                        <td style={{ padding: '8px 8px 8px 0', color: '#1a1a1a' }}>{b.booking_ref}</td>
+                        <td>{sitters.find(s => s.id === b.sitter_id)?.users?.name || '—'}</td>
+                        <td>{b.service_type}</td>
+                        <td style={{ fontWeight: 600 }}>Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</td>
+                        <td>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: BOOKING_COLORS[b.status]?.bg, color: BOOKING_COLORS[b.status]?.color }}>{b.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
 
         {!loading && tab === 'pending' && (
           <div>
