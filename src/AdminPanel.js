@@ -37,6 +37,13 @@ export default function AdminPanel({ onBack }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
+  const [narrow, setNarrow] = useState(typeof window !== 'undefined' && window.innerWidth < 760);
+
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < 760);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const login = () => {
     if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) setAuthed(true);
@@ -420,7 +427,7 @@ export default function AdminPanel({ onBack }) {
   const activeNavItem = navItems.find(n => n.id === tab);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F4F5F7', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', minHeight: '100vh', background: '#F4F5F7', fontFamily: 'sans-serif' }}>
       {actionMsg && (
         <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#2E7D32', color: 'white', borderRadius: 12, padding: '10px 20px', fontSize: 13, fontWeight: 600, zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           {actionMsg}
@@ -428,22 +435,26 @@ export default function AdminPanel({ onBack }) {
       )}
 
       {/* Sidebar */}
-      <div style={{ width: 220, flexShrink: 0, background: '#13131F', display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'sticky', top: 0, height: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: 24 }}>
+      <div style={narrow
+        ? { background: '#13131F', padding: '12px 12px 8px', position: 'sticky', top: 0, zIndex: 50 }
+        : { width: 220, flexShrink: 0, background: '#13131F', display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'sticky', top: 0, height: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: narrow ? 10 : 24 }}>
           <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🐾</div>
           <span style={{ color: 'white', fontSize: 16, fontWeight: 700 }}>Fursday Admin</span>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={narrow ? { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 } : { flex: 1, overflowY: 'auto' }}>
           {navItems.map(n => (
             <button key={n.id} onClick={() => setTab(n.id)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', marginBottom: 2, background: tab === n.id ? ORANGE : 'transparent', color: tab === n.id ? 'white' : 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: tab === n.id ? 700 : 500, cursor: 'pointer', textAlign: 'left' }}>
+              style={{ width: narrow ? 'auto' : '100%', flexShrink: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: narrow ? 6 : 10, padding: narrow ? '8px 12px' : '9px 10px', borderRadius: 8, border: 'none', marginBottom: narrow ? 0 : 2, background: tab === n.id ? ORANGE : 'transparent', color: tab === n.id ? 'white' : 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: tab === n.id ? 700 : 500, cursor: 'pointer', textAlign: 'left' }}>
               <span>{n.icon}</span><span>{n.label}</span>
             </button>
           ))}
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={narrow
+          ? { display: 'flex', gap: 4, marginTop: 4 }
+          : { borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {onBack && (
             <button onClick={onBack} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
           )}
@@ -452,7 +463,7 @@ export default function AdminPanel({ onBack }) {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '24px 28px', overflow: 'auto' }}>
+      <div style={{ flex: 1, padding: narrow ? '16px' : '24px 28px', overflow: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a1a' }}>{activeNavItem?.label.replace(/\s*\(\d+\)$/, '')}</div>
           <button onClick={loadData} style={{ background: 'white', border: '1px solid #E8E8E8', borderRadius: 8, padding: '7px 14px', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
@@ -462,7 +473,7 @@ export default function AdminPanel({ onBack }) {
 
         {!loading && tab === 'overview' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
               {[
                 { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
                 { label: 'Active sitters', val: activeSitters.length, color: '#2E7D32' },
@@ -477,7 +488,7 @@ export default function AdminPanel({ onBack }) {
               ))}
             </div>
 
-            <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Recent bookings</div>
               {bookings.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 24, color: '#888', fontSize: 13 }}>No bookings yet</div>

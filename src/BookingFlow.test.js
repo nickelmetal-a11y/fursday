@@ -46,6 +46,10 @@ jest.mock('./supabase', () => {
         if (table === 'notification_jobs') return jobsTable;
         throw new Error('unexpected table: ' + table);
       },
+      rpc: (fn, args) => {
+        global.__rpcCalls.push({ fn, args });
+        return Promise.resolve(global.__rpcImpl(fn, args));
+      },
     },
   };
 });
@@ -76,7 +80,27 @@ beforeEach(() => {
   bookingInserts = global.__bookingInserts;
   notifJobInserts = global.__notifJobInserts;
   global.__notifyHeatAdvisoryImpl = () => Promise.resolve();
+  global.__rpcCalls = [];
+  global.__rpcImpl = (fn) => {
+    if (fn === 'preview_promo') return { data: { code: 'WELCOME100', discount: 100 }, error: null };
+    if (fn === 'apply_promo_to_booking') return { data: { code: 'WELCOME100', discount: 100 }, error: null };
+    return { data: [], error: null };
+  };
 });
+
+async function goToReview(props = {}) {
+  render(<BookingFlow sitter={sitter} city="Gurgaon" onBack={() => {}} {...props} />);
+  fireEvent.click(await screen.findByText('Request a walker'));
+  fireEvent.click(screen.getByText('Continue →'));
+  await waitFor(() => expect(screen.getByText(/Pick a date & time/i)).toBeInTheDocument());
+  fireEvent.click(document.querySelectorAll('div[style*="width: 54px"]')[0]);
+  fireEvent.click(screen.getAllByText('10:00 AM')[0]);
+  fireEvent.click(screen.getByText('Continue →'));
+  fireEvent.click(await screen.findByText('Bruno'));
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByText('Continue →'));
+  await waitFor(() => expect(screen.getByText(/Review booking/i)).toBeInTheDocument());
+}
 
 afterEach(() => {
   jest.useRealTimers();
@@ -203,5 +227,53 @@ describe('BookingFlow', () => {
 
     await waitFor(() => expect(screen.getByText('Booking requested!')).toBeInTheDocument());
     expect(bookingInserts).toHaveLength(1);
+  });
+});
+
+describe('BookingFlow promo codes (server-authoritative)', () => {
+  test('applying a code shows the server-computed discount, but the booking is inserted at full price and discounted by the DB', async () => {
+    await goToReview();
+    fireEvent.change(screen.getByPlaceholderText('Enter code'), { target: { value: 'welcome100' } });
+    fireEvent.click(screen.getByText('Apply'));
+
+    expect(await screen.findByText('Rs.249')).toBeInTheDocument();
+    expect(global.__rpcCalls).toContainEqual({ fn: 'preview_promo', args: { p_code: 'WELCOME100', p_amount_rupees: 349 } });
+
+    fireEvent.click(screen.getByText('Request booking 🐾'));
+    await waitFor(() => expect(screen.getByText('Booking requested!')).toBeInTheDocument());
+
+    // The client never writes a discounted price itself.
+    expect(bookingInserts[0].gross_amount_paise).toBe(34900);
+    expect(bookingInserts[0].sitter_payout_paise).toBe(34900);
+    expect(global.__rpcCalls).toContainEqual({ fn: 'apply_promo_to_booking', args: { p_booking_id: 'booking-1', p_code: 'WELCOME100' } });
+    expect(screen.getByText('Rs.249')).toBeInTheDocument(); // confirmation shows what they'll actually pay
+  });
+
+  test('a code this user already redeemed is rejected with a clear message', async () => {
+    global.__rpcImpl = () => ({ data: { error: 'already_used' }, error: null });
+    await goToReview();
+    fireEvent.change(screen.getByPlaceholderText('Enter code'), { target: { value: 'WELCOME100' } });
+    fireEvent.click(screen.getByText('Apply'));
+    expect(await screen.findByText("You've already used this code")).toBeInTheDocument();
+  });
+
+  test('if the DB refuses the code at submit time, the booking still succeeds at full price and the parent is told', async () => {
+    global.__rpcImpl = (fn) => fn === 'preview_promo'
+      ? { data: { code: 'WELCOME100', discount: 100 }, error: null }
+      : { data: { error: 'exhausted' }, error: null };
+    await goToReview();
+    fireEvent.change(screen.getByPlaceholderText('Enter code'), { target: { value: 'WELCOME100' } });
+    fireEvent.click(screen.getByText('Apply'));
+    await screen.findByText('Rs.249');
+
+    fireEvent.click(screen.getByText('Request booking 🐾'));
+    expect(await screen.findByText(/promo code couldn't be applied/)).toBeInTheDocument();
+    expect(screen.getAllByText('Rs.349').length).toBeGreaterThan(0);
+  });
+
+  test('a code passed in from the home banner auto-applies on the Review step', async () => {
+    await goToReview({ initialPromoCode: 'WELCOME100' });
+    expect(await screen.findByText('WELCOME100 applied', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Rs.249')).toBeInTheDocument();
   });
 });

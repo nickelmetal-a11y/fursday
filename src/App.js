@@ -8,6 +8,7 @@ import PetProfile from './PetProfile';
 import WalkReportCard from './WalkReportCard';
 import BookingsDashboard from './BookingsDashboard';
 import AdminPanel from './AdminPanel';
+import PromoBanner from './PromoBanner';
 import SitterDashboard from './SitterDashboard';
 import PaymentScreen from './PaymentScreen';
 import UserProfile from './UserProfile';
@@ -96,8 +97,8 @@ export default function App() {
   const [logoTaps, setLogoTaps]           = useState(0);
   const [search, setSearch]               = useState('');
   const [locationLoading, setLocationLoading] = useState(true);
-  const [promoCopied, setPromoCopied] = useState(false);
   const [featuredPromo, setFeaturedPromo] = useState(null);
+  const [promoForBooking, setPromoForBooking] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [regionRestricted, setRegionRestricted] = useState(false);
   const [userIP, setUserIP] = useState(null);
@@ -389,7 +390,7 @@ export default function App() {
   if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
   if (showBookings) return <BookingsDashboard onBack={() => { setShowBookings(false); goHome(); }} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { setShowBookings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } else if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || 'Sitter', area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
   if (showPetProfile) return <PetProfile onBack={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} city={city} petId={editingPetId} onSave={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} />;
-  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); goHome(); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} />;
+  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); goHome(); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} />;
   if (selectedSitter && !showBooking) return <SitterProfile onBack={() => { setSelectedSitter(null); goHome(); }} onBook={() => setShowBooking(true)} sitter={selectedSitter} city={city} />;
 
   const filteredSitters = realSitters.filter(s =>
@@ -457,22 +458,7 @@ export default function App() {
           {/* Admin-declared promo banner (AdminPanel's Promotions tab) */}
           {featuredPromo && (
             <div style={{ padding:'0 16px 16px' }}>
-              <div style={{ position:'relative', overflow:'hidden', borderRadius:16, background:'linear-gradient(135deg, #6A3DE8, #FF6B35)', padding:16 }}>
-                <div style={{ position:'absolute', top:-20, right:-20, width:90, height:90, borderRadius:'50%', background:'rgba(255,255,255,0.12)' }} />
-                <div style={{ position:'absolute', bottom:-30, right:30, width:60, height:60, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }} />
-                <div style={{ display:'inline-block', background:'rgba(255,255,255,0.2)', borderRadius:20, padding:'3px 10px', fontSize:10, fontWeight:800, color:'white', letterSpacing:0.5, marginBottom:8, position:'relative' }}>{tr('home_promoBadge')}</div>
-                <div style={{ color:'white', fontSize:17, fontWeight:800, marginBottom:2, position:'relative' }}>
-                  {featuredPromo.discount_amount ? tr('home_promoTitleAmount', { amount: featuredPromo.discount_amount }) : tr('home_promoTitlePercent', { percent: featuredPromo.discount_percent })}
-                </div>
-                {featuredPromo.description && <div style={{ color:'rgba(255,255,255,0.85)', fontSize:12, marginBottom:12, position:'relative' }}>{featuredPromo.description}</div>}
-                <div style={{ display:'flex', alignItems:'center', gap:8, position:'relative', marginTop: featuredPromo.description ? 0 : 12 }}>
-                  <div style={{ background:'rgba(255,255,255,0.15)', border:'1px dashed rgba(255,255,255,0.6)', borderRadius:8, padding:'7px 12px', color:'white', fontSize:13, fontWeight:800, letterSpacing:1, flex:1 }}>{featuredPromo.code}</div>
-                  <button onClick={() => { navigator.clipboard?.writeText(featuredPromo.code); setPromoCopied(true); setTimeout(() => setPromoCopied(false), 2000); }}
-                    style={{ background:'white', border:'none', borderRadius:8, padding:'9px 16px', color:'#FF6B35', fontSize:12, fontWeight:800, cursor:'pointer', flexShrink:0 }}>
-                    {promoCopied ? tr('home_promoCopied') : tr('home_promoCopyButton')}
-                  </button>
-                </div>
-              </div>
+              <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); setShowBooking(true); }} />
             </div>
           )}
 

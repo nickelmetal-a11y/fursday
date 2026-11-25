@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import PromoBanner from './PromoBanner';
 
 const ORANGE = '#FF6B35';
 
-const emptyForm = {
+const isoDateInDays = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+};
+
+const emptyForm = () => ({
   code: '',
   discountType: 'flat', // 'flat' | 'percent'
   discountValue: '',
   maxDiscountAmount: '',
   minBookingAmount: '',
-  validUntilDays: '90',
+  maxUses: '',
+  validUntil: isoDateInDays(90),
   description: '',
   featuredHome: true,
-};
+});
 
 function statusOf(promo) {
   const now = new Date();
@@ -26,6 +34,13 @@ export default function AdminPromotions() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const discountValue = parseFloat(form.discountValue) || 0;
+  const previewPromo = {
+    code: form.code.trim().toUpperCase() || 'YOURCODE',
+    discount_amount: form.discountType === 'flat' ? discountValue : null,
+    discount_percent: form.discountType === 'percent' ? discountValue : 0,
+    description: form.description.trim(),
+  };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
@@ -47,10 +62,11 @@ export default function AdminPromotions() {
     const value = parseFloat(form.discountValue);
     if (!code) { setError('Enter a code'); return; }
     if (!value || value <= 0) { setError('Enter a discount value greater than 0'); return; }
+    if (form.discountType === 'percent' && value > 100) { setError('Percent off cannot exceed 100'); return; }
+    const validUntil = new Date(form.validUntil + 'T23:59:59');
+    if (isNaN(validUntil) || validUntil < new Date()) { setError('Pick an expiry date in the future'); return; }
     setSaving(true);
     try {
-      const validUntil = new Date();
-      validUntil.setDate(validUntil.getDate() + (parseInt(form.validUntilDays, 10) || 90));
 
       // Only one promo is ever featured on the home page at a time — a
       // fresh declaration replaces whatever was shown before.
@@ -64,15 +80,19 @@ export default function AdminPromotions() {
         discount_amount: form.discountType === 'flat' ? value : null,
         max_discount_amount: form.maxDiscountAmount ? parseFloat(form.maxDiscountAmount) : null,
         min_booking_amount: form.minBookingAmount ? parseFloat(form.minBookingAmount) : 0,
-        max_uses: null,
+        max_uses: form.maxUses ? parseInt(form.maxUses, 10) : null,
         valid_from: new Date().toISOString(),
         valid_until: validUntil.toISOString(),
         status: 'active',
         description: form.description.trim() || null,
         featured_home: form.featuredHome,
       });
-      if (insertError) { setError(insertError.message); setSaving(false); return; }
-      setForm(emptyForm);
+      if (insertError) {
+        setError(insertError.code === '23505' ? 'A promo with code ' + code + ' already exists' : insertError.message);
+        setSaving(false);
+        return;
+      }
+      setForm(emptyForm());
       setShowForm(false);
       await loadPromos();
       flash('Promotion created');
@@ -126,6 +146,11 @@ export default function AdminPromotions() {
 
       {showForm && (
         <div style={{ background: 'white', borderRadius: 14, padding: 16, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: 0.5, marginBottom: 8 }}>LIVE PREVIEW — WHAT USERS WILL SEE</div>
+          <div style={{ maxWidth: 360, marginBottom: 18, pointerEvents: 'none' }}>
+            <PromoBanner promo={previewPromo} onUse={() => {}} />
+          </div>
+
           <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Code</div>
           <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. DIWALI2026"
             style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E8E8E8', fontSize: 13, marginBottom: 12, boxSizing: 'border-box', textTransform: 'uppercase' }} />
@@ -156,9 +181,18 @@ export default function AdminPromotions() {
           <input value={form.minBookingAmount} onChange={e => setForm(f => ({ ...f, minBookingAmount: e.target.value }))} type="number" placeholder="e.g. 0"
             style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E8E8E8', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }} />
 
-          <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Valid for (days)</div>
-          <input value={form.validUntilDays} onChange={e => setForm(f => ({ ...f, validUntilDays: e.target.value }))} type="number"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E8E8E8', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Expires on</div>
+              <input value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} type="date" aria-label="Expires on"
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #E8E8E8', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Max total uses (optional)</div>
+              <input value={form.maxUses} onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))} type="number" placeholder="Unlimited"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E8E8E8', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }} />
+            </div>
+          </div>
 
           <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Banner text (shown to users, optional)</div>
           <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. on your first Fursday booking"
@@ -196,7 +230,14 @@ export default function AdminPromotions() {
                     {p.min_booking_amount ? ' · min Rs.' + p.min_booking_amount : ''}
                   </div>
                   {p.description && <div style={{ fontSize: 11, color: '#AAA', marginTop: 2 }}>"{p.description}"</div>}
-                  <div style={{ fontSize: 11, color: '#AAA', marginTop: 4 }}>Used {p.times_used || 0}x · expires {new Date(p.valid_until).toLocaleDateString('en-IN')}</div>
+                  <div style={{ fontSize: 11, color: '#AAA', marginTop: 4 }}>
+                    Used {p.times_used || 0}{p.max_uses ? ' / ' + p.max_uses : 'x'} · expires {new Date(p.valid_until).toLocaleDateString('en-IN')}
+                  </div>
+                  {p.max_uses > 0 && (
+                    <div style={{ height: 4, borderRadius: 2, background: '#F0F0F0', marginTop: 6, width: 160, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: Math.min(100, ((p.times_used || 0) / p.max_uses) * 100) + '%', background: ORANGE }} />
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: st === 'active' ? '#E8F5E9' : st === 'expired' ? '#FFEBEE' : '#F5F5F5', color: st === 'active' ? '#2E7D32' : st === 'expired' ? '#C62828' : '#888' }}>

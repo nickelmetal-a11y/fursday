@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { ArrowLeft, CheckCircle, Shield, Copy, Plus } from 'lucide-react';
 import { useLanguage } from './i18n';
@@ -57,7 +57,7 @@ function StepBar({ step }) {
   );
 }
 
-export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking }) {
+export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking, initialPromoCode }) {
   const { t: tr } = useLanguage();
   const [step, setStep] = useState(repeatBooking ? 1 : (initialService ? 1 : 0));
   const [selectedService, setSelectedService] = useState(repeatBooking ? repeatBooking.service_type : (initialService || null));
@@ -86,10 +86,12 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const [aggressionConfirmed, setAggressionConfirmed] = useState(false);
   const [temperature, setTemperature] = useState(null);
   const [heatWarningDismissed, setHeatWarningDismissed] = useState(false);
-  const [promoInput, setPromoInput] = useState('');
+  const [promoInput, setPromoInput] = useState(initialPromoCode || '');
   const [promoApplying, setPromoApplying] = useState(false);
   const [promoError, setPromoError] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState(null); // {id, code, discountAmount}
+  const [appliedPromo, setAppliedPromo] = useState(null); // {code, discountAmount} — preview only; the DB applies the real discount
+  const [promoFailed, setPromoFailed] = useState(false);
+  const autoApplyPromo = useRef(!!initialPromoCode);
 
   const days = getDays();
 
@@ -126,36 +128,53 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const totalPrice = isBoarding ? basePrice * nights : basePrice;
   const finalPrice = Math.max(0, totalPrice - (appliedPromo?.discountAmount || 0));
 
+  const promoErrorMessage = (res) => {
+    if (res?.error === 'already_used') return tr('bookingFlow_promoErrAlreadyUsed');
+    if (res?.error === 'exhausted') return tr('bookingFlow_promoErrExhausted');
+    if (res?.error === 'min_amount') return tr('bookingFlow_promoErrMinAmount', { amount: tr('bookingFlow_currencyPrefix') + res.min_amount });
+    return tr('bookingFlow_promoErrInvalid');
+  };
+
   const applyPromoCode = async () => {
     const code = promoInput.trim().toUpperCase();
     if (!code) return;
     setPromoApplying(true);
     setPromoError('');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: promo } = await supabase.from('promo_codes').select('*').eq('code', code).eq('status', 'active').maybeSingle();
-      if (!promo) { setPromoError(tr('bookingFlow_promoErrInvalid')); setPromoApplying(false); return; }
-      if (promo.min_booking_amount && totalPrice < promo.min_booking_amount) {
-        setPromoError(tr('bookingFlow_promoErrMinAmount', { amount: tr('bookingFlow_currencyPrefix') + promo.min_booking_amount }));
-        setPromoApplying(false);
-        return;
+      const { data: res, error } = await supabase.rpc('preview_promo', { p_code: code, p_amount_rupees: totalPrice });
+      if (error || !res || res.error) {
+        setPromoError(promoErrorMessage(res));
+      } else {
+        setAppliedPromo({ code: res.code, discountAmount: Number(res.discount) });
+        setPromoInput('');
       }
-      if (user) {
-        const { data: usage } = await supabase.from('promo_usage').select('id').eq('promo_code_id', promo.id).eq('user_id', user.id).maybeSingle();
-        if (usage) { setPromoError(tr('bookingFlow_promoErrAlreadyUsed')); setPromoApplying(false); return; }
-      }
-      const pctDiscount = promo.discount_percent ? (totalPrice * promo.discount_percent / 100) : 0;
-      const flatDiscount = promo.discount_amount || 0;
-      let discount = Math.max(pctDiscount, flatDiscount);
-      if (promo.max_discount_amount) discount = Math.min(discount, promo.max_discount_amount);
-      discount = Math.min(discount, totalPrice);
-      setAppliedPromo({ id: promo.id, code: promo.code, discountAmount: discount });
-      setPromoInput('');
     } catch (e) {
       setPromoError(tr('bookingFlow_promoErrInvalid'));
     }
     setPromoApplying(false);
   };
+
+  // A discount previewed for one price is stale once the price changes (e.g.
+  // the parent goes back and switches service) — re-check it on the Review step.
+  const lastPricedAt = useRef(totalPrice);
+  useEffect(() => {
+    if (lastPricedAt.current === totalPrice) return;
+    lastPricedAt.current = totalPrice;
+    if (appliedPromo) {
+      setPromoInput(appliedPromo.code);
+      setAppliedPromo(null);
+      autoApplyPromo.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPrice]);
+
+  useEffect(() => {
+    if (step === 3 && autoApplyPromo.current && promoInput.trim() && !appliedPromo) {
+      autoApplyPromo.current = false;
+      applyPromoCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, promoInput, appliedPromo]);
 
   useEffect(() => { loadPets(); }, []);
 
@@ -205,7 +224,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         service_type: selectedService,
         booking_date: bookingDate.toISOString().split('T')[0],
         time_slot: selectedTime || dropTime || '07:00',
-        gross_amount_paise: Math.round(finalPrice * 100),
+        gross_amount_paise: totalPrice * 100,
         sitter_payout_paise: totalPrice * 100,
         end_date: isBoarding ? (() => { const d=new Date(); d.setDate(d.getDate()+endDayOffset); return d.toISOString().split('T')[0]; })() : null,
         pickup_time: isDaycare ? pickTime : null,
@@ -224,14 +243,13 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         return;
       }
 
-      if (appliedPromo && user && bookingData?.id) {
-        const { error: promoUsageError } = await supabase.from('promo_usage').insert({
-          promo_code_id: appliedPromo.id,
-          booking_id: bookingData.id,
-          user_id: user.id,
-          discount_amount: appliedPromo.discountAmount,
-        });
-        if (promoUsageError) console.error('Failed to record promo usage:', promoUsageError);
+      // The booking exists at full price either way; only the DB can discount it.
+      if (appliedPromo && bookingData?.id) {
+        const { data: promoRes, error: promoErr } = await supabase.rpc('apply_promo_to_booking', { p_booking_id: bookingData.id, p_code: appliedPromo.code });
+        if (promoErr || !promoRes || promoRes.error) {
+          console.error('Promo not applied:', promoErr || promoRes);
+          setPromoFailed(true);
+        }
       }
 
       // TIER 3: Send heat advisory notification if booking is during hot months
@@ -312,7 +330,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
           { label:tr('bookingFlow_labelDate'), val:day?DAY_NAMES[day.getDay()]+', '+day.getDate()+' '+MONTH_NAMES[day.getMonth()]:tr('bookingFlow_dateTbd') },
           { label:tr('bookingFlow_labelTime'), val:selectedTime },
           { label:tr('bookingFlow_labelPet'), val:pet?pet.name+(pet.breed?' ('+pet.breed+')':''):''},
-          { label:tr('bookingFlow_labelAmount'), val:tr('bookingFlow_currencyPrefix')+totalPrice },
+          { label:tr('bookingFlow_labelAmount'), val:tr('bookingFlow_currencyPrefix')+(promoFailed ? totalPrice : finalPrice) },
         ].filter(x => x.val).map((item,i) => (
           <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
             <span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>{item.label}</span>
@@ -320,6 +338,11 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
           </div>
         ))}
       </div>
+      {promoFailed && (
+        <div style={{ background:'rgba(255,183,77,0.12)', border:'1px solid rgba(255,183,77,0.4)', borderRadius:14, padding:'10px 14px', width:'100%', marginBottom:16, fontSize:12, color:'#FFB74D', lineHeight:1.5, boxSizing:'border-box' }}>
+          {tr('bookingFlow_promoNotApplied')}
+        </div>
+      )}
       <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:16, padding:'12px 16px', width:'100%', marginBottom:24, fontSize:13, color:'rgba(255,255,255,0.5)', lineHeight:1.6 }}>
         {tr('bookingFlow_paymentAfterAcceptNote', { name: sitterName })}
       </div>
