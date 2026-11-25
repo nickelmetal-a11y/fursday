@@ -25,7 +25,7 @@ const BOOKING_COLORS = {
   cancelled: { bg: '#FCEBEB', color: '#A32D2D' },
 };
 
-export default function AdminPanel({ onBack }) {
+export default function AdminPanel({ onSignOut }) {
   const [adminChecked, setAdminChecked] = useState(false);
   const [isRealAdmin, setIsRealAdmin] = useState(false);
   const [tab, setTab] = useState('pending');
@@ -370,16 +370,12 @@ export default function AdminPanel({ onBack }) {
       <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Not signed in as an admin</div>
       <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24, lineHeight: 1.6 }}>
-        Sign into Fursday with an admin account in this browser, then reload this page.
+        This account doesn't have admin access. Sign in with an admin account instead.
       </div>
-      <button onClick={() => window.location.reload()}
-        style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-        Reload
-      </button>
-      {onBack && (
-        <button onClick={onBack}
-          style={{ marginTop: 12, padding: '10px 20px', borderRadius: 14, border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
-          ← Back to app
+      {onSignOut && (
+        <button onClick={onSignOut}
+          style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          Use a different account
         </button>
       )}
     </div>
@@ -426,10 +422,7 @@ export default function AdminPanel({ onBack }) {
         <div style={narrow
           ? { display: 'flex', gap: 4, marginTop: 4 }
           : { borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {onBack && (
-            <button onClick={onBack} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
-          )}
-          <button onClick={async () => { await supabase.auth.signOut(); if (onBack) onBack(); else window.location.reload(); }} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
+          <button onClick={() => (onSignOut ? onSignOut() : supabase.auth.signOut())} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
         </div>
       </div>
 

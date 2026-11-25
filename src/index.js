@@ -1,17 +1,26 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
 import reportWebVitals from './reportWebVitals';
+
+// One codebase, two sites. The admin site (its own Vercel project) builds with
+// REACT_APP_TARGET=admin. webpack drops the branch not taken at build time, so
+// the customer app and the native iOS/Android bundles contain no admin code.
+let Root;
+if (process.env.REACT_APP_TARGET === 'admin') {
+  Root = require('./AdminApp').default;
+} else {
+  if (window.location.hash === '#admin') {
+    window.location.replace(process.env.REACT_APP_ADMIN_URL || 'https://fursday-admin.vercel.app');
+  }
+  Root = require('./App').default;
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();

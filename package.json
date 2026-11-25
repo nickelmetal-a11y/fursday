@@ -26,6 +26,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "cross-env CI=false react-scripts build",
+    "build:admin": "cross-env CI=false REACT_APP_TARGET=admin BUILD_PATH=build-admin react-scripts build",
+    "deploy:admin": "npm run build:admin && cross-env VERCEL_ORG_ID=team_YEO02X0sP3Qla1JgpkS28BYa VERCEL_PROJECT_ID=prj_yRfMfopUMAMeIiia9IOtyDrMqZLy vercel deploy build-admin --prod --yes",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

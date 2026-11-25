@@ -9,7 +9,6 @@ import BookingFlow from './BookingFlow';
 import PetProfile from './PetProfile';
 import WalkReportCard from './WalkReportCard';
 import BookingsDashboard from './BookingsDashboard';
-import AdminPanel from './AdminPanel';
 import PromoBanner from './PromoBanner';
 import SitterDashboard from './SitterDashboard';
 import PaymentScreen from './PaymentScreen';
@@ -73,7 +72,6 @@ export default function App() {
   const [realSitters, setRealSitters]     = useState([]);
   const [userLocation, setUserLocation]   = useState(null);
   const [sittersLoading, setSittersLoading] = useState(true);
-  const [showAdmin, setShowAdmin]         = useState(window.location.hash === '#admin');
   const [isSitterMode, setIsSitterMode]   = useState(false);
   const [isSitter, setIsSitter]           = useState(false);
   const [sitterStatus, setSitterStatus]   = useState(null);
@@ -96,7 +94,6 @@ export default function App() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [neighbourhood, setNeighbourhood] = useState('');
   const [selectedServiceType, setSelectedServiceType] = useState(null);
-  const [logoTaps, setLogoTaps]           = useState(0);
   const [search, setSearch]               = useState('');
   const [locationLoading, setLocationLoading] = useState(true);
   const [featuredPromo, setFeaturedPromo] = useState(null);
@@ -268,7 +265,6 @@ export default function App() {
   }, []);
 
   const handleCityChange = c => { setCity(c); localStorage.setItem('fursday_city', c); };
-  const handleLogoTap = () => { const t = logoTaps+1; setLogoTaps(t); if(t>=5){ setShowAdmin(true); setLogoTaps(0); window.location.hash='admin'; } };
 
 
   const sendBookingEmail = async (booking) => {
@@ -394,7 +390,6 @@ export default function App() {
 
   const goSettings = () => { setActiveNav('settings'); setShowSettings(true); };
 
-  if (showAdmin) return <AdminPanel onBack={() => { window.location.hash = ''; setShowAdmin(false); goHome(); }} />;
   if (showSettings) return <SettingsScreen onBack={() => { setShowSettings(false); goHome(); }} city={city} userName={userName} activeNav={activeNav} onNav={id => { setShowSettings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } }} />;
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
   if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
@@ -430,7 +425,7 @@ export default function App() {
 
         {/* Top bar with logo and title */}
         <div style={{ background:theme.grad, padding:'16px', display:'flex', justifyContent:'flex-start', alignItems:'center', zIndex:100 }}>
-          <div onClick={handleLogoTap} style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontSize:20, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
             <span style={{ fontSize:16 }}>🐾</span>
           </div>
