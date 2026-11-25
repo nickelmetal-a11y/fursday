@@ -46,7 +46,8 @@ function makeBooking(overrides = {}) {
     pet_parent_id: 'parent-1',
     sitter_id: 'sitter-1',
     booking_ref: 'FUR123',
-    price: 349,
+    gross_amount_paise: 34900,
+    payment_status: 'paid',
     booking_date: hoursFromNow(100),
     ...overrides,
   };
@@ -101,15 +102,15 @@ describe('CancellationPolicyModal - refund tiers', () => {
   });
 
   // UT-CAN-07
-  test('refund amount = price x percentage, correctly rounded', () => {
+  test('refund amount = amount paid x percentage, correctly rounded', () => {
     // 48h out -> 75% tier. 349 * 0.75 = 261.75, displayed rounded to ₹262.
-    render(<CancellationPolicyModal booking={makeBooking({ price: 349, booking_date: hoursFromNow(48) })} onClose={onClose} />);
+    render(<CancellationPolicyModal booking={makeBooking({ gross_amount_paise: 34900, booking_date: hoursFromNow(48) })} onClose={onClose} />);
     expect(screen.getByText('₹262')).toBeInTheDocument();
   });
 
   // UT-CAN-08
-  test('missing price: refund is ₹0, never NaN', () => {
-    render(<CancellationPolicyModal booking={makeBooking({ price: undefined, booking_date: hoursFromNow(100) })} onClose={onClose} />);
+  test('unpaid booking: refund is ₹0, never NaN', () => {
+    render(<CancellationPolicyModal booking={makeBooking({ payment_status: 'unpaid', booking_date: hoursFromNow(100) })} onClose={onClose} />);
     expect(screen.getByText('₹0')).toBeInTheDocument();
     expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument();
   });
@@ -120,7 +121,7 @@ describe('CancellationPolicyModal - refund tiers', () => {
   test('confirming cancellation writes exactly one bookings update with the right fields', async () => {
     render(
       <CancellationPolicyModal
-        booking={makeBooking({ price: 349, booking_date: hoursFromNow(48) })}
+        booking={makeBooking({ gross_amount_paise: 34900, booking_date: hoursFromNow(48) })}
         onClose={onClose}
         onCancelled={onCancelled}
       />

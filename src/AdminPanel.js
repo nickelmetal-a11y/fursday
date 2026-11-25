@@ -5,7 +5,7 @@ import AdminAuditLogs from './AdminAuditLogs';
 import AdminDisputes from './AdminDisputes';
 import AdminPromotions from './AdminPromotions';
 import AdminSettings from './AdminSettings';
-import { logSitterApproved, logSitterRejected, logSitterSuspended, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
+import { logSitterApproved, logSitterRejected, logSitterSuspended, logSitterNeedsChanges, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ORANGE = '#FF6B35';
 
@@ -82,26 +82,16 @@ export default function AdminPanel({ onSignOut }) {
 
   useEffect(() => { if (isRealAdmin) loadData(); }, [isRealAdmin]);
 
-  const notifyAdminAction = async (sitterId, actionType, details) => {
-    try {
-      const { data: sitterData } = await supabase
-        .from('sitter_profiles')
-        .select('users(id)')
-        .eq('id', sitterId)
-        .single();
-
-      if (sitterData?.users) {
-        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-        const { notifyAdminAction: notifyAction } = await import('./notificationService');
-        await notifyAction(sitterData.users.id, contact?.[0]?.email, contact?.[0]?.phone, actionType, details);
-      }
-    } catch(err) { console.error('Admin action notification failed:', err); }
-  };
-
   const approveSitter = async (id) => {
     const { data: { user } } = await supabase.auth.getUser();
     const hasAadhaar = !!sitters.find(s => s.id === id)?.aadhaar_number;
-    const { error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: hasAadhaar }).eq('id', id);
+    if (!hasAadhaar) { showMsg('Aadhaar is required before approval. Use "Needs changes" to ask for it.'); return; }
+    const now = new Date().toISOString();
+    let { error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: true, approved_at: now, aadhaar_verified_at: now }).eq('id', id);
+    // Before migration 032 the two date columns don't exist yet; approve without them.
+    if (approveError && /approved_at|aadhaar_verified_at|column/i.test(approveError.message || '')) {
+      ({ error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: true }).eq('id', id));
+    }
     if (approveError) { showMsg('Could not approve: ' + approveError.message); return; }
     if (user) await logSitterApproved(user.id, id);
 
@@ -132,8 +122,9 @@ export default function AdminPanel({ onSignOut }) {
     const notes = window.prompt('What does this sitter need to fix before re-review?');
     if (!notes) return;
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('sitter_profiles').update({ status: 'needs_changes', review_notes: notes }).eq('id', id);
-    if (user) await notifyAdminAction(id, 'needs_changes', notes);
+    const { error } = await supabase.from('sitter_profiles').update({ status: 'needs_changes', review_notes: notes }).eq('id', id);
+    if (error) { showMsg('Could not update: ' + error.message); return; }
+    if (user) await logSitterNeedsChanges(user.id, id, notes);
 
     try {
       const { data: sitterData } = await supabase.from('sitter_profiles').select('users(id)').eq('id', id).single();
@@ -171,9 +162,6 @@ export default function AdminPanel({ onSignOut }) {
       }
     } catch(notifErr) { console.error('Rejection notification failed:', notifErr); }
 
-    // TIER 3: Log admin action
-    await notifyAdminAction(id, 'rejection', 'Application was rejected by admin');
-
     showMsg('Sitter rejected');
     loadData();
   };
@@ -204,11 +192,6 @@ export default function AdminPanel({ onSignOut }) {
           );
         }
       } catch(notifErr) { console.error('Suspension notification failed:', notifErr); }
-    }
-
-    // TIER 3: Log admin action
-    if (newStatus === 'suspended') {
-      await notifyAdminAction(id, 'restriction', 'Your account has been temporarily suspended');
     }
 
     showMsg(newStatus === 'suspended' ? 'Sitter suspended' : 'Sitter reinstated ✓');
@@ -362,7 +345,9 @@ export default function AdminPanel({ onSignOut }) {
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const unpaidPayouts = completedBookings.filter(b => b.payout_status !== 'paid');
   const totalGMV = completedBookings.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
-  const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * sitterRate(b.sitter_id), 0);
+  // Sitters are paid on their own price (sitter_payout_paise); a parent's promo only lowers gross.
+  const payoutBase = (b) => (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100;
+  const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + payoutBase(b) * sitterRate(b.sitter_id), 0);
 
   if (!adminChecked) return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', fontFamily: 'sans-serif' }}>
@@ -448,6 +433,7 @@ export default function AdminPanel({ onSignOut }) {
                 { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
                 { label: 'Active sitters', val: activeSitters.length, color: '#2E7D32' },
                 { label: 'Bookings', val: bookings.length, color: '#1565C0' },
+                { label: 'Completed', val: completedBookings.length, color: '#6A1B9A' },
                 { label: 'GMV', val: 'Rs.' + totalGMV.toLocaleString('en-IN'), color: ORANGE },
                 { label: 'Payouts due', val: 'Rs.' + Math.round(totalPayoutsDue).toLocaleString('en-IN'), color: '#C62828' },
               ].map((s, i) => (
@@ -566,8 +552,8 @@ export default function AdminPanel({ onSignOut }) {
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {(s.status === 'pending' || s.status === 'needs_changes') && (
-                    <button onClick={() => approveSitter(s.id)}
-                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    <button onClick={() => approveSitter(s.id)} disabled={!s.aadhaar_number} title={s.aadhaar_number ? '' : 'Aadhaar is required before approval'}
+                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 600, cursor: s.aadhaar_number ? 'pointer' : 'not-allowed', opacity: s.aadhaar_number ? 1 : 0.45 }}>
                       ✓ Approve
                     </button>
                   )}
@@ -625,7 +611,7 @@ export default function AdminPanel({ onSignOut }) {
             </div>
             {unpaidPayouts.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>All payouts up to date ✓</div>}
             {unpaidPayouts.map(b => {
-              const netAmount = Math.round((b.gross_amount_paise || 0) / 100 * sitterRate(b.sitter_id));
+              const netAmount = Math.round(payoutBase(b) * sitterRate(b.sitter_id));
               const isFounding = sitters.find(s => s.id === b.sitter_id)?.is_founding_sitter;
               return (
               <div key={b.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>

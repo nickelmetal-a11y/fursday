@@ -12,8 +12,8 @@ export function useSupportContact() {
         if (data) {
           const w = data.find(r => r.key === 'support_whatsapp');
           const p = data.find(r => r.key === 'support_phone');
-          if (w) setWhatsapp(w.value);
-          if (p) setPhone(p.value);
+          if (w && isValidSupportNumber(w.value)) setWhatsapp(w.value);
+          if (p && isValidSupportNumber(p.value)) setPhone(p.value);
         }
       } catch(e) { /* silent */ }
     })();
@@ -21,13 +21,17 @@ export function useSupportContact() {
   return { whatsapp, phone };
 }
 
+// Stored as country code + number, e.g. 919876543210. Anything else (an empty
+// value or a placeholder) would produce a broken call or WhatsApp link.
+export const isValidSupportNumber = (n) => /^91[6-9]\d{9}$/.test(String(n || ''));
+
 export function openWhatsAppSupport(number, prefill) {
-  if (!number) return;
+  if (!isValidSupportNumber(number)) return;
   const text = prefill ? '?text=' + encodeURIComponent(prefill) : '';
   window.open('https://wa.me/' + number + text, '_blank');
 }
 
 export function callSupport(number) {
-  if (!number) return;
+  if (!isValidSupportNumber(number)) return;
   window.location.href = 'tel:+' + number;
 }

@@ -56,6 +56,7 @@ export const logAdminActionFailed = async (adminId, action, resourceType, resour
 // Helper functions for specific actions
 export const logSitterApproved = (adminId, sitterId) => logAdminAction(adminId, 'approve_sitter', 'sitter_profiles', sitterId, { status: 'pending' }, { status: 'active' });
 export const logSitterRejected = (adminId, sitterId) => logAdminAction(adminId, 'reject_sitter', 'sitter_profiles', sitterId, { status: 'pending' }, { status: 'rejected' });
+export const logSitterNeedsChanges = (adminId, sitterId, notes) => logAdminAction(adminId, 'request_sitter_changes', 'sitter_profiles', sitterId, { status: 'pending' }, { status: 'needs_changes' }, notes);
 export const logSitterSuspended = (adminId, sitterId, suspended) => logAdminAction(adminId, suspended ? 'suspend_sitter' : 'reinstate_sitter', 'sitter_profiles', sitterId);
 export const logTopSitterToggled = (adminId, sitterId, isTopSitter) => logAdminAction(adminId, 'toggle_top_sitter', 'sitter_profiles', sitterId, { is_top_sitter: !isTopSitter }, { is_top_sitter: isTopSitter });
 export const logPayoutMarkedPaid = (adminId, bookingId, amount) => logAdminAction(adminId, 'mark_payout_paid', 'bookings', bookingId, { payout_status: 'pending' }, { payout_status: 'paid' }, `Marked Rs.${amount} as paid`);

@@ -142,7 +142,7 @@ export const notifyPayoutMarked = async (sitterId, sitterEmail, sitterPhone, amo
   const prefs = await getNotificationPrefs(sitterId);
 
   // In-app notification
-  await createNotification(sitterId, 'payout_marked', 'Payout processed!', `Rs. ${amount} marked as paid`);
+  await createNotification(sitterId, 'payout_marked', 'Payout processed!', `Rs. ${Math.round(amount / 100)} marked as paid`);
 
   // Email notification
   if (sitterEmail && prefs.email) {

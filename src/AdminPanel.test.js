@@ -166,7 +166,7 @@ describe('AdminPanel sitter actions', () => {
     await waitFor(() => expect(createNotification).toHaveBeenCalledWith(
       'sitter-user-9', 'sitter_approved', '🎉 Account Approved!', expect.any(String)
     ));
-    expect(updateCalls).toContainEqual({ table: 'sitter_profiles', fields: { status: 'active', aadhaar_verified: true } });
+    expect(updateCalls).toContainEqual({ table: 'sitter_profiles', fields: expect.objectContaining({ status: 'active', aadhaar_verified: true, approved_at: expect.any(String) }) });
   });
 
   test('a sitter with no Aadhaar cannot be approved', async () => {

@@ -149,7 +149,18 @@ function builder(tableName) {
   return api;
 }
 
+// Mirrors trigger reviews_refresh_sitter_rating (migration 032).
+function afterWrite(table, row) {
+  if (table !== 'reviews' || !row?.sitter_id) return;
+  const list = db.rows('reviews', { sitter_id: row.sitter_id });
+  const sp = db.one('sitter_profiles', { id: row.sitter_id });
+  if (!sp) return;
+  const avg = list.length ? Math.round((list.reduce((a, r) => a + (r.rating || 0), 0) / list.length) * 100) / 100 : 0;
+  Object.assign(sp, { review_count: list.length, avg_rating: avg, rating: avg });
+}
+
 function fire(table, event, row) {
+  afterWrite(table, row);
   channels.forEach(ch => ch.handlers.forEach(h => {
     if (h.config.table && h.config.table !== table) return;
     if (h.config.event && h.config.event !== '*' && h.config.event !== event) return;

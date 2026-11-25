@@ -3,7 +3,9 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 
 
-export default function DisputeForm({ booking, sitterName, onClose, onDisputeFiled }) {
+// reporterRole 'parent' files against the booking's sitter; 'sitter' files
+// against the pet parent. reported_user_id is always a real users.id.
+export default function DisputeForm({ booking, sitterName, otherName, reporterRole = 'parent', onClose, onDisputeFiled }) {
   const { t: tr } = useLanguage();
   const [disputeType, setDisputeType] = useState('');
   const [title, setTitle] = useState('');
@@ -29,11 +31,18 @@ export default function DisputeForm({ booking, sitterName, onClose, onDisputeFil
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      let reportedUserId = booking.pet_parent_id;
+      if (reporterRole === 'parent') {
+        const { data: sp } = await supabase.from('sitter_profiles').select('user_id').eq('id', booking.sitter_id).single();
+        reportedUserId = sp?.user_id;
+      }
+      if (!reportedUserId) throw new Error('Could not find the other person on this booking');
+
       const { error: disputeError } = await supabase
         .from('disputes')
         .insert({
           booking_id: booking.id,
-          reported_user_id: booking.sitter_id,
+          reported_user_id: reportedUserId,
           reported_by: user.id,
           dispute_type: disputeType,
           title,
@@ -45,26 +54,11 @@ export default function DisputeForm({ booking, sitterName, onClose, onDisputeFil
         .single();
       if (disputeError) throw disputeError;
 
-      // TIER 2: Send dispute filed notification to sitter
       try {
-        const { data: sitterData } = await supabase
-          .from('sitter_profiles')
-          .select('users(id, name)')
-          .eq('id', booking.sitter_id)
-          .single();
-
-        if (sitterData?.users) {
-          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-          const { notifyDisputeFiled } = await import('./notificationService');
-          await notifyDisputeFiled(
-            sitterData.users.id,
-            contact?.[0]?.email,
-            contact?.[0]?.phone,
-            'Pet Parent',
-            disputeType,
-            title
-          );
-        }
+        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: reportedUserId });
+        const { notifyDisputeFiled } = await import('./notificationService');
+        await notifyDisputeFiled(reportedUserId, contact?.[0]?.email, contact?.[0]?.phone,
+          reporterRole === 'sitter' ? 'Sitter' : 'Pet Parent', disputeType, title);
       } catch(notifErr) { console.error('Dispute filed notification failed:', notifErr); }
 
       onDisputeFiled && onDisputeFiled();
@@ -79,7 +73,7 @@ export default function DisputeForm({ booking, sitterName, onClose, onDisputeFil
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1001, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'white', borderRadius:'24px 24px 0 0', padding:'24px 20px 40px', width:'100%', maxWidth:390 }}>
-        <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a', marginBottom:6 }}>{tr('disputeForm_titleWithSitter', { name: sitterName })}</div>
+        <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a', marginBottom:6 }}>{tr('disputeForm_titleWithSitter', { name: otherName || sitterName })}</div>
         <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('disputeForm_subIntro')}</div>
 
         <div style={{ marginBottom:12 }}>

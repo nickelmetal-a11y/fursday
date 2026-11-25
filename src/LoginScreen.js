@@ -97,7 +97,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
           {[
             { emoji: '🛡️', text: tr('trustAadhaar') },
             { emoji: '📍', text: tr('trustGps') },
-            { emoji: '💰', text: tr('trustInsurance') },
+            { emoji: '🆘', text: tr('trustInsurance') },
           ].map((item, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center', opacity: i === 2 ? 0.5 : 1 }}>
               <div style={{ fontSize: 20, marginBottom: 4 }}>{item.emoji}</div>

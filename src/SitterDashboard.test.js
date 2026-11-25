@@ -21,6 +21,7 @@ jest.mock('./notificationService', () => ({
   notifyWalkStarted: jest.fn().mockResolvedValue(undefined),
   notifyWalkCompleted: jest.fn().mockResolvedValue(undefined),
   notifySitterArriving: jest.fn().mockResolvedValue(undefined),
+  createNotification: (...args) => { (global.__notifications = global.__notifications || []).push(args); return Promise.resolve(); },
 }));
 
 const sitterProfileRow = {
@@ -51,7 +52,7 @@ jest.mock('./supabase', () => {
     select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }) }),
   };
   const messagesTable = {
-    select: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }),
+    select: () => ({ in: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }) }),
   };
 
   return {
@@ -129,7 +130,7 @@ describe('SitterDashboard', () => {
     fireEvent.change(screen.getByPlaceholderText('0000'), { target: { value: '9999' } });
     fireEvent.click(screen.getByText('Start'));
 
-    expect(screen.getByText(/Wrong OTP/)).toBeInTheDocument();
+    expect(screen.getByText(/^Wrong code/)).toBeInTheDocument();
     expect(updateCalls).toHaveLength(0);
   });
 
@@ -191,6 +192,6 @@ describe('SitterDashboard', () => {
     global.__bookings = [makeBooking({ status: 'pending' })];
     render(<SitterDashboard onBack={() => {}} city="Gurgaon" />);
     fireEvent.click(await screen.findByText('Decline'));
-    await waitFor(() => expect(updateCalls).toContainEqual({ status: 'cancelled' }));
+    await waitFor(() => expect(updateCalls).toContainEqual(expect.objectContaining({ status: 'cancelled', cancellation_reason: 'Declined by sitter' })));
   });
 });

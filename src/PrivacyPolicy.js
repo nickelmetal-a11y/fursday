@@ -8,44 +8,44 @@ const THEMES = {
 
 const SECTIONS = [
   {
-    title: '1. Who we are',
-    content: "Fursday is a peer-to-peer pet care marketplace operated in India. We connect pet owners with independent pet care providers. Our registered address and data controller is based in India. Contact us at hello@fursday.in for any privacy-related queries.",
+    title: "1. Who we are",
+    content: "Fursday is a pet care marketplace operating in India. We connect pet owners with independent pet care providers. Fursday is the Data Fiduciary for the personal data described here under the Digital Personal Data Protection Act, 2023. Contact: support@fursday.in.",
   },
   {
-    title: '2. What data we collect',
-    content: "We collect the following information when you use Fursday:\n\nAccount data: Your email address, name, and phone number when you sign up.\n\nPet data: Information about your pets including name, breed, age, weight, health status, and photos.\n\nLocation data: Your approximate GPS location to show nearby sitters. We do not store your precise location permanently.\n\nBooking data: Details of services you book including dates, times, and payment amounts.\n\nCommunication data: Messages exchanged between pet parents and sitters on our platform.\n\nPayment data: We do not store card details. Payments are processed by Razorpay who have their own privacy policy.\n\nDevice data: Basic device information and app usage data for improving our service.",
+    title: "2. What data we collect",
+    content: "Account: your name, email and phone number.\n\nPets: name, breed, age, weight, health, vaccination, behaviour and photos.\n\nSitters only: Aadhaar number for identity verification, UPI ID for payouts, profile and portfolio photos, availability and prices. Aadhaar is never shown to other users; the app displays only its last digits, and the full number is visible only to authorised Fursday staff for verification.\n\nLocation: your approximate location when you allow it, to show nearby sitters. We do not keep a history of your precise location.\n\nBookings: services, dates, times, the address you enter for a booking, and amounts.\n\nMessages: chats and photos exchanged inside a booking.\n\nPayments: card and bank details are handled by Razorpay and never stored by Fursday.\n\nDevice: basic device and app usage information used to fix problems.",
   },
   {
-    title: '3. How we use your data',
-    content: "We use your data to:\n\n- Provide and improve the Fursday platform\n- Match pet parents with suitable sitters\n- Process bookings and payments\n- Send booking confirmations and walk reports\n- Ensure safety and prevent fraud\n- Comply with legal obligations under Indian law\n- Send service updates and important notifications\n\nWe do not sell your personal data to third parties.",
+    title: "3. How we use your data",
+    content: "To run bookings and payments, match Pet Parents with Sitters, verify Sitters, send booking updates and walk reports, provide support and SOS help, prevent fraud and keep people safe, and meet our legal obligations in India.\n\nWe do not sell your personal data.",
   },
   {
-    title: '4. Who we share data with',
-    content: "We share your data only with:\n\nSitters: Pet parents' names, pet details, and contact information are shared with the sitter they book.\n\nPet parents: Sitters' names, photos, ratings, and contact information are shown to pet parents.\n\nRazorpay: Payment processing. Subject to Razorpay's privacy policy.\n\nResend: Email delivery service for booking confirmations and OTP codes.\n\nSupabase: Our database provider stores your data on secure servers.\n\nLegal authorities: We may share data if required by Indian law or court order.",
+    title: "4. Who we share data with",
+    content: "The other side of your booking: a Sitter sees the Pet Parent's name, pet details, booking address and contact number for that booking, and a Pet Parent sees the Sitter's name, photo, rating and contact number.\n\nService providers who process data for us: Supabase (database and login, servers in Tokyo, Japan), Resend and Amazon SES (email), our SMS provider (text messages) and Razorpay (payments).\n\nAuthorities, when Indian law or a court order requires it.",
   },
   {
-    title: '5. Data storage and security',
-    content: "Your data is stored on Supabase servers located in Japan (Tokyo region). We use industry-standard encryption for data in transit and at rest. Access to personal data is restricted to authorised Fursday team members only. We retain your data for as long as your account is active. If you delete your account, we delete your personal data within 30 days.",
+    title: "5. Storage and security",
+    content: "Data is encrypted in transit and at rest. Access to personal data is limited to authorised Fursday staff, and database rules stop users from reading each other's private details. We keep your data while your account is active. When you delete your account we delete or anonymise your personal data within 30 days, except records the law requires us to keep, such as payment records.",
   },
   {
-    title: '6. Your rights',
-    content: "Under India's Personal Data Protection Bill and IT Act 2000, you have the right to:\n\n- Access the personal data we hold about you\n- Correct inaccurate personal data\n- Delete your account and associated personal data\n- Withdraw consent for data processing\n- Receive a copy of your data\n\nTo exercise any of these rights, contact us at hello@fursday.in. We will respond within 30 days.",
+    title: "6. Your rights",
+    content: "Under the Digital Personal Data Protection Act, 2023 you can: get a summary of the personal data we hold about you; correct or update it; ask us to erase it; withdraw your consent; nominate someone to exercise these rights for you; and raise a grievance with us.\n\nWrite to support@fursday.in. If you are not satisfied with our response, you can complain to the Data Protection Board of India.",
   },
   {
-    title: '7. Cookies and tracking',
-    content: "Fursday uses minimal tracking. We use session cookies to keep you logged in. We do not use third-party advertising trackers or sell your browsing data. If we add analytics in future, we will update this policy and notify users.",
+    title: "7. Cookies and tracking",
+    content: "We use only what is needed to keep you signed in. We do not use advertising trackers or sell browsing data. If we add analytics, we will update this policy first.",
   },
   {
-    title: '8. Children',
-    content: "Fursday is not intended for use by anyone under the age of 18. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, contact us at hello@fursday.in and we will delete it immediately.",
+    title: "8. Children",
+    content: "Fursday is for people aged 18 and over. We do not knowingly collect personal data from children. If you think a child has given us personal data, contact us and we will delete it.",
   },
   {
-    title: '9. Changes to this policy',
-    content: "We may update this Privacy Policy from time to time. We will notify you of significant changes via email or in-app notification. Continued use of Fursday after changes constitutes acceptance of the updated policy. Current version effective from July 2026.",
+    title: "9. Grievance Officer",
+    content: "Grievance Officer: [NAME TO BE ADDED]\nEmail: grievance@fursday.in\n\nWe acknowledge complaints within 24 hours and resolve them within 15 days.",
   },
   {
-    title: '10. Contact us',
-    content: "For any privacy-related questions or to exercise your data rights:\n\nEmail: hello@fursday.in\nWhatsApp: Available on the app\n\nWe aim to respond to all privacy queries within 30 days.",
+    title: "10. Changes to this policy",
+    content: "We will tell you about significant changes by email or in the app before they take effect. This version is effective from 25 November 2026.",
   },
 ];
 
@@ -61,13 +61,13 @@ export default function PrivacyPolicy({ onBack, city }) {
         </div>
         <div>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>Privacy Policy</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>Last updated July 2026</div>
+          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>Last updated 25 November 2026</div>
         </div>
       </div>
 
       <div style={{ padding:'16px 16px 0' }}>
         <div style={{ background:'#E3F2FD', borderRadius:14, padding:'12px 16px', marginBottom:16, fontSize:13, color:'#1565C0', lineHeight:1.6 }}>
-          This policy explains how Fursday collects, uses, and protects your personal data in compliance with India's IT Act 2000 and Personal Data Protection Bill.
+          This policy explains how Fursday collects, uses, and protects your personal data under India's Digital Personal Data Protection Act, 2023 and the IT Act, 2000.
         </div>
 
         {SECTIONS.map((s, i) => (
@@ -88,7 +88,7 @@ export default function PrivacyPolicy({ onBack, city }) {
         ))}
 
         <div style={{ textAlign:'center', padding:'20px 0', fontSize:12, color:'#AAA', lineHeight:1.6 }}>
-          Questions? Contact us at hello@fursday.in
+          Questions? Contact us at support@fursday.in
         </div>
       </div>
     </div>

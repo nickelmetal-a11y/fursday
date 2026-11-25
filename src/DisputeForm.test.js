@@ -23,7 +23,7 @@ jest.mock('./supabase', () => {
   const sitterTable = {
     select: () => sitterTable,
     eq: () => sitterTable,
-    single: () => Promise.resolve({ data: { users: { id: 'sitter-user-9', name: 'Priya' } } }),
+    single: () => Promise.resolve({ data: { user_id: 'sitter-user-9', users: { id: 'sitter-user-9', name: 'Priya' } } }),
   };
   return {
     supabase: {
@@ -82,7 +82,7 @@ describe('DisputeForm', () => {
     await waitFor(() => expect(insertedRows).toHaveLength(1));
     expect(insertedRows[0]).toMatchObject({
       booking_id: 'booking-1',
-      reported_user_id: 'sitter-profile-9', // who the dispute is against
+      reported_user_id: 'sitter-user-9', // the sitter's real users.id, not sitter_profiles.id
       reported_by: 'parent-1',               // who filed it (not "reporter_id" - that column never existed)
       dispute_type: 'quality_complaint',
       title: 'Dog came back dirty',

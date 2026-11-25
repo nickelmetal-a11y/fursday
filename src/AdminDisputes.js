@@ -62,30 +62,15 @@ export default function AdminDisputes() {
       try {
         const { data: disputeData } = await supabase
           .from('disputes')
-          .select('reported_user_id, bookings(pet_parent_id, sitter_id)')
+          .select('reported_by, reported_user_id')
           .eq('id', disputeId)
           .single();
-
-        if (disputeData) {
-          const reportedUserId = disputeData.reported_user_id;
-          const { data: userData } = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', reportedUserId)
-            .single();
-          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: reportedUserId });
-
-          if (userData) {
-            const { notifyDisputeResolved } = await import('./notificationService');
-            await notifyDisputeResolved(
-              reportedUserId,
-              contact?.[0]?.email,
-              contact?.[0]?.phone,
-              'Admin',
-              resolution,
-              refundAmount ? parseFloat(refundAmount) * 100 : 0
-            );
-          }
+        const { notifyDisputeResolved } = await import('./notificationService');
+        // Both sides hear the outcome: the person who raised it and the person it was about.
+        for (const uid of [disputeData?.reported_by, disputeData?.reported_user_id].filter(Boolean)) {
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: uid });
+          await notifyDisputeResolved(uid, contact?.[0]?.email, contact?.[0]?.phone, 'Fursday', resolution,
+            uid === disputeData.reported_by && refundAmount ? parseFloat(refundAmount) * 100 : 0);
         }
       } catch(notifErr) { console.error('Dispute resolution notification failed:', notifErr); }
 

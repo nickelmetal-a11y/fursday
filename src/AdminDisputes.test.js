@@ -36,7 +36,7 @@ jest.mock('./supabase', () => {
     select: () => listChain,
     order: () => listChain,
     eq: () => listChain,
-    single: () => Promise.resolve({ data: { reported_user_id: 'sitter-user-9' } }),
+    single: () => Promise.resolve({ data: { reported_by: 'parent-user-1', reported_user_id: 'sitter-user-9' } }),
     then: (resolve) => resolve({ data: global.__disputes, error: null }),
   };
   const updateChain = {
@@ -101,7 +101,7 @@ describe('AdminDisputes', () => {
     expect(updateCalls).toHaveLength(0);
   });
 
-  test('resolving with a refund updates the dispute and notifies the sitter at their real user id', async () => {
+  test('resolving with a refund updates the dispute and tells both the parent (with the refund) and the sitter', async () => {
     render(<AdminDisputes />);
     await waitFor(() => screen.getByText(/Dog came back dirty/));
     fireEvent.click(screen.getByText(/Dog came back dirty/));
@@ -113,15 +113,10 @@ describe('AdminDisputes', () => {
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toMatchObject({ status: 'resolved', resolution: 'refund_full', refund_amount: 349 });
 
-    await waitFor(() => expect(notifyDisputeResolvedMock).toHaveBeenCalledWith(
-      'sitter-user-9',
-      'sitter@test.com',
-      '9111111111',
-      'Admin',
-      'refund_full',
-      34900
-    ));
-    expect(rpcCalls[0]).toMatchObject({ fn: 'get_user_contact', args: { target_id: 'sitter-user-9' } });
+    await waitFor(() => expect(notifyDisputeResolvedMock).toHaveBeenCalledTimes(2));
+    expect(notifyDisputeResolvedMock).toHaveBeenCalledWith('parent-user-1', expect.anything(), expect.anything(), 'Fursday', 'refund_full', 34900);
+    expect(notifyDisputeResolvedMock).toHaveBeenCalledWith('sitter-user-9', 'sitter@test.com', '9111111111', 'Fursday', 'refund_full', 0);
+    expect(rpcCalls.map(c => c.args.target_id)).toEqual(['parent-user-1', 'sitter-user-9']);
     expect(window.alert).toHaveBeenCalledWith('Dispute resolved!');
   });
 

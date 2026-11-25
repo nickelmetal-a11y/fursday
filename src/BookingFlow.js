@@ -60,6 +60,7 @@ function StepBar({ step }) {
 export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking, initialPromoCode }) {
   const { t: tr } = useLanguage();
   const [step, setStep] = useState(repeatBooking ? 1 : (initialService ? 1 : 0));
+  const [sitterPrices, setSitterPrices] = useState({});
   const [selectedService, setSelectedService] = useState(repeatBooking ? repeatBooking.service_type : (initialService || null));
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -106,11 +107,25 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   };
   const services = SERVICES.map(s => ({
     ...s,
+    price: sitterPrices[s.id] ?? s.price,
     name: tr(SERVICE_I18N_KEYS[s.id].name),
     sub: tr(SERVICE_I18N_KEYS[s.id].sub),
     desc: tr(SERVICE_I18N_KEYS[s.id].desc),
   }));
   const service = services.find(s => s.id === selectedService);
+
+  // Each sitter sets their own price per service; the SERVICES prices are only
+  // a fallback while it loads or when a sitter hasn't priced a service.
+  useEffect(() => {
+    if (!sitter?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('sitter_services').select('service_type, price_paise').eq('sitter_id', sitter.id);
+      if (cancelled || !data) return;
+      setSitterPrices(Object.fromEntries(data.filter(r => r.price_paise > 0).map(r => [r.service_type, Math.round(r.price_paise / 100)])));
+    })();
+    return () => { cancelled = true; };
+  }, [sitter?.id]);
   const pet = pets.find(p => p.id === selectedPet);
   const day = days[selectedDay];
 

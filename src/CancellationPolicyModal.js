@@ -4,10 +4,21 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 
 
-const calculateRefund = (bookingDate) => {
-  const now = new Date();
-  const booking = new Date(bookingDate);
-  const hoursUntil = (booking - now) / (1000 * 60 * 60);
+// booking_date is a plain 'YYYY-MM-DD' and time_slot e.g. '7:00 AM'. Parsing the
+// date alone gives UTC midnight, which ignored the time and could push a parent
+// into a lower refund tier, so combine both in IST.
+export const serviceStartTime = (booking) => {
+  const d = booking.booking_date || '';
+  if (d.includes('T')) return new Date(d);
+  const m = String(booking.time_slot || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  let h = m ? parseInt(m[1], 10) : 0;
+  const min = m ? m[2] : '00';
+  if (m && m[3]) { const pm = m[3].toUpperCase() === 'PM'; if (h === 12) h = pm ? 12 : 0; else if (pm) h += 12; }
+  return new Date(d + 'T' + String(h).padStart(2, '0') + ':' + min + ':00+05:30');
+};
+
+const calculateRefund = (booking) => {
+  const hoursUntil = (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60);
 
   if (hoursUntil >= 72) return { percentage: 100, labelKey: 'cancelPolicy_refundFull100' };
   if (hoursUntil >= 24) return { percentage: 75, labelKey: 'cancelPolicy_tier2472Refund' };
@@ -28,8 +39,10 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
   const [step, setStep] = useState('policy'); // policy, reason, confirming
   const [reason, setReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const refund = calculateRefund(booking.booking_date);
-  const refundAmount = (booking.price || 0) * refund.percentage / 100;
+  const refund = calculateRefund(booking);
+  // Only money actually paid can be refunded.
+  const paidRupees = booking.payment_status === 'paid' ? (booking.gross_amount_paise || 0) / 100 : 0;
+  const refundAmount = paidRupees * refund.percentage / 100;
 
   const cancelBooking = async () => {
     if (!reason) return;
@@ -38,7 +51,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       const { data: { user } } = await supabase.auth.getUser();
 
       // TIER 3: Calculate hours until refund deadline before cancelling
-      const hoursUntilBooking = (new Date(booking.booking_date) - new Date()) / (1000 * 60 * 60);
+      const hoursUntilBooking = (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60);
 
       const { error } = await supabase.from('bookings').update({
         status: 'cancelled',
@@ -80,13 +93,14 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
             ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
             : { data: null };
           const { notifyBookingCancelled } = await import('./notificationService');
+          const { data: parentRow } = await supabase.from('users').select('name').eq('id', booking.pet_parent_id).single();
 
           // Notify pet parent
           await notifyBookingCancelled({
             userId: booking.pet_parent_id,
             userEmail: user.email,
             userPhone: user.phone,
-            otherUserName: sitterData.users?.name,
+            otherUserName: 'You',
             reason: reason,
             refundAmount: refundAmount.toFixed(2),
             refundStatus: 'Processing',
@@ -98,7 +112,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
             userId: sitterData.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
             userEmail: sitterContact?.[0]?.email,
             userPhone: sitterContact?.[0]?.phone,
-            otherUserName: user.user_metadata?.name || 'A customer',
+            otherUserName: parentRow?.name || 'The pet parent',
             reason: reason,
             refundAmount: 0,
             refundStatus: 'Booking cancelled',

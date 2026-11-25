@@ -104,9 +104,13 @@ export default function BroadcastRequest({ onBack, city, onSitterAccepted }) {
   }, [requestId]);
 
   const acceptSitter = async (response) => {
-    await supabase.from('broadcast_requests').update({ status: 'filled', chosen_sitter_id: response.sitter_id }).eq('id', requestId);
-    await supabase.from('broadcast_responses').update({ status: 'chosen' }).eq('id', response.id);
-    if (onSitterAccepted) onSitterAccepted(response.sitter_profiles);
+    const { error: reqError } = await supabase.from('broadcast_requests').update({ status: 'filled', chosen_sitter_id: response.sitter_id }).eq('id', requestId);
+    if (reqError) { alert(reqError.message); return; }
+    const { error: respError } = await supabase.from('broadcast_responses').update({ status: 'chosen' }).eq('id', response.id);
+    if (respError) { alert(respError.message); return; }
+    // BookingFlow expects the same sitter shape the Explore screen builds.
+    const sp = response.sitter_profiles || {};
+    if (onSitterAccepted) onSitterAccepted({ ...sp, id: sp.id || response.sitter_id, name: sp.users?.name || 'Sitter', services: sp.sitter_services || [] });
     onBack();
   };
 
@@ -159,7 +163,7 @@ export default function BroadcastRequest({ onBack, city, onSitterAccepted }) {
                 <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{r.sitter_profiles?.users?.name || 'Sitter'}</div>
                 <div style={{ fontSize:12, color:'#888' }}>{tr('broadcast_availableCheck')}</div>
               </div>
-              <div style={{ fontSize:14, fontWeight:700, color:t.primary }}>Rs.{r.offered_price || '299'}</div>
+              <div style={{ fontSize:14, fontWeight:700, color:t.primary }}>Rs.{r.offered_price ? Math.round(r.offered_price / 100) : '—'}</div>
             </div>
             <button onClick={() => acceptSitter(r)}
               style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>

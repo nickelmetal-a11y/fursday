@@ -32,7 +32,6 @@ jest.mock('./i18n', () => ({
         bookings_cancelBooking: 'Cancel booking',
         bookings_call: 'Call',
         bookings_message: 'Message',
-        bookings_cancelSuccess: 'Booking cancelled successfully.',
       };
       let str = dict[key] ?? key;
       if (vars) Object.keys(vars).forEach(k => { str = str.replace('{' + k + '}', vars[k]); });
@@ -52,6 +51,7 @@ jest.mock('./DisputeForm', () => () => <div>DisputeForm</div>);
 
 jest.mock('./supabase', () => {
   const makeSingleChain = (resolveValue) => ({
+    select: () => makeSingleChain(resolveValue),
     eq: () => makeSingleChain(resolveValue),
     single: () => Promise.resolve(resolveValue),
   });
@@ -130,13 +130,13 @@ describe('BookingsDashboard', () => {
     );
   });
 
-  test('cancelling a pending/confirmed booking updates its status', async () => {
+  test('the quick Cancel button opens the refund-policy sheet instead of cancelling blind', async () => {
     global.__bookings = [makeBooking({ status: 'pending' })];
     render(<BookingsDashboard onBack={() => {}} city="Gurgaon" />);
 
     fireEvent.click(await screen.findByText('Cancel booking'));
-    await waitFor(() => expect(updateCalls).toContainEqual({ status: 'cancelled' }));
-    expect(window.alert).toHaveBeenCalledWith('Booking cancelled successfully.');
+    expect(await screen.findByText('CancellationPolicyModal')).toBeInTheDocument();
+    expect(updateCalls).toHaveLength(0);
   });
 
   test('an active booking past its time by over an hour triggers a no-show notification to self', async () => {

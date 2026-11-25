@@ -24,6 +24,19 @@ const parseScheduleMessage = (msg) => {
   if (typeof msg !== 'string' || !msg.startsWith(SCHEDULE_PREFIX)) return null;
   try { return JSON.parse(msg.slice(SCHEDULE_PREFIX.length)); } catch { return null; }
 };
+// Written when the other side accepts a proposal; carries the proposal's message id.
+const ACCEPT_PREFIX = 'FURSDAY_SCHEDULE_OK::';
+const parseAcceptMessage = (msg) => {
+  if (typeof msg !== 'string' || !msg.startsWith(ACCEPT_PREFIX)) return null;
+  try { return JSON.parse(msg.slice(ACCEPT_PREFIX.length)); } catch { return null; }
+};
+// '18:30' -> '6:30 PM', matching the booking time slots.
+const toSlotLabel = (hhmm) => {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return hhmm;
+  const h = parseInt(m[1], 10);
+  return ((h % 12) || 12) + ':' + m[2] + ' ' + (h >= 12 ? 'PM' : 'AM');
+};
 
 const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
   const reader = new FileReader();
@@ -194,8 +207,28 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
   };
 
   const quickReplies = userType === 'sitter'
-    ? ['On my way!', 'Running 5 min late', 'Walk completed ✓', 'Is the gate open?']
-    : ['Thank you!', 'What time will you arrive?', 'Gate code is...', 'See you soon'];
+    ? [tr('chat_qrOnMyWay'), tr('chat_qrLate'), tr('chat_qrWalkDone'), tr('chat_qrGate')]
+    : [tr('chat_qrThanks'), tr('chat_qrWhatTime'), tr('chat_qrGateCode'), tr('chat_qrSeeYou')];
+
+  const acceptedProposalIds = new Set(messages.map(m => parseAcceptMessage(m.message)?.proposalId).filter(Boolean));
+
+  const acceptSchedule = async (m, schedule) => {
+    const slot = toSlotLabel(schedule.time);
+    const { error: updError } = await supabase.from('bookings').update({ booking_date: schedule.date, time_slot: slot }).eq('id', booking.id);
+    if (updError) { alert(tr('chat_scheduleAcceptFailed') + updError.message); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: msgError } = await supabase.from('messages').insert({
+      booking_id: booking.id, sender_id: user ? user.id : null, sender_type: userType,
+      message: ACCEPT_PREFIX + JSON.stringify({ proposalId: m.id, date: schedule.date, time: slot }),
+    });
+    if (msgError) console.error('Accept message failed:', msgError);
+    if (booking?.recipientUserId) {
+      try {
+        const { createNotification } = await import('./notificationService');
+        await createNotification(booking.recipientUserId, 'schedule_accepted', '✅ New time confirmed', schedule.date + ' ' + slot);
+      } catch (notifErr) { console.error('Schedule accepted notification failed:', notifErr); }
+    }
+  };
 
   return (
     <div style={{ maxWidth:390, margin:'0 auto', height:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', display:'flex', flexDirection:'column' }}>
@@ -231,6 +264,14 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         {!loading && messages.map((m, i) => {
           const isMine = m.sender_id === currentUserId;
           const schedule = parseScheduleMessage(m.message);
+          const accepted = parseAcceptMessage(m.message);
+          if (accepted) return (
+            <div key={m.id || i} style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
+              <div style={{ background:'#E8F5E9', color:'#2E7D32', fontSize:12, fontWeight:600, borderRadius:12, padding:'6px 12px' }}>
+                ✅ {tr('chat_scheduleAccepted', { date: accepted.date, time: accepted.time })}
+              </div>
+            </div>
+          );
           return (
             <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:10 }}>
               <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImageMessage(m.message)?6:schedule?0:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', overflow:'hidden' }}>
@@ -245,6 +286,12 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
                       {schedule.date && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>📅 {schedule.date}</div>}
                       {schedule.time && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>🕐 {schedule.time}</div>}
                       {schedule.price != null && <div style={{ fontSize:13, fontWeight:700, color:isMine?'white':t.primary }}>{tr('chat_priceLabel', { amount: Math.round(schedule.price/100) })}</div>}
+                      {!isMine && m.id && (acceptedProposalIds.has(m.id)
+                        ? <div style={{ marginTop:8, fontSize:12, fontWeight:600, color:'#2E7D32' }}>✅ {tr('chat_scheduleAcceptedShort')}</div>
+                        : <button onClick={() => acceptSchedule(m, schedule)}
+                            style={{ marginTop:8, width:'100%', minHeight:40, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                            {tr('chat_acceptNewTime')}
+                          </button>)}
                     </div>
                   </div>
                 ) : isImageMessage(m.message)

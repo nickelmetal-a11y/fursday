@@ -43,6 +43,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState(false);
   const [reviewingBooking, setReviewingBooking] = useState(null);
+  const [reviewedIds, setReviewedIds] = useState(new Set());
   const [photoCarousel, setPhotoCarousel] = useState(null);
   const [photoReport, setPhotoReport] = useState(null);
   const [confirmingPhotos, setConfirmingPhotos] = useState(false);
@@ -88,15 +89,6 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     setViewingReceipt(true);
   };
 
-  const cancelBooking = async (bookingId) => {
-    if (!window.confirm(tr('bookings_cancelConfirmDialog'))) return;
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', bookingId);
-    if (error) alert(tr('bookings_cancelErrorPrefix') + error.message);
-    else { alert(tr('bookings_cancelSuccess')); loadBookings(); }
-  };
 
   const loadBookings = async () => {
     setLoading(true);
@@ -114,6 +106,8 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
         return { ...b, sitter_profiles: { ...b.sitter_profiles, users: { ...b.sitter_profiles.users, phone: contact?.[0]?.phone } } };
       }));
       setBookings(dataWithContact);
+      const { data: myReviews } = await supabase.from('reviews').select('booking_id').eq('reviewer_id', user.id);
+      setReviewedIds(new Set((myReviews || []).map(r => r.booking_id)));
 
       // TIER 3: Check for no-shows (confirmed booking past scheduled time, still active)
       if (data) {
@@ -253,7 +247,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                   </div>
                 )}
                 {['pending','confirmed'].includes(b.status) && (
-                  <button onClick={(e) => { e.stopPropagation(); cancelBooking(b.id); }}
+                  <button onClick={(e) => { e.stopPropagation(); setCancellingBooking(b); }}
                     style={{ marginTop:8, width:'100%', padding:'10px 0', borderRadius:12, border:'1.5px solid #FFCDD2', background:'white', color:'#A32D2D', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                     {tr('bookings_cancelBooking')}
                   </button>
@@ -363,10 +357,16 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                           style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>
                           {tr('bookings_walkReportBtn')}
                         </button>
-                        <button onClick={() => setReviewingBooking(b)}
-                          style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                          {tr('bookings_reviewBtn')}
-                        </button>
+                        {reviewedIds.has(b.id) ? (
+                          <div style={{ flex:1, padding:'10px 0', borderRadius:12, background:'#F5F5F5', color:'#2E7D32', fontSize:13, fontWeight:600, textAlign:'center' }}>
+                            {tr('bookings_reviewedLabel')}
+                          </div>
+                        ) : (
+                          <button onClick={() => setReviewingBooking(b)}
+                            style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                            {tr('bookings_reviewBtn')}
+                          </button>
+                        )}
                       </div>
                       <div style={{ display:'flex', gap:8 }}>
                         <button onClick={() => onNav && onNav('book', { repeatBooking: b })}
@@ -441,9 +441,9 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
       {reviewingBooking && (
         <ReviewModal
-          booking={reviewingBooking}
+          booking={{ ...reviewingBooking, sitter_name: reviewingBooking.sitter_profiles?.users?.name || tr('bookings_sitterFallback') }}
           onClose={() => setReviewingBooking(null)}
-          onSubmitted={() => { setReviewingBooking(null); window.location.reload(); }}
+          onSubmitted={() => { setReviewedIds(prev => new Set([...prev, reviewingBooking.id])); setReviewingBooking(null); loadBookings(); }}
         />
       )}
 

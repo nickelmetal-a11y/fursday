@@ -44,6 +44,7 @@ jest.mock('./supabase', () => {
         if (table === 'cities') return citiesTable;
         if (table === 'bookings') return bookingsTable;
         if (table === 'notification_jobs') return jobsTable;
+        if (table === 'sitter_services') return { select: () => ({ eq: () => Promise.resolve({ data: global.__sitterServices || [] }) }) };
         throw new Error('unexpected table: ' + table);
       },
       rpc: (fn, args) => {
@@ -153,11 +154,20 @@ describe('BookingFlow', () => {
   });
 
   // UT-BKG-04
-  test('service prices match the price table', async () => {
+  test('service prices fall back to the default table when the sitter has not set prices', async () => {
+    global.__sitterServices = [];
     render(<BookingFlow sitter={sitter} city="Gurgaon" onBack={() => {}} />);
     expect(await screen.findByText('Rs.349')).toBeInTheDocument(); // Request a walker
     expect(screen.getByText('Rs.849')).toBeInTheDocument(); // Home boarding
     expect(screen.getByText('Rs.649')).toBeInTheDocument(); // Doggy daycare
+  });
+
+  test("each service is priced at the sitter's own rate when they have set one", async () => {
+    global.__sitterServices = [{ service_type: 'walk30', price_paise: 40000 }];
+    render(<BookingFlow sitter={sitter} city="Gurgaon" onBack={() => {}} />);
+    expect(await screen.findByText('Rs.400')).toBeInTheDocument();
+    expect(screen.queryByText('Rs.349')).toBeNull();
+    global.__sitterServices = [];
   });
 
   // UT-BKG-05

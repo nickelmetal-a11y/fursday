@@ -152,7 +152,7 @@ git add -A
 git commit -m "message"
 vercel --prod
 ```
-- Never use `git push` - use `vercel --prod` directly
+- **Updated 2026-11-25 by the user ("keep deploying to production, git push and update *.md"):** after each verified batch, commit, then `git push origin master`, then `vercel --prod` (customer app) and `npm run deploy:admin` (admin site), and update CLAUDE.md. The old "never git push" rule no longer applies.
 - Deployment takes 3-5 minutes
 - Check https://fursday.vercel.app after deploy
 

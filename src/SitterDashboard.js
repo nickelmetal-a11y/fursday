@@ -3,20 +3,22 @@ import { CheckCircle, Clock, MapPin, Phone, Star, Calendar, Home, User, Search }
 import { supabase } from './supabase';
 import PhotoUploadModal from './PhotoUploadModal';
 import SitterEarningsDashboard from './SitterEarningsDashboard';
-import { useSupportContact, openWhatsAppSupport, callSupport } from './supportContact';
+import { useSupportContact, openWhatsAppSupport } from './supportContact';
 import { useLanguage } from './i18n';
+import SosSheet from './SosSheet';
+import DisputeForm from './DisputeForm';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
-const SERVICE_NAMES = {
-  walk30: 'Request a walker',
-  boarding: 'Home boarding',
-  daycare: 'Doggy daycare',
-  dropin: 'Drop-in visit',
-  housesit: 'House sitting',
+const SERVICE_NAME_KEYS = {
+  walk30: 'service_walk',
+  boarding: 'service_boarding',
+  daycare: 'service_daycare',
+  dropin: 'service_dropin',
+  housesit: 'service_housesit',
 };
 
 const SERVICE_ICONS = {
@@ -28,11 +30,11 @@ const SERVICE_ICONS = {
 };
 
 const STATUS_COLORS = {
-  pending: { bg: '#FFF3E0', color: '#E65100', label: 'New request' },
-  confirmed: { bg: '#E3F2FD', color: '#1565C0', label: 'Confirmed' },
-  active: { bg: '#E8F5E9', color: '#2E7D32', label: 'In progress' },
-  completed: { bg: '#F3E5F5', color: '#6A1B9A', label: 'Completed' },
-  cancelled: { bg: '#FCEBEB', color: '#A32D2D', label: 'Cancelled' },
+  pending: { bg: '#FFF3E0', color: '#E65100', labelKey: 'sitter_statusNew' },
+  confirmed: { bg: '#E3F2FD', color: '#1565C0', labelKey: 'bookings_statusConfirmed' },
+  active: { bg: '#E8F5E9', color: '#2E7D32', labelKey: 'bookings_statusActive' },
+  completed: { bg: '#F3E5F5', color: '#6A1B9A', labelKey: 'bookings_statusCompleted' },
+  cancelled: { bg: '#FCEBEB', color: '#A32D2D', labelKey: 'bookings_statusCancelled' },
 };
 
 export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile }) {
@@ -51,12 +53,15 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const [otpError, setOtpError] = useState({});
   const [arrivalStatus, setArrivalStatus] = useState({});
   const [uploadingPhotosFor, setUploadingPhotosFor] = useState(null);
+  const [sosFor, setSosFor] = useState(null);
+  const [reportingBooking, setReportingBooking] = useState(null);
 
   const loadUnreadMessages = async () => {
-    if (!sitterProfile) return;
+    if (!sitterProfile || bookings.length === 0) { setUnreadMessages([]); return; }
     const { data } = await supabase
       .from('messages')
       .select('*, bookings(booking_ref, service_type)')
+      .in('booking_id', bookings.map(b => b.id))
       .eq('sender_type', 'parent')
       .eq('read', false)
       .order('created_at', { ascending: false })
@@ -92,7 +97,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         }));
         setBookings(bkgsWithContact);
 
-        // Load open broadcast requests for this city
+        if (profile.status !== 'active') { setBroadcastRequests([]); setLoading(false); return; }
         const { data: reqs } = await supabase
           .from('broadcast_requests')
           .select('*, users(name)')
@@ -109,7 +114,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   useEffect(() => {
     if (sitterProfile) loadUnreadMessages();
-  }, [sitterProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sitterProfile, bookings]);
 
   const markArrival = async (b, status) => {
     if (!b.pet_parent_id) return;
@@ -120,15 +126,39 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     } catch (err) { alert('Could not send update: ' + (err.message || err)); }
   };
 
-  const acceptBooking = async (id) => {
-    const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
-    if (error) { alert('Could not accept booking: ' + error.message); return; }
+  const notifyParent = async (b, type, title, body) => {
+    try {
+      const { createNotification } = await import('./notificationService');
+      await createNotification(b.pet_parent_id, type, title, body);
+    } catch (e) { console.error('Parent notification failed:', e); }
+  };
+  const sitterName = () => sitterProfile?.users?.name || tr('sitter_yourSitter');
+
+  const acceptBooking = async (b) => {
+    const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', b.id);
+    if (error) { alert(tr('sitter_errAccept') + error.message); return; }
+    await notifyParent(b, 'booking_accepted', '✅ ' + sitterName() + ' accepted your booking', 'Pay now to lock in ' + (b.booking_date || 'your date') + ' ' + (b.time_slot || '') + '.');
     loadData();
   };
 
-  const declineBooking = async (id) => {
-    const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
-    if (error) { alert('Could not decline booking: ' + error.message); return; }
+  const declineBooking = async (b) => {
+    const { error } = await supabase.from('bookings').update({ status: 'cancelled', cancellation_reason: 'Declined by sitter', cancelled_at: new Date().toISOString() }).eq('id', b.id);
+    if (error) { alert(tr('sitter_errDecline') + error.message); return; }
+    await notifyParent(b, 'booking_declined', sitterName() + ' could not take this booking', 'Try another sitter in Explore, or post a request to all sitters.');
+    loadData();
+  };
+
+  // A sitter cancelling an accepted job always refunds the parent in full (Terms section 3).
+  const sitterCancel = async (b) => {
+    const reason = window.prompt(tr('sitter_cancelPrompt'));
+    if (!reason) return;
+    const paid = b.payment_status === 'paid';
+    const { error } = await supabase.from('bookings').update({
+      status: 'cancelled', cancellation_reason: 'Sitter: ' + reason, cancelled_at: new Date().toISOString(),
+      refund_percentage: paid ? 100 : 0, refund_amount_paise: paid ? (b.gross_amount_paise || 0) : 0,
+    }).eq('id', b.id);
+    if (error) { alert(tr('sitter_errCancel') + error.message); return; }
+    await notifyParent(b, 'booking_cancelled', sitterName() + ' cancelled the booking', reason + (paid ? ' You will get a full refund.' : ''));
     loadData();
   };
 
@@ -147,19 +177,22 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                       tab === 'upcoming' ? confirmedBookings :
                       tab === 'active' ? activeBookings : pastBookings;
 
-  const totalEarnings = bookings
-    .filter(b => b.status === 'completed')
-    .reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
+  // Same net figure as the Earnings tab: after commission, this calendar month only.
+  const commissionRate = sitterProfile?.is_founding_sitter ? 0 : 0.15;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const totalEarnings = Math.round(bookings
+    .filter(b => b.status === 'completed' && new Date(b.completed_at || b.booking_date || b.created_at) >= monthStart)
+    .reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * (1 - commissionRate), 0));
 
   const verifyStartOtp = async (booking) => {
     const entered = (otpEntry[booking.id] || '').trim();
     if (entered !== booking.start_otp) {
-      setOtpError({ ...otpError, [booking.id]: 'Wrong OTP. Ask the pet parent for the code shown in their app.' });
+      setOtpError({ ...otpError, [booking.id]: tr('sitter_wrongOtp') });
       return;
     }
     const { error: startError } = await supabase.from('bookings').update({ status:'active', start_verified_at:new Date().toISOString() }).eq('id', booking.id);
     if (startError) {
-      setOtpError({ ...otpError, [booking.id]: 'Could not start walk: ' + startError.message });
+      setOtpError({ ...otpError, [booking.id]: tr('sitter_errStart') + startError.message });
       return;
     }
     setOtpError({ ...otpError, [booking.id]: null });
@@ -213,17 +246,19 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   const acceptBroadcast = async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from('sitter_profiles').select('id').eq('user_id', user.id).single();
-    if (!profile) return;
+    const { data: profile } = await supabase.from('sitter_profiles').select('id, status').eq('user_id', user.id).single();
+    if (!profile || profile.status !== 'active') { alert(tr('sitter_notApprovedYet')); return; }
+    const { data: ownService } = await supabase.from('sitter_services').select('price_paise').eq('sitter_id', profile.id).eq('service_type', req.service_type).maybeSingle();
+    const fallback = { walk30: 34900, boarding: 84900, daycare: 64900 };
     const { error } = await supabase.from('broadcast_responses').insert({
       request_id: req.id,
       sitter_id: profile.id,
       status: 'accepted',
-      offered_price: req.service_type === 'walk30' ? 34900 : req.service_type === 'boarding' ? 84900 : 64900,
+      offered_price: ownService?.price_paise || fallback[req.service_type] || 34900,
     });
-    if (error) { alert('Could not send response: ' + error.message); return; }
+    if (error) { alert(tr('sitter_errRespond') + error.message); return; }
     setBroadcastRequests(prev => prev.filter(r => r.id !== req.id));
-    alert('Response sent! The pet parent will be notified.');
+    alert(tr('sitter_responseSent'));
   };
 
   const BookingCard = ({ b }) => {
@@ -236,13 +271,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <span style={{ fontSize: 24 }}>{SERVICE_ICONS[b.service_type] || '🐾'}</span>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{SERVICE_NAMES[b.service_type] || b.service_type}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>{b.users?.name || 'Pet parent'}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{SERVICE_NAME_KEYS[b.service_type] ? tr(SERVICE_NAME_KEYS[b.service_type]) : b.service_type}</div>
+                <div style={{ fontSize: 12, color: '#888' }}>{b.users?.name || tr('sitter_petParent')}</div>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: t.primary }}>Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
-              <div style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, fontWeight: 600 }}>{sc.label}</div>
+              <div style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, fontWeight: 600 }}>{tr(sc.labelKey)}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -283,11 +318,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             </div>
             {b.status === 'pending' && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button onClick={() => acceptBooking(b.id)}
+                <button onClick={() => acceptBooking(b)}
                   style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                   {tr('accept')} ✓
                 </button>
-                <button onClick={() => declineBooking(b.id)}
+                <button onClick={() => declineBooking(b)}
                   style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                   {tr('decline')}
                 </button>
@@ -317,12 +352,16 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                     style={{ padding:'0 20px', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>{tr('start')}</button>
                 </div>
                 {otpError[b.id] && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{otpError[b.id]}</div>}
+                <button onClick={(e) => { e.stopPropagation(); sitterCancel(b); }}
+                  style={{ width:'100%', marginTop:12, minHeight:44, borderRadius:10, border:'1.5px solid #FFCDD2', background:'white', color:'#C62828', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  {tr('sitter_cancelJob')}
+                </button>
               </div>
             )}
             {b.status === 'active' && (
               <div style={{ marginTop:10 }}>
                 {(supportPhone || supportWa) && (
-                  <button onClick={(e) => { e.stopPropagation(); supportPhone ? callSupport(supportPhone) : openWhatsAppSupport(supportWa, 'SOS: I need help during an active booking'); }}
+                  <button onClick={(e) => { e.stopPropagation(); setSosFor(b); }}
                     style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'none', background:'#C62828', color:'white', fontSize:13, fontWeight:700, cursor:'pointer', marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                     {tr('sos')}
                   </button>
@@ -358,14 +397,20 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>{tr('photosUploaded')}</span>
               </div>
             )}
+            {['confirmed','active','completed'].includes(b.status) && (
+              <button onClick={(e) => { e.stopPropagation(); setReportingBooking(b); }}
+                style={{ width:'100%', marginTop:10, minHeight:44, borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#666', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                {tr('sitter_reportProblem')}
+              </button>
+            )}
             {isOpen && (
               <div style={{ marginTop: 12, borderTop: '1px solid #F5F5F5', paddingTop: 10 }}>
-                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>Details</div>
+                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>{tr('sitter_details')}</div>
                 {[
-                  { label: 'Booking ref', val: b.booking_ref },
-                  { label: 'Pet parent', val: b.users?.name },
-                  { label: 'Notes', val: b.parent_notes || 'None' },
-                  { label: 'Payment', val: b.payment_status },
+                  { label: tr('sitter_detailRef'), val: b.booking_ref },
+                  { label: tr('sitter_petParent'), val: b.users?.name },
+                  { label: tr('sitter_detailNotes'), val: b.parent_notes || tr('sitter_detailNone') },
+                  { label: tr('sitter_detailPayment'), val: b.payment_status === 'paid' ? tr('sitter_paid') : tr('sitter_unpaid') },
                 ].filter(x => x.val).map((x, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8F8F8' }}>
                     <span style={{ fontSize: 12, color: '#888' }}>{x.label}</span>
@@ -386,6 +431,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
+      {sosFor && <SosSheet onClose={() => setSosFor(null)} bookingRef={sosFor.booking_ref} userName={sitterProfile?.users?.name} />}
+      {reportingBooking && (
+        <DisputeForm booking={reportingBooking} reporterRole="sitter" otherName={reportingBooking.users?.name || tr('sitter_petParent')}
+          onClose={() => setReportingBooking(null)} onDisputeFiled={() => setReportingBooking(null)} />
+      )}
       <div style={{ background:'#0f0f1a', padding:'48px 16px 16px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <div>
