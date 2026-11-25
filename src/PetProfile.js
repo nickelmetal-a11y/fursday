@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, X, ChevronRight } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 const THEMES = {
@@ -155,7 +156,7 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
                 </div>
               ))}
               {photos.length < 4 && (
-                <div onClick={() => fileInputRef.current?.click()}
+                <div onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
                   style={{ width:80, height:80, borderRadius:18, background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
                   {uploading ? <span style={{ fontSize:11, color:t.primary }}>...</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{photos.length===0?tr('pet_addPhotoLabel'):tr('pet_morePhotoLabel')}</span></>}
                 </div>

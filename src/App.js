@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import LoginScreen from './LoginScreen';
 import SitterProfile from './SitterProfile';
 import SitterOnboarding from './SitterOnboarding';
@@ -107,6 +109,22 @@ export default function App() {
   const theme = THEMES[city] || THEMES.Gurgaon;
 
   const goHome = () => { setActiveNav('home'); };
+
+  // Android's hardware back button closes the whole app by default because
+  // screens are React state, not browser history. Instead, press the visible
+  // on-screen back arrow (so multi-step screens step back one page), else
+  // return home, and only exit from the home screen.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const sub = CapacitorApp.addListener('backButton', () => {
+      const arrow = Array.from(document.querySelectorAll('svg.lucide-arrow-left')).find(el => el.getBoundingClientRect().width > 0);
+      const target = arrow?.closest('button, [role="button"], div[style*="cursor"]');
+      if (target) { target.click(); return; }
+      if (activeNav !== 'home') { goHome(); return; }
+      CapacitorApp.exitApp();
+    });
+    return () => { sub.then(h => h.remove()); };
+  }, [activeNav]);
 
   // Location restriction check (IP-based)
   useEffect(() => {

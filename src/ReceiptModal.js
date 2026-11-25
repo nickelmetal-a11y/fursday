@@ -1,5 +1,7 @@
 import React from 'react';
-import { X, Download, Printer } from 'lucide-react';
+import { X, Download, Printer, Share2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 const SERVICE_NAMES = {
   walk30: 'Dog Walking',
@@ -15,6 +17,16 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
   const bookingDate = new Date(booking.booking_date);
   const completedDate = new Date(booking.completed_at || booking.created_at);
   const serviceName = SERVICE_NAMES[booking.service_type] || booking.service_type;
+  const amount = Math.round((booking.gross_amount_paise || 0) / 100);
+  const paid = booking.payment_status === 'paid';
+  const sitterName = sitter.name || sitter.users?.name || 'Fursday Sitter';
+  const isNative = Capacitor.isNativePlatform();
+
+  // Native WebViews ignore window.print() and <a download>, so the app shares a text receipt instead.
+  const handleShare = () => Share.share({
+    title: 'Fursday receipt ' + booking.booking_ref,
+    text: ['Fursday receipt #' + booking.booking_ref, serviceName + ' on ' + bookingDate.toLocaleDateString(), 'Pet: ' + pet.name, 'Sitter: ' + sitterName, 'Total: Rs. ' + amount + (paid ? ' (paid)' : ' (unpaid)')].join('\n'),
+  }).catch(() => {});
 
   const handlePrint = () => {
     window.print();
@@ -77,7 +89,7 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Sitter</span>
-              <span style={{ fontWeight: 600 }}>{sitter.name || sitter.users?.name || 'Fursday Sitter'}</span>
+              <span style={{ fontWeight: 600 }}>{sitterName}</span>
             </div>
           </div>
 
@@ -85,15 +97,15 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
           <div style={{ marginBottom: 24, borderTop: '1px dashed #E0E0E0', borderBottom: '1px dashed #E0E0E0', padding: '16px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>Service Charge</span>
-              <span>₹{booking.price || 0}</span>
+              <span>₹{amount}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#888', fontSize: 12 }}>
               <span>Taxes & Fees</span>
               <span>₹0</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
-              <span>Total Paid</span>
-              <span>₹{booking.price || 0}</span>
+              <span>{paid ? 'Total Paid' : 'Total'}</span>
+              <span>₹{amount}</span>
             </div>
           </div>
 
@@ -101,7 +113,7 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ color: '#888' }}>Payment Status</span>
-              <span style={{ color: '#2E7D32', fontWeight: 600 }}>✓ Completed</span>
+              <span style={{ color: paid ? '#2E7D32' : '#E65100', fontWeight: 600 }}>{paid ? '✓ Paid' : 'Unpaid'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#888' }}>Booking Status</span>
@@ -119,16 +131,24 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: 8, padding: '20px 24px', borderTop: '1px solid #F0F0F0', background: '#F8F8F8', position: 'sticky', bottom: 0 }}>
-          <button onClick={handlePrint}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Printer size={16} />
-            Print
-          </button>
-          <button onClick={handleDownload}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Download size={16} />
-            Download
-          </button>
+          {isNative ? (
+            <button onClick={handleShare}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Share2 size={16} />
+              Share
+            </button>
+          ) : (<>
+            <button onClick={handlePrint}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Printer size={16} />
+              Print
+            </button>
+            <button onClick={handleDownload}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Download size={16} />
+              Download
+            </button>
+          </>)}
         </div>
       </div>
     </div>

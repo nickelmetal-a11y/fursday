@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowLeft, CheckCircle, Camera, Heart, Share2, X } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 
@@ -287,7 +288,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                   </div>
                 ))}
                 {photos.length < 3 && (
-                  <div onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
+                  <div onClick={() => !uploadingPhoto && choosePhoto(fileInputRef, handlePhotoSelect, { cameraOnly: true })}
                     style={{ flex:1, aspectRatio:'1', borderRadius:14, background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
                     {uploadingPhoto ? <span style={{ fontSize:11, color:t.primary }}>{tr('walkReport_uploading')}</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{tr('walkReport_add')}</span></>}
                   </div>

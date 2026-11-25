@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 
@@ -234,7 +235,7 @@ export default function SitterOnboarding({ onDone, city }) {
   );
 
   const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
+    if (typeof window.Notification === 'function' && typeof Notification.requestPermission === 'function') {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         new Notification(tr('sitterOnboarding_notifWelcomeTitle'), {
@@ -538,7 +539,7 @@ export default function SitterOnboarding({ onDone, city }) {
       <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_profilePhoto')}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div onClick={() => photoInputRef.current?.click()}
+          <div onClick={() => choosePhoto(photoInputRef, handlePhotoUpload)}
             style={{ width: 72, height: 72, borderRadius: 20, background: photoUrl ? 'transparent' : ORANGE_LIGHT, border: photoUrl ? 'none' : '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
             {uploadingPhoto ? <span style={{ fontSize: 11, color: ORANGE }}>...</span>
               : photoUrl ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, CheckCircle, Camera, Star, TrendingUp, Eye, Award } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 const ORANGE = '#FF6B35';
@@ -251,7 +252,7 @@ export default function SitterEditProfile({ onBack, city }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div onClick={() => avatarInputRef.current?.click()}
+            <div onClick={() => choosePhoto(avatarInputRef, handleAvatarUpload)}
               style={{ width: 72, height: 72, borderRadius: 22, background: photoUrl ? 'transparent' : 'rgba(255,255,255,0.2)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
               {photoUrl ? <img src={photoUrl} alt="profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={{ textAlign: 'center' }}><Camera size={20} color="white" /><div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, marginTop: 2 }}>{t('sitterEdit_avatarAddPhoto')}</div></div>}
@@ -348,7 +349,7 @@ export default function SitterEditProfile({ onBack, city }) {
                   </div>
                 ))}
                 {photos.length < 3 && (
-                  <div onClick={() => fileInputRef.current?.click()}
+                  <div onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
                     style={{ width: 90, height: 90, borderRadius: 14, background: theme.light, border: '2px dashed ' + theme.primary, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
                     {uploadingPhoto ? <span style={{ fontSize: 12, color: theme.primary }}>...</span> : <><Camera size={20} color={theme.primary} /><span style={{ fontSize: 10, color: theme.primary, textAlign: 'center' }}>{photos.length === 0 ? t('sitterEdit_addPhotoButton') : t('sitterEdit_morePhotos')}</span></>}
                   </div>

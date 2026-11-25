@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Calendar } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 const THEMES = {
@@ -302,7 +303,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           </button>
         )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
-        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} aria-label={tr('chat_attachPhoto')}
+        <button onClick={() => choosePhoto(photoInputRef, sendPhoto)} disabled={uploadingPhoto} aria-label={tr('chat_attachPhoto')}
           style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
           <ImageIcon size={18} />
         </button>

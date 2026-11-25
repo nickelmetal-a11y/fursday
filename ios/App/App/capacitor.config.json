@@ -2,5 +2,9 @@
 	"appId": "com.fursday.app",
 	"appName": "Fursday",
 	"webDir": "build",
-	"packageClassList": []
+	"packageClassList": [
+		"AppPlugin",
+		"CAPCameraPlugin",
+		"SharePlugin"
+	]
 }

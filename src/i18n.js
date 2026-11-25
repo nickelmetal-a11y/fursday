@@ -1046,6 +1046,11 @@ const translations = {
     walkReport_rebookTipSuffix: " to rebook.",
     walkReport_continue: "Continue",
     walkReport_sendToWhatsapp: "Send to WhatsApp",
+    photo_promptHeader: "Add a photo",
+    photo_promptCamera: "Take photo",
+    photo_promptGallery: "Choose from gallery",
+    photo_promptCancel: "Cancel",
+    photo_permissionDenied: "Camera or photo access is turned off. Please allow it for Fursday in your phone's Settings.",
   },
   hi: {
     // ── Common / shared across screens ──────────────────────────────────
@@ -2084,6 +2089,11 @@ const translations = {
     walkReport_rebookTipSuffix: " दोबारा बुक करने की संभावना होती है।",
     walkReport_continue: "जारी रखें",
     walkReport_sendToWhatsapp: "WhatsApp पर भेजें",
+    photo_promptHeader: "फ़ोटो जोड़ें",
+    photo_promptCamera: "फ़ोटो खींचें",
+    photo_promptGallery: "गैलरी से चुनें",
+    photo_promptCancel: "रद्द करें",
+    photo_permissionDenied: "कैमरा या फ़ोटो की अनुमति बंद है। कृपया फ़ोन की Settings में Fursday के लिए इसे चालू करें।",
   },
 };
 
@@ -2117,6 +2127,10 @@ export function useLanguage() {
   };
 
   return { lang, setLang: broadcastLang, t };
+}
+
+export function translate(key) {
+  return (translations[currentLang] || translations.en)[key] ?? translations.en[key] ?? key;
 }
 
 // Merges additional per-screen translations into both dictionaries at module

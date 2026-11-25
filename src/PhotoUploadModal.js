@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Check } from 'lucide-react';
 import { supabase } from './supabase';
+import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 
 
@@ -139,7 +140,7 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
             </div>
           ))}
           {photos.length < 3 && (
-            <div onClick={() => fileInputRef.current?.click()}
+            <div onClick={() => choosePhoto(fileInputRef, handlePhotoSelect)}
               style={{ width:90, height:90, borderRadius:12, background:'#E8F5E9', border:'2px dashed #2E7D32', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
               {uploading ? <span style={{ fontSize:12, color:'#2E7D32' }}>...</span> : <><Upload size={20} color="#2E7D32" /><span style={{ fontSize:10, color:'#2E7D32' }}>{photos.length === 0 ? tr('photoUpload_addLabel') : tr('photoUpload_moreLabel')}</span></>}
             </div>

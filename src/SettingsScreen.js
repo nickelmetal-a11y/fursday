@@ -345,12 +345,12 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
 
         {/* Help Section */}
         <div style={{ background:'white', borderRadius:12, overflow:'hidden', marginBottom:12, border:'0.5px solid #E8E8E8' }}>
-          <button onClick={() => { if (supportWa) openWhatsAppSupport(supportWa, 'Hi, I need help with Fursday'); else if (supportPhone) callSupport(supportPhone); else window.open('mailto:support@fursday.app'); }}
+          <button onClick={() => { if (supportWa) openWhatsAppSupport(supportWa, 'Hi, I need help with Fursday'); else if (supportPhone) callSupport(supportPhone); else window.open('mailto:support@fursday.in'); }}
             style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a', borderBottom:'0.5px solid #F0F0F0' }}>
             <span>📖 Help & FAQ</span>
             <ChevronRight size={16} color="#888" />
           </button>
-          <button onClick={() => { if (supportPhone) callSupport(supportPhone); else if (supportWa) openWhatsAppSupport(supportWa, 'SOS: I need help now'); else alert('Support contact is being set up. Please email support@fursday.app'); }}
+          <button onClick={() => { if (supportPhone) callSupport(supportPhone); else if (supportWa) openWhatsAppSupport(supportWa, 'SOS: I need help now'); else alert('Support contact is being set up. Please email support@fursday.in'); }}
             style={{ width:'100%', padding:'16px', background:'#FFEBEE', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:700, color:'#C62828', borderBottom:'0.5px solid #F0F0F0' }}>
             <span>🆘 {tr('sos').replace('🆘 ', '')}</span>
             <ChevronRight size={16} color="#C62828" />

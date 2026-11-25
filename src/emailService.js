@@ -2,7 +2,7 @@
 // Setup: Add REACT_APP_SENDGRID_KEY or REACT_APP_EMAIL_API_KEY to .env
 
 const SENDGRID_KEY = process.env.REACT_APP_SENDGRID_KEY;
-const EMAIL_FROM = 'support@fursday.app';
+const EMAIL_FROM = 'support@fursday.in';
 const EMAIL_DOMAIN = 'https://fursday.vercel.app';
 
 export const sendBookingConfirmationEmail = async (email, bookingDetails) => {
