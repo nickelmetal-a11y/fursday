@@ -473,32 +473,6 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
         />
       )}
 
-      {reportModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999 }}>
-          <div style={{ background:'white', borderRadius:20, padding:24, maxWidth:380, width:'90%' }}>
-            <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:16 }}>{tr('bookings_reportProblemModalTitle')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>{tr('bookings_reportWhyQuestion', { name: reportModal.name })}</div>
-            {[
-              { key:'bookings_reasonUnprofessional', text:'Unprofessional behavior' },
-              { key:'bookings_reasonNoFollow', text:'Didn\'t follow my instructions' },
-              { key:'bookings_reasonDistressed', text:'Pet seemed distressed' },
-              { key:'bookings_reasonNoShow', text:'No-show or very late' },
-              { key:'bookings_reasonOther', text:'Other' },
-            ].map(reason => (
-              <button key={reason.text} onClick={() => { setReportReason(reason.text); setReportSent(true); submitReport(reportModal.id, reportModal.name); }}
-                style={{ display:'block', width:'100%', padding:'12px', textAlign:'left', fontSize:13, color:'#1a1a1a', background:'#F5F5F5', border:'none', borderRadius:10, marginBottom:8, cursor:'pointer' }}>
-                {tr(reason.key)}
-              </button>
-            ))}
-            {reportSent && <div style={{ marginTop:16, padding:12, background:'#E8F5E9', borderRadius:10, fontSize:12, color:'#2E7D32', textAlign:'center' }}>{tr('bookings_reportSentThanks')}</div>}
-            <button onClick={() => { setReportModal(null); setReportReason(''); setReportSent(false); }}
-              style={{ marginTop:16, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#E0E0E0', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-              {tr('common_close')}
-            </button>
-          </div>
-        </div>
-      )}
-
       {photoCarousel && photoReport && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div style={{ background:'white', borderRadius:24, padding:24, maxWidth:360, width:'90%', maxHeight:'90vh', overflow:'auto' }}>

@@ -93,17 +93,12 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
         age_years: parseInt(pet.age) || 0,
         weight_kg: parseFloat(pet.weight) || 0,
         gender: pet.gender,
-        // pet_profiles has no is_vaccinated/emergency_contact columns (those
-        // live on the separate, unused `pets` table) — folded into notes
-        // alongside the other free-text fields so the data isn't lost.
-        notes: [
-          pet.vaccinated ? 'Vaccinated: ' + pet.vaccinated : '',
-          pet.energy ? 'Energy: ' + pet.energy : '',
-          pet.strangers ? 'With strangers: ' + pet.strangers : '',
-          pet.leash ? 'On leash: ' + pet.leash : '',
-          pet.emergency ? 'Emergency contact: ' + pet.emergency : '',
-          pet.notes || '',
-        ].filter(Boolean).join('. '),
+        vaccinated: pet.vaccinated || null,
+        energy_level: pet.energy || null,
+        behavior_strangers: pet.strangers || null,
+        behavior_leash: pet.leash || null,
+        emergency_contact: pet.emergency || null,
+        notes: pet.notes || '',
         photo_url: photos[0] || null,
       };
       const { data, error } = petId
