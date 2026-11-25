@@ -360,7 +360,7 @@ export default function App() {
 
   const goSettings = () => { setActiveNav('settings'); setShowSettings(true); };
 
-  if (showAdmin) return <AdminPanel />;
+  if (showAdmin) return <AdminPanel onBack={() => { window.location.hash = ''; setShowAdmin(false); goHome(); }} />;
   if (showSettings) return <SettingsScreen onBack={() => { setShowSettings(false); goHome(); }} city={city} userName={userName} activeNav={activeNav} onNav={id => { setShowSettings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } }} />;
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
   if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;

@@ -1,6 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, CheckCircle, MessageCircle, AlertCircle, Gift } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    notifications_title: 'Notifications',
+    notifications_allCaughtUp: 'All caught up!',
+    notifications_noNewNotifications: 'No new notifications',
+    notifications_justNow: 'just now',
+    notifications_minutesAgo: '{n}m ago',
+    notifications_hoursAgo: '{n}h ago',
+    notifications_daysAgo: '{n}d ago',
+    notifications_markAllRead: 'Mark all as read',
+  },
+  hi: {
+    notifications_title: 'सूचनाएं',
+    notifications_allCaughtUp: 'सब कुछ देख लिया!',
+    notifications_noNewNotifications: 'कोई नई सूचना नहीं',
+    notifications_justNow: 'अभी-अभी',
+    notifications_minutesAgo: '{n} मिनट पहले',
+    notifications_hoursAgo: '{n} घंटे पहले',
+    notifications_daysAgo: '{n} दिन पहले',
+    notifications_markAllRead: 'सभी को पढ़ा हुआ चिह्नित करें',
+  },
+});
 
 const NOTIFICATION_TYPES = {
   booking_confirmed: { icon: '✓', label: 'Booking confirmed', color: '#2E7D32' },
@@ -19,6 +43,7 @@ const NOTIFICATION_TYPES = {
 };
 
 export default function NotificationCenter({ onClose }) {
+  const { t: tr } = useLanguage();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -83,10 +108,10 @@ export default function NotificationCenter({ onClose }) {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
+    if (minutes < 1) return tr('notifications_justNow');
+    if (minutes < 60) return tr('notifications_minutesAgo', { n: minutes });
+    if (hours < 24) return tr('notifications_hoursAgo', { n: hours });
+    return tr('notifications_daysAgo', { n: days });
   };
 
   return (
@@ -96,7 +121,7 @@ export default function NotificationCenter({ onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #F0F0F0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Bell size={20} />
-            <div style={{ fontSize: 18, fontWeight: 700 }}>Notifications</div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{tr('notifications_title')}</div>
             {unreadCount > 0 && (
               <div style={{ background: '#FF6B35', color: 'white', borderRadius: 12, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
                 {unreadCount}
@@ -111,12 +136,12 @@ export default function NotificationCenter({ onClose }) {
         {/* Notifications List */}
         <div style={{ flex: 1, overflow: 'auto', padding: '12px 0' }}>
           {loading ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>Loading...</div>
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>{tr('common_loading')}</div>
           ) : notifications.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>All caught up!</div>
-              <div style={{ fontSize: 12, color: '#888' }}>No new notifications</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>{tr('notifications_allCaughtUp')}</div>
+              <div style={{ fontSize: 12, color: '#888' }}>{tr('notifications_noNewNotifications')}</div>
             </div>
           ) : (
             notifications.map(notif => {
@@ -157,7 +182,7 @@ export default function NotificationCenter({ onClose }) {
           <div style={{ borderTop: '1px solid #F0F0F0', padding: '12px 16px', flexShrink: 0 }}>
             <button onClick={markAllAsRead}
               style={{ width: '100%', padding: '10px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              Mark all as read
+              {tr('notifications_markAllRead')}
             </button>
           </div>
         )}

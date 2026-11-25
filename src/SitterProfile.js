@@ -1,23 +1,67 @@
 import React, { useState } from 'react';
 import { MapPin, Star, Shield, ArrowLeft, Heart, Share2, CheckCircle } from 'lucide-react';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    sitterProfile_nameFallback: 'Care pro',
+    sitterProfile_topProBadge: 'Top pro',
+    sitterProfile_areaFallback: 'Your area',
+    sitterProfile_ratingValue: '{rating} star',
+    sitterProfile_statRatingLabel: 'Rating',
+    sitterProfile_statWalksDoneLabel: 'Walks done',
+    sitterProfile_statFromLabel: 'From',
+    sitterProfile_verifiedTitle: 'Verified and trusted',
+    sitterProfile_aadhaarVerifiedText: 'Aadhaar identity verified',
+    sitterProfile_backgroundCheckedText: 'Background checked',
+    sitterProfile_servicesTitle: 'Services offered',
+    sitterProfile_tagWalk30: 'Dog walking',
+    sitterProfile_tagBoarding: 'Home boarding',
+    sitterProfile_tagDaycare: 'Doggy daycare',
+    sitterProfile_reviewsTitle: 'Reviews',
+    sitterProfile_noReviewsTitle: 'No reviews yet',
+    sitterProfile_noReviewsSub: 'Be the first to book {name} and leave a review.',
+    sitterProfile_bookNowButton: 'Book now',
+  },
+  hi: {
+    sitterProfile_nameFallback: 'केयर प्रो',
+    sitterProfile_topProBadge: 'टॉप प्रो',
+    sitterProfile_areaFallback: 'आपका क्षेत्र',
+    sitterProfile_ratingValue: '{rating} स्टार',
+    sitterProfile_statRatingLabel: 'रेटिंग',
+    sitterProfile_statWalksDoneLabel: 'वॉक पूरी हुईं',
+    sitterProfile_statFromLabel: 'शुरुआती कीमत',
+    sitterProfile_verifiedTitle: 'सत्यापित और भरोसेमंद',
+    sitterProfile_aadhaarVerifiedText: 'आधार पहचान सत्यापित',
+    sitterProfile_backgroundCheckedText: 'बैकग्राउंड चेक हुआ',
+    sitterProfile_servicesTitle: 'उपलब्ध सेवाएं',
+    sitterProfile_tagWalk30: 'डॉग वॉकिंग',
+    sitterProfile_tagBoarding: 'होम बोर्डिंग',
+    sitterProfile_tagDaycare: 'डॉगी डेकेयर',
+    sitterProfile_reviewsTitle: 'रिव्यू',
+    sitterProfile_noReviewsTitle: 'अभी तक कोई रिव्यू नहीं',
+    sitterProfile_noReviewsSub: '{name} को बुक करने वाले और रिव्यू देने वाले पहले व्यक्ति बनें।',
+    sitterProfile_bookNowButton: 'अभी बुक करें',
+  },
+});
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB' },
   Pune: { primary: '#6C5CE7', light: '#F0EEFF' },
 };
 
-const TAG_LABELS = { walk30: 'Dog walking', boarding: 'Home boarding', daycare: 'Doggy daycare' };
-
 export default function SitterProfile({ onBack, onBook, sitter, city }) {
   const t = THEMES[city] || THEMES.Gurgaon;
+  const { t: tr } = useLanguage();
+  const TAG_LABELS = { walk30: tr('sitterProfile_tagWalk30'), boarding: tr('sitterProfile_tagBoarding'), daycare: tr('sitterProfile_tagDaycare') };
   const [liked, setLiked] = useState(false);
   const s = sitter || {};
-  const name = s.name || 'Care pro';
+  const name = s.name || tr('sitterProfile_nameFallback');
   const rating = s.rating || 5.0;
   const reviewCount = s.reviews || 0;
   const price = s.price || 'Rs.299/walk';
   const tags = s.tags || [];
-  const area = s.area || city || 'Your area';
+  const area = s.area || city || tr('sitterProfile_areaFallback');
 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', backgroundColor: '#FAFAFA', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', paddingBottom: 100 }}>
@@ -37,7 +81,7 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
         </div>
         <div style={{ color: 'white', fontSize: 22, fontWeight: 700, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
           {name}
-          {s.isTopSitter && <span style={{ fontSize: 11, background: '#FFF9C4', color: '#E65100', borderRadius: 8, padding: '2px 8px', fontWeight: 700 }}>Top pro</span>}
+          {s.isTopSitter && <span style={{ fontSize: 11, background: '#FFF9C4', color: '#E65100', borderRadius: 8, padding: '2px 8px', fontWeight: 700 }}>{tr('sitterProfile_topProBadge')}</span>}
         </div>
         <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
           <MapPin size={13} color="rgba(255,255,255,0.85)" />
@@ -49,9 +93,9 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
 
         <div style={{ background: 'white', borderRadius: 20, padding: '16px 10px', marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-around' }}>
           {[
-            { val: rating.toFixed(1) + ' star', lbl: 'Rating' },
-            { val: reviewCount, lbl: 'Walks done' },
-            { val: price, lbl: 'From' },
+            { val: tr('sitterProfile_ratingValue', { rating: rating.toFixed(1) }), lbl: tr('sitterProfile_statRatingLabel') },
+            { val: reviewCount, lbl: tr('sitterProfile_statWalksDoneLabel') },
+            { val: price, lbl: tr('sitterProfile_statFromLabel') },
           ].map((st, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{st.val}</div>
@@ -62,10 +106,10 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
 
         {s.verified && (
           <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Verified and trusted</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_verifiedTitle')}</div>
             {[
-              { icon: <CheckCircle size={16} color="#2E7D32" />, text: 'Aadhaar identity verified' },
-              { icon: <Shield size={16} color="#2E7D32" />, text: 'Background checked' },
+              { icon: <CheckCircle size={16} color="#2E7D32" />, text: tr('sitterProfile_aadhaarVerifiedText') },
+              { icon: <Shield size={16} color="#2E7D32" />, text: tr('sitterProfile_backgroundCheckedText') },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E8F5E9', borderRadius: 12, marginBottom: 8 }}>
                 {item.icon}
@@ -77,7 +121,7 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
 
         {tags.length > 0 && (
           <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Services offered</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_servicesTitle')}</div>
             <div>
               {tags.map(tag => (
                 <span key={tag} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 20, background: t.light, color: t.primary, fontWeight: 500, display: 'inline-block', marginRight: 6, marginBottom: 6 }}>{TAG_LABELS[tag] || tag}</span>
@@ -87,11 +131,11 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
         )}
 
         <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Reviews</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_reviewsTitle')}</div>
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>&#128075;</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>No reviews yet</div>
-            <div style={{ fontSize: 13, color: '#888' }}>Be the first to book {name} and leave a review.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterProfile_noReviewsTitle')}</div>
+            <div style={{ fontSize: 13, color: '#888' }}>{tr('sitterProfile_noReviewsSub', { name })}</div>
           </div>
         </div>
 
@@ -104,7 +148,7 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
           onClick at all (dead tap target); removed rather than fake it. */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px calc(24px + env(safe-area-inset-bottom))', display: 'flex', gap: 12 }}>
         <button onClick={onBook} style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-          Book now
+          {tr('sitterProfile_bookNowButton')}
         </button>
       </div>
 

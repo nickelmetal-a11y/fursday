@@ -25,7 +25,7 @@ const BOOKING_COLORS = {
   cancelled: { bg: '#FCEBEB', color: '#A32D2D' },
 };
 
-export default function AdminPanel() {
+export default function AdminPanel({ onBack }) {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -397,6 +397,12 @@ export default function AdminPanel() {
         style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
         Reload
       </button>
+      {onBack && (
+        <button onClick={onBack}
+          style={{ marginTop: 12, padding: '10px 20px', borderRadius: 14, border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
+          ← Back to app
+        </button>
+      )}
     </div>
   );
 
@@ -414,6 +420,9 @@ export default function AdminPanel() {
           <span style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>Fursday Admin</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {onBack && (
+            <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
+          )}
           <button onClick={loadData} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>Refresh</button>
           <button onClick={() => setAuthed(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
         </div>

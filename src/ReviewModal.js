@@ -1,16 +1,63 @@
 import React, { useState } from 'react';
 import { Star, X } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    review_selectRatingError: 'Please select a rating',
+    review_minLengthError: 'Review must be at least 10 characters',
+    review_submitFailedFallback: 'Failed to submit review',
+    review_title: 'Rate your experience',
+    review_howWasExperience: 'How was your experience with {name}?',
+    review_ratingPoor: 'Poor',
+    review_ratingNeedsImprovement: 'Needs improvement',
+    review_ratingGood: 'Good',
+    review_ratingVeryGood: 'Very good',
+    review_ratingExcellent: 'Excellent',
+    review_textareaPlaceholder: 'Tell other pet parents about your experience... (min. 10 characters)',
+    review_charCount: '{count}/500',
+    review_skip: 'Skip',
+    review_submitButton: 'Submit review',
+    review_submittingButton: 'Submitting...',
+  },
+  hi: {
+    review_selectRatingError: 'कृपया एक रेटिंग चुनें',
+    review_minLengthError: 'समीक्षा कम से कम 10 अक्षरों की होनी चाहिए',
+    review_submitFailedFallback: 'समीक्षा सबमिट करने में विफल',
+    review_title: 'अपना अनुभव रेट करें',
+    review_howWasExperience: '{name} के साथ आपका अनुभव कैसा रहा?',
+    review_ratingPoor: 'खराब',
+    review_ratingNeedsImprovement: 'सुधार की ज़रूरत है',
+    review_ratingGood: 'अच्छा',
+    review_ratingVeryGood: 'बहुत अच्छा',
+    review_ratingExcellent: 'उत्कृष्ट',
+    review_textareaPlaceholder: 'अन्य पालतू जानवरों के मालिकों को अपने अनुभव के बारे में बताएं... (न्यूनतम 10 अक्षर)',
+    review_charCount: '{count}/500',
+    review_skip: 'छोड़ें',
+    review_submitButton: 'समीक्षा सबमिट करें',
+    review_submittingButton: 'सबमिट हो रहा है...',
+  },
+});
 
 export default function ReviewModal({ booking, onClose, onSubmitted }) {
+  const { t: tr } = useLanguage();
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const ratingLabels = [
+    tr('review_ratingPoor'),
+    tr('review_ratingNeedsImprovement'),
+    tr('review_ratingGood'),
+    tr('review_ratingVeryGood'),
+    tr('review_ratingExcellent'),
+  ];
+
   const submitReview = async () => {
-    if (rating === 0) { setError('Please select a rating'); return; }
-    if (reviewText.trim().length < 10) { setError('Review must be at least 10 characters'); return; }
+    if (rating === 0) { setError(tr('review_selectRatingError')); return; }
+    if (reviewText.trim().length < 10) { setError(tr('review_minLengthError')); return; }
 
     setSubmitting(true);
     try {
@@ -62,7 +109,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
 
       onSubmitted && onSubmitted();
     } catch (e) {
-      setError(e.message || 'Failed to submit review');
+      setError(e.message || tr('review_submitFailedFallback'));
     }
     setSubmitting(false);
   };
@@ -71,7 +118,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', zIndex:1000 }}>
       <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>Rate your experience</div>
+          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('review_title')}</div>
           <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
             <X size={20} />
           </button>
@@ -79,7 +126,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
 
         {/* Sitter info */}
         <div style={{ background:'#F5F5F5', borderRadius:14, padding:14, marginBottom:20 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a' }}>How was your experience with {booking.sitter_name}?</div>
+          <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a' }}>{tr('review_howWasExperience', { name: booking.sitter_name })}</div>
         </div>
 
         {/* Rating stars */}
@@ -93,14 +140,14 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
 
         {rating > 0 && (
           <div style={{ textAlign:'center', fontSize:13, color:'#888', marginBottom:14 }}>
-            {['Poor', 'Needs improvement', 'Good', 'Very good', 'Excellent'][rating - 1]}
+            {ratingLabels[rating - 1]}
           </div>
         )}
 
         {/* Review text */}
-        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder="Tell other pet parents about your experience... (min. 10 characters)"
+        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder={tr('review_textareaPlaceholder')}
           style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, resize:'none', minHeight:80, fontFamily:'inherit', boxSizing:'border-box', marginBottom:12, outline:'none' }} />
-        <div style={{ fontSize:11, color:'#AAA', marginBottom:16 }}>{reviewText.length}/500</div>
+        <div style={{ fontSize:11, color:'#AAA', marginBottom:16 }}>{tr('review_charCount', { count: reviewText.length })}</div>
 
         {/* Error */}
         {error && (
@@ -112,10 +159,10 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
         {/* Buttons */}
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', fontSize:14, fontWeight:600, cursor:'pointer', color:'#555' }}>
-            Skip
+            {tr('review_skip')}
           </button>
           <button onClick={submitReview} disabled={submitting || rating === 0} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:rating === 0 ? '#E0E0E0' : '#FFC107', fontSize:14, fontWeight:600, cursor:rating === 0 ? 'not-allowed' : 'pointer', color:rating === 0 ? '#AAA' : '#1a1a1a' }}>
-            {submitting ? 'Submitting...' : 'Submit review'}
+            {submitting ? tr('review_submittingButton') : tr('review_submitButton')}
           </button>
         </div>
       </div>

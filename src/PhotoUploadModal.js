@@ -1,6 +1,50 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Check } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    photoUpload_maxPhotosError: 'Maximum 3 photos allowed',
+    photoUpload_minPhotosError: 'Please upload at least 1 photo',
+    photoUpload_uploadFailedFallback: 'Upload failed',
+    photoUpload_saveFailedFallback: 'Failed to save photos',
+    photoUpload_successTitle: 'Photos uploaded!',
+    photoUpload_successBody: 'Pet parent will receive your walk proof',
+    photoUpload_title: 'Walk photos',
+    photoUpload_proofHeading: '📸 Proof of service',
+    photoUpload_proofBody: 'Upload 1-3 photos showing your walk with {pet}. Parents love seeing proof!',
+    photoUpload_thePetFallback: 'the pet',
+    photoUpload_addLabel: 'Add',
+    photoUpload_moreLabel: 'More',
+    photoUpload_countLabel: '{count}/3 photos • Max 2MB each',
+    photoUpload_skipForNow: 'Skip for now',
+    photoUpload_uploadingButton: 'Uploading...',
+    photoUpload_uploadPhotosButton: 'Upload photos',
+    photoUpload_selectPhotosButton: 'Select photos',
+    photoUpload_photoAlt: 'Photo {num}',
+  },
+  hi: {
+    photoUpload_maxPhotosError: 'अधिकतम 3 फ़ोटो की अनुमति है',
+    photoUpload_minPhotosError: 'कृपया कम से कम 1 फ़ोटो अपलोड करें',
+    photoUpload_uploadFailedFallback: 'अपलोड विफल रहा',
+    photoUpload_saveFailedFallback: 'फ़ोटो सहेजने में विफल',
+    photoUpload_successTitle: 'फ़ोटो अपलोड हो गईं!',
+    photoUpload_successBody: 'पालतू जानवर के मालिक को आपकी वॉक का प्रमाण मिलेगा',
+    photoUpload_title: 'वॉक फ़ोटो',
+    photoUpload_proofHeading: '📸 सेवा का प्रमाण',
+    photoUpload_proofBody: '{pet} के साथ अपनी वॉक दिखाने वाली 1-3 फ़ोटो अपलोड करें। मालिकों को प्रमाण देखना अच्छा लगता है!',
+    photoUpload_thePetFallback: 'पालतू जानवर',
+    photoUpload_addLabel: 'जोड़ें',
+    photoUpload_moreLabel: 'और',
+    photoUpload_countLabel: '{count}/3 फ़ोटो • प्रत्येक अधिकतम 2MB',
+    photoUpload_skipForNow: 'अभी के लिए छोड़ें',
+    photoUpload_uploadingButton: 'अपलोड हो रहा है...',
+    photoUpload_uploadPhotosButton: 'फ़ोटो अपलोड करें',
+    photoUpload_selectPhotosButton: 'फ़ोटो चुनें',
+    photoUpload_photoAlt: 'फ़ोटो {num}',
+  },
+});
 
 const compressImage = (file, maxSizeMB = 2) => new Promise((resolve) => {
   const reader = new FileReader();
@@ -22,6 +66,7 @@ const compressImage = (file, maxSizeMB = 2) => new Promise((resolve) => {
 });
 
 export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
+  const { t: tr } = useLanguage();
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -30,7 +75,7 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
 
   const handlePhotoSelect = async (e) => {
     const files = Array.from(e.target.files || []);
-    if (photos.length + files.length > 3) { setError('Maximum 3 photos allowed'); return; }
+    if (photos.length + files.length > 3) { setError(tr('photoUpload_maxPhotosError')); return; }
     if (!files.length) return;
 
     setUploading(true);
@@ -46,13 +91,13 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
         setPhotos(prev => [...prev, publicUrl]);
       }
     } catch (e) {
-      setError(e.message || 'Upload failed');
+      setError(e.message || tr('photoUpload_uploadFailedFallback'));
     }
     setUploading(false);
   };
 
   const submitPhotos = async () => {
-    if (photos.length === 0) { setError('Please upload at least 1 photo'); return; }
+    if (photos.length === 0) { setError(tr('photoUpload_minPhotosError')); return; }
 
     setUploading(true);
     try {
@@ -92,7 +137,7 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
       setSubmitted(true);
       setTimeout(() => { onSubmitted && onSubmitted(); }, 1500);
     } catch (e) {
-      setError(e.message || 'Failed to save photos');
+      setError(e.message || tr('photoUpload_saveFailedFallback'));
     }
     setUploading(false);
   };
@@ -102,8 +147,8 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
       <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
         <div style={{ background:'white', borderRadius:20, padding:32, textAlign:'center', maxWidth:320 }}>
           <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:8 }}>Photos uploaded!</div>
-          <div style={{ fontSize:14, color:'#888' }}>Pet parent will receive your walk proof</div>
+          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:8 }}>{tr('photoUpload_successTitle')}</div>
+          <div style={{ fontSize:14, color:'#888' }}>{tr('photoUpload_successBody')}</div>
         </div>
       </div>
     );
@@ -113,22 +158,22 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', zIndex:1000 }}>
       <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>Walk photos</div>
+          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('photoUpload_title')}</div>
           <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
             <X size={20} />
           </button>
         </div>
 
         <div style={{ background:'#E8F5E9', borderRadius:14, padding:12, marginBottom:20 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#2E7D32', marginBottom:4 }}>📸 Proof of service</div>
-          <div style={{ fontSize:12, color:'#555' }}>Upload 1-3 photos showing your walk with {booking.pet_name || 'the pet'}. Parents love seeing proof!</div>
+          <div style={{ fontSize:13, fontWeight:600, color:'#2E7D32', marginBottom:4 }}>{tr('photoUpload_proofHeading')}</div>
+          <div style={{ fontSize:12, color:'#555' }}>{tr('photoUpload_proofBody', { pet: booking.pet_name || tr('photoUpload_thePetFallback') })}</div>
         </div>
 
         {/* Photo gallery */}
         <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:16 }}>
           {photos.map((url, i) => (
             <div key={i} style={{ position:'relative', width:90, height:90 }}>
-              <img src={url} alt={`Photo ${i+1}`} style={{ width:90, height:90, borderRadius:12, objectFit:'cover' }} />
+              <img src={url} alt={tr('photoUpload_photoAlt', { num: i + 1 })} style={{ width:90, height:90, borderRadius:12, objectFit:'cover' }} />
               <div onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
                 style={{ position:'absolute', top:-8, right:-8, width:28, height:28, borderRadius:14, background:'#D32F2F', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                 <X size={16} color="white" />
@@ -138,13 +183,13 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
           {photos.length < 3 && (
             <div onClick={() => fileInputRef.current?.click()}
               style={{ width:90, height:90, borderRadius:12, background:'#E8F5E9', border:'2px dashed #2E7D32', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
-              {uploading ? <span style={{ fontSize:12, color:'#2E7D32' }}>...</span> : <><Upload size={20} color="#2E7D32" /><span style={{ fontSize:10, color:'#2E7D32' }}>{photos.length === 0 ? 'Add' : 'More'}</span></>}
+              {uploading ? <span style={{ fontSize:12, color:'#2E7D32' }}>...</span> : <><Upload size={20} color="#2E7D32" /><span style={{ fontSize:10, color:'#2E7D32' }}>{photos.length === 0 ? tr('photoUpload_addLabel') : tr('photoUpload_moreLabel')}</span></>}
             </div>
           )}
         </div>
 
         <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} style={{ display:'none' }} />
-        <div style={{ fontSize:12, color:'#AAA', marginBottom:16 }}>{photos.length}/3 photos • Max 2MB each</div>
+        <div style={{ fontSize:12, color:'#AAA', marginBottom:16 }}>{tr('photoUpload_countLabel', { count: photos.length })}</div>
 
         {error && (
           <div style={{ background:'#FCEBEB', borderRadius:10, padding:'10px 12px', marginBottom:14, fontSize:12, color:'#A32D2D' }}>
@@ -155,10 +200,10 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
         {/* Buttons */}
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', fontSize:14, fontWeight:600, cursor:'pointer', color:'#555' }}>
-            Skip for now
+            {tr('photoUpload_skipForNow')}
           </button>
           <button onClick={submitPhotos} disabled={photos.length === 0 || uploading} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:photos.length === 0 ? '#E0E0E0' : '#2E7D32', fontSize:14, fontWeight:600, cursor:photos.length === 0 ? 'not-allowed' : 'pointer', color:'white' }}>
-            {uploading ? 'Uploading...' : photos.length > 0 ? 'Upload photos' : 'Select photos'}
+            {uploading ? tr('photoUpload_uploadingButton') : photos.length > 0 ? tr('photoUpload_uploadPhotosButton') : tr('photoUpload_selectPhotosButton')}
           </button>
         </div>
       </div>

@@ -1,6 +1,172 @@
 import React, { useState, useRef } from 'react';
 import { ArrowLeft, CheckCircle, Camera, Heart, Share2, X } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    walkReport_moodAnxious: 'Anxious',
+    walkReport_moodUnsettled: 'Unsettled',
+    walkReport_moodGood: 'Good',
+    walkReport_moodHappy: 'Happy',
+    walkReport_moodAmazing: 'Amazing',
+    walkReport_strayNone: 'No strays',
+    walkReport_straySaw: 'Saw some',
+    walkReport_strayChased: 'Got chased',
+    walkReport_strayScuffle: 'Minor scuffle',
+    walkReport_stepActivity: 'Activity',
+    walkReport_stepMoodSafety: 'Mood & Safety',
+    walkReport_stepNotes: 'Notes',
+    walkReport_stepPreviewSend: 'Preview & Send',
+    walkReport_maxPhotos: 'Maximum 3 photos',
+    walkReport_uploadFailedPrefix: 'Upload failed: ',
+    walkReport_photoErrorPrefix: 'Photo error: ',
+    walkReport_sendFailedPrefix: 'Could not send report: ',
+    walkReport_sentHeading: 'Report sent!',
+    walkReport_sentBody: "{parent} will receive {pet}'s walk report on WhatsApp now.",
+    walkReport_whatsappConfirmed: 'WhatsApp delivery confirmed',
+    walkReport_sentToNumber: "Sent to {parent}'s number",
+    walkReport_backToHome: 'Back to home',
+    walkReport_headerTitle: "{pet}'s Walk Report",
+    walkReport_headerSubtitle: 'by {sitter} · {time}',
+    walkReport_activityHeading: 'What happened on the walk?',
+    walkReport_activityHint: 'Tap everything that happened',
+    walkReport_activityPee: 'Did a pee',
+    walkReport_activityPoo: 'Did a poo',
+    walkReport_activityWater: 'Drank water',
+    walkReport_activityFood: 'Had a treat',
+    walkReport_done: 'Done ✓',
+    walkReport_walkDetails: 'Walk details',
+    walkReport_durationLabel: 'Duration (min)',
+    walkReport_durationPlaceholder: 'e.g. 30',
+    walkReport_distanceLabel: 'Distance (km)',
+    walkReport_distancePlaceholder: 'e.g. 1.5',
+    walkReport_walkAreaLabel: 'Walk area',
+    walkReport_selectArea: 'Select area',
+    walkReport_gateInLabel: 'Gate entry',
+    walkReport_gateOutLabel: 'Gate exit',
+    walkReport_moodHeading: 'How was {pet}?',
+    walkReport_moodHint: 'Mood and India safety checks',
+    walkReport_overallMood: 'Overall mood',
+    walkReport_indiaSafetyChecks: 'India safety checks',
+    walkReport_heatSafetyObserved: 'Heat safety observed',
+    walkReport_heatSafetyHint: 'Walk before 10am or after 6pm, avoided hot pavement',
+    walkReport_strayEncounters: 'Stray dog encounters',
+    walkReport_photosNotesHeading: 'Photos and notes',
+    walkReport_photosNotesHint: 'Add photos and a message for {parent}',
+    walkReport_walkPhotos: 'Walk photos',
+    walkReport_uploading: 'Uploading...',
+    walkReport_add: 'Add',
+    walkReport_photoCountHint: '{n}/3 photos · compressed for fast sending',
+    walkReport_highlightLabel: 'Walk highlight',
+    walkReport_highlightPlaceholder: "e.g. {pet} made a new friend at the park!",
+    walkReport_messageToLabel: 'Message to {parent}',
+    walkReport_messageToPlaceholder: 'e.g. {pet} was in great spirits. Very well-behaved today.',
+    walkReport_nextRecLabel: 'Next walk recommendation',
+    walkReport_nextRecPlaceholder: 'e.g. Tomorrow 7am before it gets hot',
+    walkReport_previewHeading: 'Preview report',
+    walkReport_previewHint: 'This is what {parent} receives on WhatsApp',
+    walkReport_statDuration: 'Duration',
+    walkReport_statDistance: 'Distance',
+    walkReport_statMood: 'Mood',
+    walkReport_moodNotSet: 'Not set',
+    walkReport_chipPee: 'Pee',
+    walkReport_chipPoo: 'Poo',
+    walkReport_chipWater: 'Water',
+    walkReport_chipTreat: 'Treat',
+    walkReport_straysPrefix: 'Strays: ',
+    walkReport_highlightCardLabel: 'Highlight',
+    walkReport_fromSitter: 'From {sitter}',
+    walkReport_sendsViaWhatsapp: 'Sends via WhatsApp',
+    walkReport_deliveredInstantly: 'Delivered instantly to {parent}',
+    walkReport_rebookTipPrefix: 'Parents who receive walk reports are ',
+    walkReport_rebookTipBold: '3x more likely',
+    walkReport_rebookTipSuffix: ' to rebook.',
+    walkReport_continue: 'Continue',
+    walkReport_sendToWhatsapp: 'Send to WhatsApp',
+  },
+  hi: {
+    walkReport_moodAnxious: 'चिंतित',
+    walkReport_moodUnsettled: 'बेचैन',
+    walkReport_moodGood: 'अच्छा',
+    walkReport_moodHappy: 'खुश',
+    walkReport_moodAmazing: 'शानदार',
+    walkReport_strayNone: 'कोई आवारा कुत्ता नहीं',
+    walkReport_straySaw: 'कुछ दिखे',
+    walkReport_strayChased: 'पीछा किया गया',
+    walkReport_strayScuffle: 'मामूली झड़प',
+    walkReport_stepActivity: 'गतिविधि',
+    walkReport_stepMoodSafety: 'मूड और सुरक्षा',
+    walkReport_stepNotes: 'नोट्स',
+    walkReport_stepPreviewSend: 'पूर्वावलोकन और भेजें',
+    walkReport_maxPhotos: 'अधिकतम 3 फोटो',
+    walkReport_uploadFailedPrefix: 'अपलोड विफल: ',
+    walkReport_photoErrorPrefix: 'फोटो त्रुटि: ',
+    walkReport_sendFailedPrefix: 'रिपोर्ट नहीं भेजी जा सकी: ',
+    walkReport_sentHeading: 'रिपोर्ट भेज दी गई!',
+    walkReport_sentBody: '{parent} को अभी WhatsApp पर {pet} की वॉक रिपोर्ट मिलेगी।',
+    walkReport_whatsappConfirmed: 'WhatsApp डिलीवरी की पुष्टि हुई',
+    walkReport_sentToNumber: '{parent} के नंबर पर भेजा गया',
+    walkReport_backToHome: 'होम पर वापस जाएं',
+    walkReport_headerTitle: '{pet} की वॉक रिपोर्ट',
+    walkReport_headerSubtitle: '{sitter} द्वारा · {time}',
+    walkReport_activityHeading: 'वॉक पर क्या हुआ?',
+    walkReport_activityHint: 'जो भी हुआ उस पर टैप करें',
+    walkReport_activityPee: 'पेशाब किया',
+    walkReport_activityPoo: 'पॉटी की',
+    walkReport_activityWater: 'पानी पिया',
+    walkReport_activityFood: 'ट्रीट खाई',
+    walkReport_done: 'हो गया ✓',
+    walkReport_walkDetails: 'वॉक विवरण',
+    walkReport_durationLabel: 'अवधि (मिनट)',
+    walkReport_durationPlaceholder: 'उदा. 30',
+    walkReport_distanceLabel: 'दूरी (किमी)',
+    walkReport_distancePlaceholder: 'उदा. 1.5',
+    walkReport_walkAreaLabel: 'वॉक क्षेत्र',
+    walkReport_selectArea: 'क्षेत्र चुनें',
+    walkReport_gateInLabel: 'गेट एंट्री',
+    walkReport_gateOutLabel: 'गेट एग्जिट',
+    walkReport_moodHeading: '{pet} कैसा रहा?',
+    walkReport_moodHint: 'मूड और भारत सुरक्षा जांच',
+    walkReport_overallMood: 'कुल मिलाकर मूड',
+    walkReport_indiaSafetyChecks: 'भारत सुरक्षा जांच',
+    walkReport_heatSafetyObserved: 'गर्मी से सुरक्षा का ध्यान रखा गया',
+    walkReport_heatSafetyHint: 'सुबह 10 बजे से पहले या शाम 6 बजे के बाद वॉक, गर्म फुटपाथ से बचा गया',
+    walkReport_strayEncounters: 'आवारा कुत्तों से सामना',
+    walkReport_photosNotesHeading: 'फोटो और नोट्स',
+    walkReport_photosNotesHint: '{parent} के लिए फोटो और संदेश जोड़ें',
+    walkReport_walkPhotos: 'वॉक फोटो',
+    walkReport_uploading: 'अपलोड हो रहा है...',
+    walkReport_add: 'जोड़ें',
+    walkReport_photoCountHint: '{n}/3 फोटो · तेज़ भेजने के लिए संपीड़ित',
+    walkReport_highlightLabel: 'वॉक हाइलाइट',
+    walkReport_highlightPlaceholder: 'उदा. {pet} को पार्क में एक नया दोस्त मिला!',
+    walkReport_messageToLabel: '{parent} के लिए संदेश',
+    walkReport_messageToPlaceholder: 'उदा. {pet} बहुत अच्छे मूड में था। आज बहुत अच्छे से व्यवहार किया।',
+    walkReport_nextRecLabel: 'अगली वॉक की सिफारिश',
+    walkReport_nextRecPlaceholder: 'उदा. कल सुबह 7 बजे, गर्मी बढ़ने से पहले',
+    walkReport_previewHeading: 'रिपोर्ट का पूर्वावलोकन',
+    walkReport_previewHint: 'यही {parent} को WhatsApp पर मिलेगा',
+    walkReport_statDuration: 'अवधि',
+    walkReport_statDistance: 'दूरी',
+    walkReport_statMood: 'मूड',
+    walkReport_moodNotSet: 'सेट नहीं है',
+    walkReport_chipPee: 'पेशाब',
+    walkReport_chipPoo: 'पॉटी',
+    walkReport_chipWater: 'पानी',
+    walkReport_chipTreat: 'ट्रीट',
+    walkReport_straysPrefix: 'आवारा कुत्ते: ',
+    walkReport_highlightCardLabel: 'हाइलाइट',
+    walkReport_fromSitter: '{sitter} की ओर से',
+    walkReport_sendsViaWhatsapp: 'WhatsApp के ज़रिए भेजा जाता है',
+    walkReport_deliveredInstantly: '{parent} को तुरंत डिलीवर',
+    walkReport_rebookTipPrefix: 'जिन माता-पिता को वॉक रिपोर्ट मिलती है, उनके ',
+    walkReport_rebookTipBold: '3 गुना अधिक',
+    walkReport_rebookTipSuffix: ' दोबारा बुक करने की संभावना होती है।',
+    walkReport_continue: 'जारी रखें',
+    walkReport_sendToWhatsapp: 'WhatsApp पर भेजें',
+  },
+});
 
 // Compress an image file to ~1200px max, 80% quality JPEG (keeps 10MB iPhone photos small for 4G)
 const compressImage = (file) => new Promise((resolve) => {
@@ -27,19 +193,19 @@ const THEMES = {
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
-const MOODS = [
-  { val:1, emoji:'😰', label:'Anxious' },
-  { val:2, emoji:'😕', label:'Unsettled' },
-  { val:3, emoji:'😊', label:'Good' },
-  { val:4, emoji:'😄', label:'Happy' },
-  { val:5, emoji:'🤩', label:'Amazing' },
+const getMoods = (tr) => [
+  { val:1, emoji:'😰', label:tr('walkReport_moodAnxious') },
+  { val:2, emoji:'😕', label:tr('walkReport_moodUnsettled') },
+  { val:3, emoji:'😊', label:tr('walkReport_moodGood') },
+  { val:4, emoji:'😄', label:tr('walkReport_moodHappy') },
+  { val:5, emoji:'🤩', label:tr('walkReport_moodAmazing') },
 ];
 
-const STRAYS = [
-  { val:'none', label:'No strays', emoji:'✅' },
-  { val:'saw', label:'Saw some', emoji:'👀' },
-  { val:'chased', label:'Got chased', emoji:'⚠️' },
-  { val:'scuffle', label:'Minor scuffle', emoji:'🚨' },
+const getStrays = (tr) => [
+  { val:'none', label:tr('walkReport_strayNone'), emoji:'✅' },
+  { val:'saw', label:tr('walkReport_straySaw'), emoji:'👀' },
+  { val:'chased', label:tr('walkReport_strayChased'), emoji:'⚠️' },
+  { val:'scuffle', label:tr('walkReport_strayScuffle'), emoji:'🚨' },
 ];
 
 const ZONES = {
@@ -48,10 +214,13 @@ const ZONES = {
 };
 
 export default function WalkReportCard({ onBack, city, booking, mode }) {
+  const { t: tr } = useLanguage();
   const isParent = mode === 'parent';
   const c = city || 'Gurgaon';
   const t = THEMES[c] || THEMES.Gurgaon;
   const zones = ZONES[c] || ZONES.Gurgaon;
+  const MOODS = getMoods(tr);
+  const STRAYS = getStrays(tr);
   const b = booking || {};
   const pet = b.petName || 'Bruno';
   const sitter = b.sitterName || 'Priya';
@@ -77,22 +246,22 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
   const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (photos.length >= 3) { alert('Maximum 3 photos'); return; }
+    if (photos.length >= 3) { alert(tr('walkReport_maxPhotos')); return; }
     setUploadingPhoto(true);
     try {
       const compressed = await compressImage(file);
       const fileName = 'walk-' + (b.id || 'test') + '-' + Date.now() + '.jpg';
       const { data, error } = await supabase.storage.from('walk-photos').upload(fileName, compressed, { contentType:'image/jpeg', upsert:true });
-      if (error) { alert('Upload failed: ' + error.message); setUploadingPhoto(false); return; }
+      if (error) { alert(tr('walkReport_uploadFailedPrefix') + error.message); setUploadingPhoto(false); return; }
       const { data: urlData } = supabase.storage.from('walk-photos').getPublicUrl(fileName);
       setPhotos(prev => [...prev, { url: urlData.publicUrl }]);
-    } catch(err) { alert('Photo error: ' + err.message); }
+    } catch(err) { alert(tr('walkReport_photoErrorPrefix') + err.message); }
     setUploadingPhoto(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removePhoto = (idx) => setPhotos(prev => prev.filter((_, i) => i !== idx));
-  const steps = ['Activity','Mood & Safety','Notes','Preview & Send'];
+  const steps = [tr('walkReport_stepActivity'), tr('walkReport_stepMoodSafety'), tr('walkReport_stepNotes'), tr('walkReport_stepPreviewSend')];
 
   const S = {
     inp: { width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:14, color:'#1a1a1a', outline:'none', fontFamily:'inherit', background:'#FAFAFA', marginBottom:12, boxSizing:'border-box' },
@@ -113,9 +282,9 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
         gate_in: r.gatein || null, gate_out: r.gateout || null,
         photo_urls: photos.map(p => p.url),
       });
-      if (error) { alert('Could not send report: ' + error.message); setSending(false); return; }
+      if (error) { alert(tr('walkReport_sendFailedPrefix') + error.message); setSending(false); return; }
     } catch(err) {
-      alert('Could not send report: ' + err.message);
+      alert(tr('walkReport_sendFailedPrefix') + err.message);
       setSending(false);
       return;
     }
@@ -143,18 +312,18 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
     return (
       <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 24px', fontFamily:'sans-serif', textAlign:'center' }}>
         <div style={{ fontSize:72, marginBottom:16 }}>🐾</div>
-        <div style={{ fontSize:26, fontWeight:700, color:'white', marginBottom:8 }}>Report sent!</div>
-        <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:32, lineHeight:1.6 }}>{parent} will receive {pet}'s walk report on WhatsApp now.</div>
+        <div style={{ fontSize:26, fontWeight:700, color:'white', marginBottom:8 }}>{tr('walkReport_sentHeading')}</div>
+        <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:32, lineHeight:1.6 }}>{tr('walkReport_sentBody', { parent, pet })}</div>
         <div style={{ background:'#128C7E', borderRadius:18, padding:'16px 20px', width:'100%', marginBottom:24, display:'flex', alignItems:'center', gap:12 }}>
           <span style={{ fontSize:24 }}>💬</span>
           <div style={{ textAlign:'left' }}>
-            <div style={{ color:'white', fontSize:13, fontWeight:700 }}>WhatsApp delivery confirmed</div>
-            <div style={{ color:'rgba(255,255,255,0.7)', fontSize:12 }}>Sent to {parent}'s number</div>
+            <div style={{ color:'white', fontSize:13, fontWeight:700 }}>{tr('walkReport_whatsappConfirmed')}</div>
+            <div style={{ color:'rgba(255,255,255,0.7)', fontSize:12 }}>{tr('walkReport_sentToNumber', { parent })}</div>
           </div>
           <CheckCircle size={20} color="white" style={{ marginLeft:'auto' }} />
         </div>
         <button onClick={onBack} style={{ width:'100%', padding:14, borderRadius:14, border:'none', background:t.primary, color:'white', fontSize:15, fontWeight:600, cursor:'pointer' }}>
-          Back to home
+          {tr('walkReport_backToHome')}
         </button>
       </div>
     );
@@ -167,8 +336,8 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
           <ArrowLeft size={18} color="white" />
         </div>
         <div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{pet}'s Walk Report</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>by {sitter} · {r.time}</div>
+          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('walkReport_headerTitle', { pet })}</div>
+          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{tr('walkReport_headerSubtitle', { sitter, time:r.time })}</div>
         </div>
       </div>
 
@@ -178,42 +347,42 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
 
         {step===0 && (
           <div>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>What happened on the walk?</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>Tap everything that happened</div>
+            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('walkReport_activityHeading')}</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>{tr('walkReport_activityHint')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
-              {[{f:'pee',e:'💧',l:'Did a pee'},{f:'poo',e:'💩',l:'Did a poo'},{f:'water',e:'🥤',l:'Drank water'},{f:'food',e:'🍖',l:'Had a treat'}].map(x => (
+              {[{f:'pee',e:'💧',l:tr('walkReport_activityPee')},{f:'poo',e:'💩',l:tr('walkReport_activityPoo')},{f:'water',e:'🥤',l:tr('walkReport_activityWater')},{f:'food',e:'🍖',l:tr('walkReport_activityFood')}].map(x => (
                 <div key={x.f} onClick={()=>upd(x.f,!r[x.f])}
                   style={{ background:r[x.f]?t.light:'white', border:r[x.f]?'2px solid '+t.primary:'1.5px solid #E0E0E0', borderRadius:16, padding:'14px 8px', textAlign:'center', cursor:'pointer' }}>
                   <div style={{ fontSize:28, marginBottom:6 }}>{x.e}</div>
                   <div style={{ fontSize:12, fontWeight:r[x.f]?700:400, color:r[x.f]?t.primary:'#888' }}>{x.l}</div>
-                  {r[x.f] && <div style={{ fontSize:10, color:t.primary, marginTop:3 }}>Done ✓</div>}
+                  {r[x.f] && <div style={{ fontSize:10, color:t.primary, marginTop:3 }}>{tr('walkReport_done')}</div>}
                 </div>
               ))}
             </div>
             <div style={S.card}>
-              <div style={S.sec}>Walk details</div>
+              <div style={S.sec}>{tr('walkReport_walkDetails')}</div>
               <div style={{ display:'flex', gap:10, marginBottom:12 }}>
                 <div style={{ flex:1 }}>
-                  <div style={S.lbl}>Duration (min)</div>
-                  <input value={r.mins} onChange={e=>upd('mins',e.target.value)} placeholder="e.g. 30" type="number" style={{...S.inp,marginBottom:0}} />
+                  <div style={S.lbl}>{tr('walkReport_durationLabel')}</div>
+                  <input value={r.mins} onChange={e=>upd('mins',e.target.value)} placeholder={tr('walkReport_durationPlaceholder')} type="number" style={{...S.inp,marginBottom:0}} />
                 </div>
                 <div style={{ flex:1 }}>
-                  <div style={S.lbl}>Distance (km)</div>
-                  <input value={r.km} onChange={e=>upd('km',e.target.value)} placeholder="e.g. 1.5" type="number" style={{...S.inp,marginBottom:0}} />
+                  <div style={S.lbl}>{tr('walkReport_distanceLabel')}</div>
+                  <input value={r.km} onChange={e=>upd('km',e.target.value)} placeholder={tr('walkReport_distancePlaceholder')} type="number" style={{...S.inp,marginBottom:0}} />
                 </div>
               </div>
-              <div style={S.lbl}>Walk area</div>
+              <div style={S.lbl}>{tr('walkReport_walkAreaLabel')}</div>
               <select value={r.zone} onChange={e=>upd('zone',e.target.value)} style={{...S.inp,cursor:'pointer'}}>
-                <option value="">Select area</option>
+                <option value="">{tr('walkReport_selectArea')}</option>
                 {zones.map(z=><option key={z} value={z}>{z}</option>)}
               </select>
               <div style={{ display:'flex', gap:10 }}>
                 <div style={{ flex:1 }}>
-                  <div style={S.lbl}>Gate entry</div>
+                  <div style={S.lbl}>{tr('walkReport_gateInLabel')}</div>
                   <input value={r.gatein} onChange={e=>upd('gatein',e.target.value)} placeholder="7:05 AM" style={{...S.inp,marginBottom:0}} />
                 </div>
                 <div style={{ flex:1 }}>
-                  <div style={S.lbl}>Gate exit</div>
+                  <div style={S.lbl}>{tr('walkReport_gateOutLabel')}</div>
                   <input value={r.gateout} onChange={e=>upd('gateout',e.target.value)} placeholder="7:38 AM" style={{...S.inp,marginBottom:0}} />
                 </div>
               </div>
@@ -223,10 +392,10 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
 
         {step===1 && (
           <div>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>How was {pet}?</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>Mood and India safety checks</div>
+            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('walkReport_moodHeading', { pet })}</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>{tr('walkReport_moodHint')}</div>
             <div style={S.card}>
-              <div style={S.sec}>Overall mood</div>
+              <div style={S.sec}>{tr('walkReport_overallMood')}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {MOODS.map(m=>(
                   <div key={m.val} onClick={()=>upd('mood',m.val)}
@@ -238,19 +407,19 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               </div>
             </div>
             <div style={S.card}>
-              <div style={S.sec}>India safety checks</div>
+              <div style={S.sec}>{tr('walkReport_indiaSafetyChecks')}</div>
               <div onClick={()=>upd('heat',!r.heat)}
                 style={{ background:r.heat?'#E8F5E9':'#FFF8E1', border:r.heat?'1.5px solid #A5D6A7':'1.5px solid #FFE082', borderRadius:14, padding:'12px 14px', marginBottom:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center' }}>
                 <span style={{ fontSize:22 }}>🌡️</span>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>Heat safety observed</div>
-                  <div style={{ fontSize:11, color:'#888', marginTop:1 }}>Walk before 10am or after 6pm, avoided hot pavement</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{tr('walkReport_heatSafetyObserved')}</div>
+                  <div style={{ fontSize:11, color:'#888', marginTop:1 }}>{tr('walkReport_heatSafetyHint')}</div>
                 </div>
                 <div style={{ width:22, height:22, borderRadius:7, background:r.heat?'#2E7D32':'#E0E0E0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   {r.heat && <CheckCircle size={14} color="white" />}
                 </div>
               </div>
-              <div style={S.sec}>Stray dog encounters</div>
+              <div style={S.sec}>{tr('walkReport_strayEncounters')}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {STRAYS.map(o=>(
                   <div key={o.val} onClick={()=>upd('stray',o.val)}
@@ -266,10 +435,10 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
 
         {step===2 && (
           <div>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>Photos and notes</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>Add photos and a message for {parent}</div>
+            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('walkReport_photosNotesHeading')}</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>{tr('walkReport_photosNotesHint', { parent })}</div>
             <div style={S.card}>
-              <div style={S.sec}>Walk photos</div>
+              <div style={S.sec}>{tr('walkReport_walkPhotos')}</div>
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} style={{ display:'none' }} />
               <div style={{ display:'flex', gap:10, marginBottom:8 }}>
                 {photos.map((p, i) => (
@@ -283,7 +452,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                 {photos.length < 3 && (
                   <div onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
                     style={{ flex:1, aspectRatio:'1', borderRadius:14, background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
-                    {uploadingPhoto ? <span style={{ fontSize:11, color:t.primary }}>Uploading...</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>Add</span></>}
+                    {uploadingPhoto ? <span style={{ fontSize:11, color:t.primary }}>{tr('walkReport_uploading')}</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{tr('walkReport_add')}</span></>}
                   </div>
                 )}
                 {/* fill empty slots visually */}
@@ -291,40 +460,40 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                   <div key={'e'+i} style={{ flex:1, aspectRatio:'1' }} />
                 ))}
               </div>
-              <div style={{ fontSize:11, color:'#AAA' }}>{photos.length}/3 photos · compressed for fast sending</div>
+              <div style={{ fontSize:11, color:'#AAA' }}>{tr('walkReport_photoCountHint', { n: photos.length })}</div>
             </div>
             <div style={S.card}>
-              <div style={S.lbl}>Walk highlight</div>
+              <div style={S.lbl}>{tr('walkReport_highlightLabel')}</div>
               <input value={r.highlight} onChange={e=>upd('highlight',e.target.value)}
-                placeholder={'e.g. '+pet+' made a new friend at the park!'} style={S.inp} />
-              <div style={S.lbl}>Message to {parent}</div>
+                placeholder={tr('walkReport_highlightPlaceholder', { pet })} style={S.inp} />
+              <div style={S.lbl}>{tr('walkReport_messageToLabel', { parent })}</div>
               <textarea value={r.notes} onChange={e=>upd('notes',e.target.value)}
-                placeholder={'e.g. '+pet+' was in great spirits. Very well-behaved today.'}
+                placeholder={tr('walkReport_messageToPlaceholder', { pet })}
                 style={{...S.inp,minHeight:80,resize:'none'}} />
-              <div style={S.lbl}>Next walk recommendation</div>
+              <div style={S.lbl}>{tr('walkReport_nextRecLabel')}</div>
               <input value={r.nextrec} onChange={e=>upd('nextrec',e.target.value)}
-                placeholder="e.g. Tomorrow 7am before it gets hot" style={{...S.inp,marginBottom:0}} />
+                placeholder={tr('walkReport_nextRecPlaceholder')} style={{...S.inp,marginBottom:0}} />
             </div>
           </div>
         )}
 
         {step===3 && (
           <div>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>Preview report</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>This is what {parent} receives on WhatsApp</div>
+            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('walkReport_previewHeading')}</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('walkReport_previewHint', { parent })}</div>
             <div style={{ background:'#0f0f1a', borderRadius:24, padding:20, marginBottom:14, border:'1px solid rgba(255,107,53,0.2)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, paddingBottom:12, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ width:40, height:40, borderRadius:12, background:t.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🐾</div>
                 <div>
-                  <div style={{ color:'white', fontSize:14, fontWeight:700 }}>{pet}'s Walk Report</div>
-                  <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11 }}>by {sitter} · {r.time}</div>
+                  <div style={{ color:'white', fontSize:14, fontWeight:700 }}>{tr('walkReport_headerTitle', { pet })}</div>
+                  <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11 }}>{tr('walkReport_headerSubtitle', { sitter, time:r.time })}</div>
                 </div>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>
                 {[
-                  { emoji:'⏱️', val:r.mins?r.mins+' min':'--', label:'Duration' },
-                  { emoji:'📍', val:r.km?r.km+' km':'--', label:'Distance' },
-                  { emoji:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).emoji:'😊', val:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).label:'Not set', label:'Mood' },
+                  { emoji:'⏱️', val:r.mins?r.mins+' min':'--', label:tr('walkReport_statDuration') },
+                  { emoji:'📍', val:r.km?r.km+' km':'--', label:tr('walkReport_statDistance') },
+                  { emoji:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).emoji:'😊', val:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).label:tr('walkReport_moodNotSet'), label:tr('walkReport_statMood') },
                 ].map((x,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.06)', borderRadius:12, padding:'10px 8px', textAlign:'center' }}>
                     <div style={{ fontSize:18, marginBottom:4 }}>{x.emoji}</div>
@@ -334,7 +503,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                 ))}
               </div>
               <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
-                {[{done:r.pee,e:'💧',l:'Pee'},{done:r.poo,e:'💩',l:'Poo'},{done:r.water,e:'🥤',l:'Water'},{done:r.food,e:'🍖',l:'Treat'}].map((x,i)=>(
+                {[{done:r.pee,e:'💧',l:tr('walkReport_chipPee')},{done:r.poo,e:'💩',l:tr('walkReport_chipPoo')},{done:r.water,e:'🥤',l:tr('walkReport_chipWater')},{done:r.food,e:'🍖',l:tr('walkReport_chipTreat')}].map((x,i)=>(
                   <div key={i} style={{ background:x.done?'rgba(46,125,50,0.2)':'rgba(255,255,255,0.04)', borderRadius:20, padding:'5px 10px', display:'flex', alignItems:'center', gap:4 }}>
                     <span style={{ fontSize:13 }}>{x.e}</span>
                     <span style={{ fontSize:11, color:x.done?'#81C784':'rgba(255,255,255,0.3)', fontWeight:x.done?600:400 }}>{x.l} {x.done?'✓':'✗'}</span>
@@ -344,24 +513,24 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               {r.heat && (
                 <div style={{ background:'rgba(46,125,50,0.15)', borderRadius:10, padding:'6px 12px', marginBottom:8, display:'flex', gap:6, alignItems:'center' }}>
                   <span style={{ fontSize:13 }}>🌡️</span>
-                  <span style={{ fontSize:12, color:'#81C784', fontWeight:500 }}>Heat safety observed</span>
+                  <span style={{ fontSize:12, color:'#81C784', fontWeight:500 }}>{tr('walkReport_heatSafetyObserved')}</span>
                 </div>
               )}
               {r.stray!=='none' && (
                 <div style={{ background:'rgba(255,152,0,0.15)', borderRadius:10, padding:'6px 12px', marginBottom:8, display:'flex', gap:6, alignItems:'center' }}>
                   <span style={{ fontSize:13 }}>⚠️</span>
-                  <span style={{ fontSize:12, color:'#FFB74D', fontWeight:500 }}>Strays: {(STRAYS.find(o=>o.val===r.stray)||{}).label}</span>
+                  <span style={{ fontSize:12, color:'#FFB74D', fontWeight:500 }}>{tr('walkReport_straysPrefix')}{(STRAYS.find(o=>o.val===r.stray)||{}).label}</span>
                 </div>
               )}
               {r.highlight ? (
                 <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:12, padding:'10px 14px', marginBottom:8 }}>
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4 }}>Highlight</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4 }}>{tr('walkReport_highlightCardLabel')}</div>
                   <div style={{ fontSize:13, color:'white', fontStyle:'italic' }}>"{r.highlight}"</div>
                 </div>
               ) : null}
               {r.notes ? (
                 <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:12, padding:'10px 14px', marginBottom:8 }}>
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4 }}>From {sitter}</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4 }}>{tr('walkReport_fromSitter', { sitter })}</div>
                   <div style={{ fontSize:13, color:'rgba(255,255,255,0.8)', lineHeight:1.6 }}>{r.notes}</div>
                 </div>
               ) : null}
@@ -378,14 +547,14 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
             <div style={{ background:'#128C7E', borderRadius:16, padding:'12px 16px', marginBottom:14, display:'flex', gap:10, alignItems:'center' }}>
               <span style={{ fontSize:22 }}>💬</span>
               <div>
-                <div style={{ color:'white', fontSize:13, fontWeight:600 }}>Sends via WhatsApp</div>
-                <div style={{ color:'rgba(255,255,255,0.7)', fontSize:12 }}>Delivered instantly to {parent}</div>
+                <div style={{ color:'white', fontSize:13, fontWeight:600 }}>{tr('walkReport_sendsViaWhatsapp')}</div>
+                <div style={{ color:'rgba(255,255,255,0.7)', fontSize:12 }}>{tr('walkReport_deliveredInstantly', { parent })}</div>
               </div>
               <Share2 size={18} color="white" style={{ marginLeft:'auto' }} />
             </div>
             <div style={{ background:'#E8F5E9', borderRadius:14, padding:'10px 14px', display:'flex', gap:8 }}>
               <Heart size={14} color="#2E7D32" style={{ flexShrink:0, marginTop:2 }} />
-              <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.6 }}>Parents who receive walk reports are <strong>3x more likely</strong> to rebook.</div>
+              <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.6 }}>{tr('walkReport_rebookTipPrefix')}<strong>{tr('walkReport_rebookTipBold')}</strong>{tr('walkReport_rebookTipSuffix')}</div>
             </div>
           </div>
         )}
@@ -395,12 +564,12 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
       <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))', display:'flex', gap:10 }}>
         {step>0 && (
           <button onClick={()=>setStep(s=>s-1)} style={{ flex:1, padding:'14px 0', borderRadius:14, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:14, fontWeight:600, cursor:'pointer' }}>
-            Back
+            {tr('common_back')}
           </button>
         )}
         <button onClick={()=>{ if(step<steps.length-1) setStep(s=>s+1); else send(); }}
           style={{ flex:2, padding:'14px 0', borderRadius:14, border:'none', background:sending?'#CCC':t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-          {sending?'Sending...':step===steps.length-1?'Send to WhatsApp':'Continue'}
+          {sending?tr('common_sending'):step===steps.length-1?tr('walkReport_sendToWhatsapp'):tr('walkReport_continue')}
         </button>
       </div>
     </div>

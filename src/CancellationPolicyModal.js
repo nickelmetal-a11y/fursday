@@ -1,18 +1,92 @@
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage, registerTranslations } from './i18n';
+
+registerTranslations({
+  en: {
+    cancelPolicy_title: 'Cancellation Policy',
+    cancelPolicy_advisory: 'Cancelling within 24 hours of your booking may result in no refund.',
+    cancelPolicy_refundRulesHeading: 'REFUND RULES',
+    cancelPolicy_tier72Label: 'Cancel 72+ hours before',
+    cancelPolicy_tier72Refund: '100% refund',
+    cancelPolicy_tier2472Label: 'Cancel 24-72 hours before',
+    cancelPolicy_tier2472Refund: '75% refund',
+    cancelPolicy_tier024Label: 'Cancel 0-24 hours before',
+    cancelPolicy_tier024Refund: 'No refund',
+    cancelPolicy_yourRefund: 'Your refund',
+    cancelPolicy_refundFull100: 'Full refund (100%)',
+    cancelPolicy_keepBooking: 'Keep booking',
+    cancelPolicy_cancelBooking: 'Cancel booking',
+    cancelPolicy_whyCancelling: 'Why are you cancelling?',
+    cancelPolicy_helpsImprove: 'This helps us improve our service.',
+    cancelPolicy_reasonEmergency: 'Emergency or urgent conflict',
+    cancelPolicy_reasonSitterCancellation: 'Sitter cancellation',
+    cancelPolicy_reasonPetSick: 'Pet is sick',
+    cancelPolicy_reasonWeather: 'Weather concern',
+    cancelPolicy_reasonChangeOfPlans: 'Change of plans',
+    cancelPolicy_reasonOther: 'Other',
+    cancelPolicy_confirmTitle: 'Confirm cancellation',
+    cancelPolicy_refundEta: 'You will receive {amount} refund within 3-5 business days.',
+    cancelPolicy_yourReasonLabel: 'Your reason:',
+    cancelPolicy_cancelling: 'Cancelling...',
+    cancelPolicy_confirmButton: 'Yes, cancel this booking',
+    cancelPolicy_cancelFailedAlert: 'Could not cancel booking: ',
+    cancelPolicy_cancelErrorAlert: 'Error cancelling booking: ',
+  },
+  hi: {
+    cancelPolicy_title: 'रद्दीकरण नीति',
+    cancelPolicy_advisory: 'बुकिंग के 24 घंटे के भीतर रद्द करने पर रिफंड नहीं मिल सकता है।',
+    cancelPolicy_refundRulesHeading: 'रिफंड नियम',
+    cancelPolicy_tier72Label: '72+ घंटे पहले रद्द करें',
+    cancelPolicy_tier72Refund: '100% रिफंड',
+    cancelPolicy_tier2472Label: '24-72 घंटे पहले रद्द करें',
+    cancelPolicy_tier2472Refund: '75% रिफंड',
+    cancelPolicy_tier024Label: '0-24 घंटे पहले रद्द करें',
+    cancelPolicy_tier024Refund: 'कोई रिफंड नहीं',
+    cancelPolicy_yourRefund: 'आपका रिफंड',
+    cancelPolicy_refundFull100: 'पूरा रिफंड (100%)',
+    cancelPolicy_keepBooking: 'बुकिंग रखें',
+    cancelPolicy_cancelBooking: 'बुकिंग रद्द करें',
+    cancelPolicy_whyCancelling: 'आप क्यों रद्द कर रहे हैं?',
+    cancelPolicy_helpsImprove: 'इससे हमें अपनी सेवा सुधारने में मदद मिलती है।',
+    cancelPolicy_reasonEmergency: 'आपातकाल या जरूरी टकराव',
+    cancelPolicy_reasonSitterCancellation: 'सिटर ने रद्द किया',
+    cancelPolicy_reasonPetSick: 'पालतू जानवर बीमार है',
+    cancelPolicy_reasonWeather: 'मौसम की चिंता',
+    cancelPolicy_reasonChangeOfPlans: 'योजना बदल गई',
+    cancelPolicy_reasonOther: 'अन्य',
+    cancelPolicy_confirmTitle: 'रद्दीकरण की पुष्टि करें',
+    cancelPolicy_refundEta: 'आपको 3-5 कार्य दिवसों के भीतर {amount} रिफंड मिलेगा।',
+    cancelPolicy_yourReasonLabel: 'आपका कारण:',
+    cancelPolicy_cancelling: 'रद्द किया जा रहा है...',
+    cancelPolicy_confirmButton: 'हां, यह बुकिंग रद्द करें',
+    cancelPolicy_cancelFailedAlert: 'बुकिंग रद्द नहीं हो सकी: ',
+    cancelPolicy_cancelErrorAlert: 'बुकिंग रद्द करने में त्रुटि: ',
+  },
+});
 
 const calculateRefund = (bookingDate) => {
   const now = new Date();
   const booking = new Date(bookingDate);
   const hoursUntil = (booking - now) / (1000 * 60 * 60);
 
-  if (hoursUntil >= 72) return { percentage: 100, label: 'Full refund (100%)' };
-  if (hoursUntil >= 24) return { percentage: 75, label: '75% refund' };
-  return { percentage: 0, label: 'No refund' };
+  if (hoursUntil >= 72) return { percentage: 100, labelKey: 'cancelPolicy_refundFull100' };
+  if (hoursUntil >= 24) return { percentage: 75, labelKey: 'cancelPolicy_tier2472Refund' };
+  return { percentage: 0, labelKey: 'cancelPolicy_tier024Refund' };
 };
 
+const CANCEL_REASONS = [
+  { value: 'Emergency or urgent conflict', labelKey: 'cancelPolicy_reasonEmergency' },
+  { value: 'Sitter cancellation', labelKey: 'cancelPolicy_reasonSitterCancellation' },
+  { value: 'Pet is sick', labelKey: 'cancelPolicy_reasonPetSick' },
+  { value: 'Weather concern', labelKey: 'cancelPolicy_reasonWeather' },
+  { value: 'Change of plans', labelKey: 'cancelPolicy_reasonChangeOfPlans' },
+  { value: 'Other', labelKey: 'cancelPolicy_reasonOther' },
+];
+
 export default function CancellationPolicyModal({ booking, onClose, onCancelled }) {
+  const { t: tr } = useLanguage();
   const [step, setStep] = useState('policy'); // policy, reason, confirming
   const [reason, setReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -36,7 +110,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
         refund_amount_paise: Math.round(refundAmount * 100),
       }).eq('id', booking.id);
       if (error) {
-        alert('Could not cancel booking: ' + error.message);
+        alert(tr('cancelPolicy_cancelFailedAlert') + error.message);
         setCancelling(false);
         return;
       }
@@ -98,7 +172,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       onCancelled && onCancelled();
       onClose();
     } catch (e) {
-      alert('Error cancelling booking: ' + e.message);
+      alert(tr('cancelPolicy_cancelErrorAlert') + e.message);
     }
     setCancelling(false);
   };
@@ -108,7 +182,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 }}>
         <div style={{ width: '100%', maxWidth: 390, background: 'white', borderRadius: '24px 24px 0 0', padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>Cancellation Policy</div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{tr('cancelPolicy_title')}</div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               <X size={20} />
             </button>
@@ -117,40 +191,40 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
           <div style={{ background: '#E3F2FD', borderRadius: 14, padding: '12px 14px', marginBottom: 20, display: 'flex', gap: 10 }}>
             <AlertCircle size={20} color="#1565C0" style={{ flexShrink: 0, marginTop: 2 }} />
             <div style={{ fontSize: 13, color: '#1565C0', lineHeight: 1.5 }}>
-              Cancelling within 24 hours of your booking may result in no refund.
+              {tr('cancelPolicy_advisory')}
             </div>
           </div>
 
           <div style={{ background: '#F5F5F5', borderRadius: 12, padding: '16px', marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 12, fontWeight: 600 }}>REFUND RULES</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12, fontWeight: 600 }}>{tr('cancelPolicy_refundRulesHeading')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span>Cancel 72+ hours before</span>
-                <span style={{ fontWeight: 600, color: '#2E7D32' }}>100% refund</span>
+                <span>{tr('cancelPolicy_tier72Label')}</span>
+                <span style={{ fontWeight: 600, color: '#2E7D32' }}>{tr('cancelPolicy_tier72Refund')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span>Cancel 24-72 hours before</span>
-                <span style={{ fontWeight: 600, color: '#F57C00' }}>75% refund</span>
+                <span>{tr('cancelPolicy_tier2472Label')}</span>
+                <span style={{ fontWeight: 600, color: '#F57C00' }}>{tr('cancelPolicy_tier2472Refund')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span>Cancel 0-24 hours before</span>
-                <span style={{ fontWeight: 600, color: '#A32D2D' }}>No refund</span>
+                <span>{tr('cancelPolicy_tier024Label')}</span>
+                <span style={{ fontWeight: 600, color: '#A32D2D' }}>{tr('cancelPolicy_tier024Refund')}</span>
               </div>
             </div>
           </div>
 
           <div style={{ background: '#FFF0EB', borderRadius: 12, padding: '14px', marginBottom: 20, borderLeft: '4px solid #FF6B35' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#E65100', marginBottom: 4 }}>Your refund</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#E65100', marginBottom: 4 }}>{tr('cancelPolicy_yourRefund')}</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#E65100' }}>₹{refundAmount.toFixed(0)}</div>
-            <div style={{ fontSize: 11, color: '#D84315', marginTop: 4 }}>{refund.label}</div>
+            <div style={{ fontSize: 11, color: '#D84315', marginTop: 4 }}>{tr(refund.labelKey)}</div>
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              Keep booking
+              {tr('cancelPolicy_keepBooking')}
             </button>
             <button onClick={() => setStep('reason')} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#A32D2D', color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              Cancel booking
+              {tr('cancelPolicy_cancelBooking')}
             </button>
           </div>
         </div>
@@ -162,18 +236,18 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 }}>
         <div style={{ width: '100%', maxWidth: 390, background: 'white', borderRadius: '24px 24px 0 0', padding: '24px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Why are you cancelling?</div>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>This helps us improve our service.</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{tr('cancelPolicy_whyCancelling')}</div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>{tr('cancelPolicy_helpsImprove')}</div>
 
-          {['Emergency or urgent conflict', 'Sitter cancellation', 'Pet is sick', 'Weather concern', 'Change of plans', 'Other'].map(r => (
-            <button key={r} onClick={() => { setReason(r); setStep('confirming'); }}
-              style={{ display: 'block', width: '100%', padding: '12px 14px', textAlign: 'left', fontSize: 13, color: reason === r ? '#FF6B35' : '#1a1a1a', background: reason === r ? '#FFF0EB' : '#F8F8F8', border: reason === r ? '2px solid #FF6B35' : '1.5px solid #E0E0E0', borderRadius: 12, marginBottom: 8, cursor: 'pointer', fontWeight: reason === r ? 600 : 400 }}>
-              {r}
+          {CANCEL_REASONS.map(({ value, labelKey }) => (
+            <button key={value} onClick={() => { setReason(value); setStep('confirming'); }}
+              style={{ display: 'block', width: '100%', padding: '12px 14px', textAlign: 'left', fontSize: 13, color: reason === value ? '#FF6B35' : '#1a1a1a', background: reason === value ? '#FFF0EB' : '#F8F8F8', border: reason === value ? '2px solid #FF6B35' : '1.5px solid #E0E0E0', borderRadius: 12, marginBottom: 8, cursor: 'pointer', fontWeight: reason === value ? 600 : 400 }}>
+              {tr(labelKey)}
             </button>
           ))}
 
           <button onClick={() => setStep('policy')} style={{ marginTop: 12, width: '100%', padding: '12px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: '#888' }}>
-            Back
+            {tr('common_back')}
           </button>
         </div>
       </div>
@@ -183,19 +257,19 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 }}>
       <div style={{ width: '100%', maxWidth: 390, background: 'white', borderRadius: '24px 24px 0 0', padding: '24px' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>Confirm cancellation</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>{tr('cancelPolicy_confirmTitle')}</div>
 
         <div style={{ background: '#FCEBEB', borderRadius: 12, padding: '14px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, lineHeight: 1.6, color: '#A32D2D', textAlign: 'center' }}>
-            You will receive ₹{refundAmount.toFixed(0)} refund within 3-5 business days. Your reason: <strong>{reason}</strong>
+            {tr('cancelPolicy_refundEta', { amount: '₹' + refundAmount.toFixed(0) })} {tr('cancelPolicy_yourReasonLabel')} <strong>{reason}</strong>
           </div>
         </div>
 
         <button onClick={cancelBooking} disabled={cancelling} style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', background: '#A32D2D', color: 'white', fontSize: 14, fontWeight: 700, cursor: cancelling ? 'not-allowed' : 'pointer', opacity: cancelling ? 0.7 : 1, marginBottom: 8 }}>
-          {cancelling ? 'Cancelling...' : 'Yes, cancel this booking'}
+          {cancelling ? tr('cancelPolicy_cancelling') : tr('cancelPolicy_confirmButton')}
         </button>
         <button onClick={() => setStep('reason')} disabled={cancelling} style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', fontSize: 14, fontWeight: 600, cursor: cancelling ? 'not-allowed' : 'pointer', color: '#888' }}>
-          Back
+          {tr('common_back')}
         </button>
       </div>
     </div>
