@@ -266,7 +266,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
           
         </div>
       </div>
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px 28px', background: 'white', borderTop: '1px solid #F0F0F0' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px calc(28px + env(safe-area-inset-bottom))', background: 'white', borderTop: '1px solid #F0F0F0' }}>
         <button onClick={handleRazorpayPayment} disabled={loading}
           style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: loading ? '#E0E0E0' : t.primary, color: loading ? '#AAA' : 'white', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>
           {loading ? 'Opening payment...' : 'Pay Rs.' + Math.round(amount/100) + ' securely'}

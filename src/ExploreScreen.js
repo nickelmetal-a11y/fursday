@@ -219,7 +219,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
         ))}
       </div>
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 calc(16px + env(safe-area-inset-bottom))', zIndex:100 }}>
         {[
           { id:'home', key:'nav_home', emoji:'🏠' },
           { id:'book', key:'nav_bookings', emoji:'📋' },

@@ -558,7 +558,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         </div>
       )}
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px 28px', display:'flex', gap:10 }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))', display:'flex', gap:10 }}>
         {step > 0 && (
           <button onClick={() => setStep(s => s-1)}
             style={{ flex:1, padding:'14px 0', borderRadius:14, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:14, fontWeight:600, cursor:'pointer' }}>

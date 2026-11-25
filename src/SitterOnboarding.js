@@ -39,6 +39,8 @@ const SERVICES = [
 const EXPERIENCE_OPTIONS = ['Less than 1 year', '1-2 years', '3-5 years', '5+ years'];
 const LANGUAGES = ['Hindi', 'English', 'Marathi', 'Punjabi', 'Tamil', 'Telugu', 'Kannada', 'Bengali'];
 
+const TOTAL_STEPS = 8;
+
 export default function SitterOnboarding({ onDone, city }) {
   const [screen, setScreen] = useState(0);
   const [name, setName] = useState('');
@@ -64,7 +66,85 @@ export default function SitterOnboarding({ onDone, city }) {
   const [sitterLng, setSitterLng] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [draftSitterId, setDraftSitterId] = useState(null);
+  const [restoringDraft, setRestoringDraft] = useState(true);
   const photoInputRef = useRef(null);
+
+  // Resume-in-progress onboarding: a closed tab/app used to lose the whole
+  // flow (nothing persisted until the final "Go live" submit). Now every
+  // step upserts a `status: 'draft'` row, and on mount we restore from it.
+  React.useEffect(() => {
+    const restore = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setRestoringDraft(false); return; }
+        const { data: draft } = await supabase.from('sitter_profiles').select('*').eq('user_id', user.id).eq('status', 'draft').single();
+        if (draft) {
+          setDraftSitterId(draft.id);
+          if (draft.bio) setBio(draft.bio);
+          if (draft.experience_text) setExperience(draft.experience_text);
+          if (draft.languages?.length) setLanguages(draft.languages);
+          if (draft.availability_days?.length) setAvailableDays(draft.availability_days);
+          if (draft.morning_slot != null) setMorningSlot(draft.morning_slot);
+          if (draft.afternoon_slot != null) setAfternoonSlot(draft.afternoon_slot);
+          if (draft.evening_slot != null) setEveningSlot(draft.evening_slot);
+          if (draft.max_dogs) setMaxDogs(String(draft.max_dogs));
+          if (draft.advance_notice) setAdvanceNotice(draft.advance_notice);
+          if (draft.profile_photo_url) setPhotoUrl(draft.profile_photo_url);
+          if (draft.upi_id) setUpiId(draft.upi_id);
+
+          const { data: userRow } = await supabase.from('users').select('name').eq('id', user.id).single();
+          if (userRow?.name && userRow.name.toLowerCase() !== user.email?.toLowerCase()) setName(userRow.name);
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: user.id });
+          if (contact?.[0]?.phone) setPhone(contact[0].phone.replace(/^\+?91/, ''));
+
+          const { data: svcRows } = await supabase.from('sitter_services').select('service_type, price_paise').eq('sitter_id', draft.id);
+          if (svcRows?.length) {
+            setServices(svcRows.map(r => r.service_type));
+            setPrices(prev => { const next = { ...prev }; svcRows.forEach(r => { next[r.service_type] = Math.round(r.price_paise / 100); }); return next; });
+          }
+
+          const { data: pii } = await supabase.from('sitter_pii').select('aadhaar_number').eq('sitter_id', draft.id).single();
+          if (pii?.aadhaar_number) setAadhaar(pii.aadhaar_number);
+
+          setScreen(Math.max(draft.onboarding_step || 1, 1));
+        }
+      } catch (e) { /* no draft yet — fresh start */ }
+      setRestoringDraft(false);
+    };
+    restore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Upserts the sitter_profiles draft row with whatever's known so far, so
+  // closing mid-flow never loses progress. Returns the draft row's id.
+  const saveDraft = async (step, extra = {}) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
+      const { data: draft, error } = await supabase.from('sitter_profiles').upsert({
+        user_id: user.id, city_id: cityRow?.id, status: 'draft', onboarding_step: step,
+        bio, experience_years: parseInt(experience) || 0, experience_text: experience || null,
+        languages, availability_days: availableDays, morning_slot: morningSlot,
+        afternoon_slot: afternoonSlot, evening_slot: eveningSlot, max_dogs: parseInt(maxDogs) || 1,
+        advance_notice: advanceNotice, profile_photo_url: photoUrl, upi_id: upiId || null,
+        ...extra,
+      }, { onConflict: 'user_id' }).select().single();
+      if (error) { console.log('Draft save error:', error.message); return draftSitterId; }
+      setDraftSitterId(draft.id);
+      return draft.id;
+    } catch (e) { return draftSitterId; }
+  };
+
+  const saveDraftServices = async (sitterId) => {
+    if (!sitterId) return;
+    const activeNow = SERVICES.filter(s => services.includes(s.id));
+    await supabase.from('sitter_services').delete().eq('sitter_id', sitterId);
+    if (activeNow.length) {
+      await supabase.from('sitter_services').insert(activeNow.map(s => ({ sitter_id: sitterId, service_type: s.id, price_paise: prices[s.id] * 100, is_active: true })));
+    }
+  };
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -190,14 +270,31 @@ export default function SitterOnboarding({ onDone, city }) {
     </button>
   );
 
+  const ProgressBar = ({ step, dark }) => (
+    <div style={{ padding: '0 24px', marginBottom: 20 }}>
+      <div style={{ fontSize: 11, color: dark ? 'rgba(255,255,255,0.4)' : '#AAA', marginBottom: 6 }}>Step {step} of {TOTAL_STEPS}</div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < step ? ORANGE : (dark ? 'rgba(255,255,255,0.1)' : '#E8E8E8') }} />
+        ))}
+      </div>
+    </div>
+  );
+
   const BottomBtn = ({ label, onClick, disabled, dark }) => (
-    <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 24px 28px', background: dark ? DARK : 'white', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#F0F0F0'}` }}>
+    <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 24px calc(28px + env(safe-area-inset-bottom))', background: dark ? DARK : 'white', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#F0F0F0'}` }}>
       <button onClick={onClick} disabled={disabled}
         style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: disabled ? '#E0E0E0' : ORANGE, color: disabled ? '#AAA' : 'white', fontSize: 15, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer' }}>
         {label}
       </button>
     </div>
   );
+
+  if (restoringDraft) return wrap(
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Loading...</div>
+    </div>
+  , true);
 
   // SCREEN 0 — City + earnings
   if (screen === 0) return wrap(
@@ -238,6 +335,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 1) return wrap(
     <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <BackBtn to={0} dark={true} />
+      <ProgressBar step={1} dark={true} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
         <div style={{ width: 40, height: 40, borderRadius: 14, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🐾</div>
         <div>
@@ -282,7 +380,7 @@ export default function SitterOnboarding({ onDone, city }) {
             )}
             {phone.length === 10 && /^[6-9]\d{9}$/.test(phone) && (
               <div style={{ textAlign: 'right', marginBottom: 16 }}>
-                <button onClick={() => setScreen(2)} style={{ padding: '8px 20px', borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Next</button>
+                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={{ padding: '8px 20px', borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Next</button>
               </div>
             )}
           </div>
@@ -295,6 +393,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 2) return wrap(
     <div style={{ padding: '0 24px 100px', minHeight: '100vh' }}>
       <BackBtn to={1} dark={true} />
+      <ProgressBar step={2} dark={true} />
       <div style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 4, paddingTop: 0 }}>What will you offer?</div>
       <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 20 }}>Select all that apply</div>
       <div style={{ background: DARK2, borderRadius: 20, padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(255,107,53,0.3)' }}>
@@ -324,7 +423,7 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         );
       })}
-      <BottomBtn label={services.length > 0 ? 'Set my prices' : 'Select at least one service'} onClick={() => { if(services.length > 0){ setPricingIdx(0); setScreen(3); } }} disabled={services.length === 0} dark={true} />
+      <BottomBtn label={services.length > 0 ? 'Set my prices' : 'Select at least one service'} onClick={async () => { if(services.length > 0){ const id = await saveDraft(3); await saveDraftServices(id); setPricingIdx(0); setScreen(3); } }} disabled={services.length === 0} dark={true} />
     </div>
   , true);
 
@@ -332,6 +431,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 3) return wrap(
     <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
       <BackBtn to={2} dark={false} />
+      <ProgressBar step={3} dark={false} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ fontSize: 13, color: '#888' }}>Pricing {pricingIdx + 1} of {activeServices.length}</div>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -373,7 +473,7 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         </div>
       )}
-      <BottomBtn label={pricingIdx < activeServices.length - 1 ? 'Next service' : 'Done with pricing'} onClick={() => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else setScreen(4); }} dark={false} />
+      <BottomBtn label={pricingIdx < activeServices.length - 1 ? 'Next service' : 'Done with pricing'} onClick={async () => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else { await saveDraftServices(draftSitterId); await saveDraft(4); setScreen(4); } }} dark={false} />
     </div>
   , false);
 
@@ -381,6 +481,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 4) return wrap(
     <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
       <BackBtn to={3} dark={false} />
+      <ProgressBar step={4} dark={false} />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>About you</div>
       <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>Help pet parents trust you</div>
 
@@ -430,7 +531,7 @@ export default function SitterOnboarding({ onDone, city }) {
         </div>
       </div>
 
-      <BottomBtn label="Continue" onClick={() => setScreen(5)} dark={false} />
+      <BottomBtn label="Continue" onClick={async () => { await saveDraft(5); setScreen(5); }} dark={false} />
     </div>
   , false);
 
@@ -438,6 +539,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 5) return wrap(
     <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
       <BackBtn to={4} dark={false} />
+      <ProgressBar step={5} dark={false} />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>Your availability</div>
       <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>Set your schedule — change anytime</div>
 
@@ -514,7 +616,7 @@ export default function SitterOnboarding({ onDone, city }) {
         </div>
       </div>
 
-      <BottomBtn label="Continue" onClick={() => setScreen(6)} dark={false} />
+      <BottomBtn label="Continue" onClick={async () => { await saveDraft(6); setScreen(6); }} dark={false} />
     </div>
   , false);
 
@@ -522,6 +624,7 @@ export default function SitterOnboarding({ onDone, city }) {
   if (screen === 6) return wrap(
     <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
       <BackBtn to={5} dark={false} />
+      <ProgressBar step={6} dark={false} />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>ID Verification</div>
       <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>Required before your first booking</div>
 
@@ -558,7 +661,7 @@ export default function SitterOnboarding({ onDone, city }) {
         ))}
       </div>
 
-      <BottomBtn label="Continue" onClick={() => setScreen(7)} dark={false} />
+      <BottomBtn label="Continue" onClick={async () => { const id = await saveDraft(7); if (id && (aadhaar || upiId)) { await supabase.from('sitter_pii').upsert({ sitter_id: id, aadhaar_number: aadhaar || null, upi_id: upiId || null }, { onConflict: 'sitter_id' }); } setScreen(7); }} dark={false} />
     </div>
   , false);
 
@@ -603,7 +706,7 @@ export default function SitterOnboarding({ onDone, city }) {
         <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.6 }}>Violating these responsibilities may result in account suspension. Fursday protects both sitters and owners fairly.</div>
       </div>
 
-      <BottomBtn label="I accept these responsibilities" onClick={() => setScreen(8)} dark={false} />
+      <BottomBtn label="I accept these responsibilities" onClick={async () => { await saveDraft(8); setScreen(8); }} dark={false} />
     </div>
   , false);
 
@@ -648,7 +751,7 @@ export default function SitterOnboarding({ onDone, city }) {
         </div>
       </div>
 
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px 28px', background: '#F8F8F8', borderTop: '1px solid #E0E0E0' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px calc(28px + env(safe-area-inset-bottom))', background: '#F8F8F8', borderTop: '1px solid #E0E0E0' }}>
         <button onClick={() => agreed && !saving && handleGoLive()} disabled={!agreed || saving}
           style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: agreed && !saving ? ORANGE : '#E0E0E0', color: agreed && !saving ? 'white' : '#AAA', fontSize: 15, fontWeight: 700, cursor: agreed && !saving ? 'pointer' : 'not-allowed' }}>
           {saving ? 'Saving...' : '🚀 Go live on Fursday'}

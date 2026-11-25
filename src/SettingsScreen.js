@@ -396,7 +396,7 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
 
       {/* BOTTOM NAV — was missing entirely, so there was no way back to
           Bookings/Explore/My Pets from Settings except the back arrow. */}
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 calc(16px + env(safe-area-inset-bottom))', zIndex:100 }}>
         {[
           { id:'home', label:'Home', emoji:'🏠' },
           { id:'book', label:'Bookings', emoji:'📋' },

@@ -532,7 +532,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           </div>
         </div>
       )}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #E0E0E0', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px', zIndex: 100 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #E0E0E0', display: 'flex', justifyContent: 'space-around', padding: '10px 0 calc(16px + env(safe-area-inset-bottom))', zIndex: 100 }}>
         {[
           { id: 'home', label: tr('homeNav'), emoji: '🏠' },
           { id: 'jobs', label: tr('jobsNav'), emoji: '📋' },

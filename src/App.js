@@ -73,6 +73,7 @@ export default function App() {
   const [showAdmin, setShowAdmin]         = useState(window.location.hash === '#admin');
   const [isSitterMode, setIsSitterMode]   = useState(false);
   const [isSitter, setIsSitter]           = useState(false);
+  const [sitterStatus, setSitterStatus]   = useState(null);
   const [showPayment, setShowPayment]     = useState(false);
   const [paymentBooking, setPaymentBooking] = useState(null);
   const [requestSentFor, setRequestSentFor] = useState(null);
@@ -206,7 +207,10 @@ export default function App() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase.from('sitter_profiles').select('id,status').eq('user_id', user.id).single();
-        if (data) setIsSitter(true);
+        // A 'draft' row means onboarding was started but never submitted —
+        // treat that as "not yet a sitter" so the home screen offers to
+        // resume onboarding instead of claiming the sitter is live/pending.
+        if (data) { setIsSitter(data.status !== 'draft'); setSitterStatus(data.status); }
       }
     };
     checkIfSitter();
@@ -478,7 +482,9 @@ export default function App() {
                   <div style={{ width:36, height:36, borderRadius:10, background:'#2E7D32', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>💰</div>
                   <div>
                     <div style={{ fontSize:13, fontWeight:700, color:'#1B5E20' }}>{tr('home_sitterMode')}</div>
-                    <div style={{ fontSize:11, color:'#4CAF50', fontWeight:500 }}>{tr('live')}</div>
+                    <div style={{ fontSize:11, color:'#4CAF50', fontWeight:500 }}>
+                      {sitterStatus === 'active' ? tr('live') : sitterStatus === 'needs_changes' ? tr('sitterEdit_statusNeedsChanges') : tr('pendingApproval')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -492,7 +498,7 @@ export default function App() {
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🐾</div>
                   <div>
-                    <div style={{ color:'white', fontSize:13, fontWeight:700 }}>{tr('home_becomePro')}</div>
+                    <div style={{ color:'white', fontSize:13, fontWeight:700 }}>{sitterStatus === 'draft' ? tr('home_resumeSignup') : tr('home_becomePro')}</div>
                     <div style={{ color:theme.primary, fontSize:11 }}>{tr('home_earnRange')}</div>
                   </div>
                 </div>
@@ -503,7 +509,7 @@ export default function App() {
       </div>
 
       {/* BOTTOM NAV */}
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'0.5px solid #E8E8E8', display:'flex', justifyContent:'space-around', padding:'10px 0 20px', zIndex:500 }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'0.5px solid #E8E8E8', display:'flex', justifyContent:'space-around', padding:'10px 0 calc(20px + env(safe-area-inset-bottom))', zIndex:500 }}>
         {[
           { id:'home',    label:tr('nav_home'),     icon:'🏠', action: () => goHome() },
           { id:'book',    label:tr('nav_bookings'), icon:'📋', action: () => { setShowBookings(true); setActiveNav('book'); } },

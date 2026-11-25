@@ -261,7 +261,11 @@ export default function SitterEditProfile({ onBack, city }) {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>{sitterProfile?.users?.name || t('sitterEdit_defaultProfileName')}</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>{city} · {sitterProfile?.status === 'active' ? t('sitterEdit_statusLive') : t('sitterEdit_statusPending')}</div>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>{city} · {
+              sitterProfile?.status === 'active' ? t('sitterEdit_statusLive')
+              : sitterProfile?.status === 'needs_changes' ? t('sitterEdit_statusNeedsChanges')
+              : t('sitterEdit_statusPending')
+            }</div>
             <div onClick={() => setIsPaused(!isPaused)}
               style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: isPaused ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '4px 12px', cursor: 'pointer' }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: isPaused ? '#FFC107' : '#4CAF50' }} />
@@ -282,6 +286,12 @@ export default function SitterEditProfile({ onBack, city }) {
           </div>}
         </div>
       </div>
+      {sitterProfile?.status === 'needs_changes' && (
+        <div style={{ margin: '0 16px 14px', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 14, padding: '12px 14px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#E65100', marginBottom: 4 }}>{t('sitterEdit_needsChangesTitle')}</div>
+          <div style={{ fontSize: 12, color: '#7A4A00', lineHeight: 1.5 }}>{sitterProfile.review_notes || t('sitterEdit_needsChangesGeneric')}</div>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, padding: '14px 16px 0' }}>
         {[
           { icon: <TrendingUp size={14} color={theme.primary} />, val: t('sitterEdit_currencyPrefix') + stats.totalEarnings.toLocaleString('en-IN'), label: t('sitterEdit_statEarned') },
@@ -517,7 +527,7 @@ export default function SitterEditProfile({ onBack, city }) {
           </div>
         )}
       </div>
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px 24px' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px calc(24px + env(safe-area-inset-bottom))' }}>
         <button onClick={handleSave} disabled={saving}
           style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: saved ? '#2E7D32' : theme.primary, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
           {saving ? t('common_saving') : saved ? t('sitterEdit_changesSaved') : t('sitterEdit_saveChangesButton')}

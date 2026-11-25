@@ -153,7 +153,7 @@ export default function ParentOnboarding({ onDone, city, userName }) {
         </div>
       </div>
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px 28px' }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))' }}>
         <button
           onClick={() => { if(step < steps.length-1) setStep(s=>s+1); else savePet(); }}
           disabled={saving}

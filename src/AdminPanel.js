@@ -9,7 +9,9 @@ const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || '';
 const ORANGE = '#FF6B35';
 
 const STATUS_COLORS = {
+  draft: { bg: '#ECEFF1', color: '#546E7A' },
   pending: { bg: '#FFF3E0', color: '#E65100' },
+  needs_changes: { bg: '#FFF3E0', color: '#E65100' },
   active: { bg: '#E8F5E9', color: '#2E7D32' },
   rejected: { bg: '#FCEBEB', color: '#A32D2D' },
   suspended: { bg: '#F3E5F5', color: '#6A1B9A' },
@@ -123,6 +125,25 @@ export default function AdminPanel() {
     } catch(notifErr) { console.error('Approval notification failed:', notifErr); }
 
     showMsg('Sitter approved ✓');
+    loadData();
+  };
+
+  const requestChanges = async (id) => {
+    const notes = window.prompt('What does this sitter need to fix before re-review?');
+    if (!notes) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('sitter_profiles').update({ status: 'needs_changes', review_notes: notes }).eq('id', id);
+    if (user) await notifyAdminAction(id, 'needs_changes', notes);
+
+    try {
+      const { data: sitterData } = await supabase.from('sitter_profiles').select('users(id)').eq('id', id).single();
+      if (sitterData?.users) {
+        const { createNotification } = await import('./notificationService');
+        await createNotification(sitterData.users.id, 'sitter_needs_changes', '⚠️ Changes needed on your profile', notes);
+      }
+    } catch (notifErr) { console.error('Needs-changes notification failed:', notifErr); }
+
+    showMsg('Sent back for changes');
     loadData();
   };
 
@@ -468,6 +489,10 @@ export default function AdminPanel() {
                     style={{ flex: 2, padding: '10px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <CheckCircle size={16} /> Approve
                   </button>
+                  <button onClick={() => requestChanges(s.id)}
+                    style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid #FFCC80', background: 'white', color: '#E65100', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    Needs changes
+                  </button>
                   <button onClick={() => rejectSitter(s.id)}
                     style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                     Reject
@@ -498,10 +523,16 @@ export default function AdminPanel() {
                   <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[s.status]?.bg, color: STATUS_COLORS[s.status]?.color, fontWeight: 600 }}>{s.status}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {s.status === 'pending' && (
+                  {(s.status === 'pending' || s.status === 'needs_changes') && (
                     <button onClick={() => approveSitter(s.id)}
                       style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                       ✓ Approve
+                    </button>
+                  )}
+                  {s.status === 'pending' && (
+                    <button onClick={() => requestChanges(s.id)}
+                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#FFF3E0', color: '#E65100', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      ⚠ Needs changes
                     </button>
                   )}
                   {(s.status === 'active' || s.status === 'suspended') && (
