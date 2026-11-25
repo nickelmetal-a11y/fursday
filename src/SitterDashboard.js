@@ -132,13 +132,6 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     loadData();
   };
 
-  const startWalk = async (id) => {
-    const { error } = await supabase.from('bookings').update({ status: 'active', start_verified_at: new Date().toISOString() }).eq('id', id);
-    if (error) { alert('Could not start walk: ' + error.message); return; }
-    loadData();
-    if (onStartWalk) onStartWalk(id);
-  };
-
   const completeBooking = async (id) => {
     const { error } = await supabase.from('bookings').update({ status: 'completed', end_verified_at: new Date().toISOString() }).eq('id', id);
     if (error) { alert('Could not complete booking: ' + error.message); return; }

@@ -98,11 +98,12 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
         <div style={{ height: 20 }} />
       </div>
 
+      {/* Messaging isn't available pre-booking — every row in `messages`
+          requires a real booking_id, and there's no booking yet at this
+          browse stage. A "Message" button here used to render with no
+          onClick at all (dead tap target); removed rather than fake it. */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px 24px', display: 'flex', gap: 12 }}>
-        <button style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: '1.5px solid ' + t.primary, background: 'white', color: t.primary, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-          Message
-        </button>
-        <button onClick={onBook} style={{ flex: 2, padding: '14px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={onBook} style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
           Book now
         </button>
       </div>

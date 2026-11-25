@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Search, MapPin, Star, Filter, Heart } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -8,16 +9,16 @@ const THEMES = {
 };
 
 const SERVICES = [
-  { id: 'all', label: 'All', emoji: '🐾' },
-  { id: 'walk30', label: 'Walking', emoji: '🦮' },
-  { id: 'boarding', label: 'Boarding', emoji: '🏠' },
-  { id: 'daycare', label: 'Daycare', emoji: '☀️' },
-  { id: 'favorites', label: 'Favorites', emoji: '❤️' },
+  { id: 'all', key: 'explore_filterAll', emoji: '🐾' },
+  { id: 'walk30', key: 'explore_filterWalking', emoji: '🦮' },
+  { id: 'boarding', key: 'explore_filterBoarding', emoji: '🏠' },
+  { id: 'daycare', key: 'explore_filterDaycare', emoji: '☀️' },
+  { id: 'favorites', key: 'explore_filterFavorites', emoji: '❤️' },
 ];
 
-const SERVICE_NAMES = {
-  walk30: 'Request a walker', boarding: 'Home boarding',
-  daycare: 'Doggy daycare', dropin: 'Drop-in visit', housesit: 'House sitting',
+const SERVICE_NAME_KEYS = {
+  walk30: 'service_walk', boarding: 'service_boarding',
+  daycare: 'service_daycare', dropin: 'service_dropin', housesit: 'service_housesit',
 };
 
 const getDistanceKm = (lat1, lon1, lat2, lon2) => {
@@ -32,6 +33,7 @@ const getDistanceKm = (lat1, lon1, lat2, lon2) => {
 
 export default function ExploreScreen({ onBack, city, userLocation, onBook, onNav }) {
   const t = THEMES[city] || THEMES.Gurgaon;
+  const { t: tr } = useLanguage();
   const [sitters, setSitters] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,12 +121,12 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <ArrowLeft size={18} color="white" />
           </div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>Explore sitters in {city}</div>
+          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('explore_title', { city })}</div>
         </div>
         <div style={{ background:'white', borderRadius:14, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
           <Search size={16} color="#CCC" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name..."
+            placeholder={tr('explore_searchPlaceholder')}
             style={{ border:'none', outline:'none', flex:1, fontSize:14, color:'#333', background:'transparent' }} />
         </div>
       </div>
@@ -134,17 +136,17 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           {SERVICES.map(s => (
             <button key={s.id} onClick={() => setActiveService(s.id)}
               style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5, padding:'7px 14px', borderRadius:20, border:activeService===s.id?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:activeService===s.id?t.light:'white', color:activeService===s.id?t.primary:'#555', fontSize:13, fontWeight:activeService===s.id?600:400, cursor:'pointer' }}>
-              <span>{s.emoji}</span>{s.label}
+              <span>{s.emoji}</span>{tr(s.key)}
             </button>
           ))}
         </div>
 
         <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
-          <span style={{ fontSize:13, color:'#888' }}>Sort:</span>
-          {[['distance','Nearest'],['rating','Top rated'],['price','Lowest price']].map(([val,label]) => (
+          <span style={{ fontSize:13, color:'#888' }}>{tr('explore_sortLabel')}</span>
+          {[['distance','explore_sortNearest'],['rating','explore_sortTopRated'],['price','explore_sortLowestPrice']].map(([val,labelKey]) => (
             <button key={val} onClick={() => setSortBy(val)}
               style={{ padding:'5px 12px', borderRadius:20, border:sortBy===val?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:sortBy===val?t.light:'white', color:sortBy===val?t.primary:'#555', fontSize:12, fontWeight:sortBy===val?600:400, cursor:'pointer' }}>
-              {label}
+              {tr(labelKey)}
             </button>
           ))}
         </div>
@@ -152,15 +154,15 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
         {loading && (
           <div style={{ textAlign:'center', padding:'40px 0' }}>
             <div style={{ fontSize:32, marginBottom:8 }}>🐾</div>
-            <div style={{ fontSize:14, color:'#888' }}>Finding sitters...</div>
+            <div style={{ fontSize:14, color:'#888' }}>{tr('explore_finding')}</div>
           </div>
         )}
 
         {!loading && filtered.length === 0 && (
           <div style={{ textAlign:'center', padding:'40px 0' }}>
             <div style={{ fontSize:40, marginBottom:12 }}>🔍</div>
-            <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>No sitters found</div>
-            <div style={{ fontSize:13, color:'#888' }}>Try a different filter or check back soon</div>
+            <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('explore_noResultsTitle')}</div>
+            <div style={{ fontSize:13, color:'#888' }}>{tr('explore_noResultsBody')}</div>
           </div>
         )}
 
@@ -174,7 +176,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                   <div>
                     <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a' }}>{s.name}</div>
-                    <div style={{ fontSize:15, fontWeight:700, color:t.primary, marginTop:2 }}>from Rs.{Math.round(s.minPrice)}</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:t.primary, marginTop:2 }}>{tr('explore_fromPrice', { price: Math.round(s.minPrice) })}</div>
                   </div>
                   <button onClick={() => toggleFavorite(s.id)}
                     style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center' }}>
@@ -202,13 +204,16 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
               {s.services.map((sv, i) => (
                 <span key={i} style={{ fontSize:11, padding:'3px 10px', borderRadius:20, background:t.light, color:t.primary, fontWeight:500 }}>
-                  {SERVICE_NAMES[sv.service_type] || sv.service_type} · Rs.{Math.round(sv.price_paise/100)}
+                  {tr('explore_serviceBadge', {
+                    name: SERVICE_NAME_KEYS[sv.service_type] ? tr(SERVICE_NAME_KEYS[sv.service_type]) : sv.service_type,
+                    price: Math.round(sv.price_paise/100),
+                  })}
                 </span>
               ))}
             </div>
             <button onClick={() => onBook && onBook(s)}
               style={{ width:'100%', padding:'12px 0', borderRadius:14, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-              Request booking
+              {tr('explore_requestBooking')}
             </button>
           </div>
         ))}
@@ -216,16 +221,16 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
 
       <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
         {[
-          { id:'home', label:'Home', emoji:'🏠' },
-          { id:'book', label:'Bookings', emoji:'📋' },
-          { id:'explore', label:'Explore', emoji:'🔍' },
-          { id:'profile', label:'My Pets', emoji:'\uD83D\uDC15' },
-          { id:'settings', label:'Settings', emoji:'\u2699\uFE0F' },
+          { id:'home', key:'nav_home', emoji:'🏠' },
+          { id:'book', key:'nav_bookings', emoji:'📋' },
+          { id:'explore', key:'nav_explore', emoji:'🔍' },
+          { id:'profile', key:'nav_myPets', emoji:'\uD83D\uDC15' },
+          { id:'settings', key:'nav_settings', emoji:'\u2699\uFE0F' },
         ].map(n => (
           <div key={n.id} onClick={() => { if(n.id==='explore') return; if(onNav) onNav(n.id); else onBack(); }}
             style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
             <span style={{ fontSize:20 }}>{n.emoji}</span>
-            <span style={{ fontSize:10, fontWeight:n.id==='explore'?700:400, color:n.id==='explore'?t.primary:'#BBB' }}>{n.label}</span>
+            <span style={{ fontSize:10, fontWeight:n.id==='explore'?700:400, color:n.id==='explore'?t.primary:'#BBB' }}>{tr(n.key)}</span>
             {n.id==='explore' && <div style={{ width:4, height:4, borderRadius:2, background:t.primary }} />}
           </div>
         ))}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronRight, LogOut, Heart, Star, Settings, Edit2 } from 'lucide-react';
 import { supabase } from './supabase';
 import { useSupportContact, openWhatsAppSupport } from './supportContact';
+import { useLanguage } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -10,6 +11,7 @@ const THEMES = {
 
 export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignOut, onNav }) {
   const t = THEMES[city] || THEMES.Gurgaon;
+  const { t: tr } = useLanguage();
   const { whatsapp } = useSupportContact();
   const [user, setUser] = useState(null);
   const [pets, setPets] = useState([]);
@@ -44,13 +46,13 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'sans-serif' }}>
       <div style={{ textAlign:'center' }}>
         <div style={{ fontSize:32, marginBottom:12 }}>🐾</div>
-        <div style={{ fontSize:14, color:'#888' }}>Loading your profile...</div>
+        <div style={{ fontSize:14, color:'#888' }}>{tr('profile_loadingProfile')}</div>
       </div>
     </div>
   );
 
   const initials = user?.email ? user.email[0].toUpperCase() : 'U';
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Pet Parent';
+  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || tr('profile_defaultDisplayName');
 
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
@@ -61,7 +63,7 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
           <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <ArrowLeft size={18} color="white" />
           </div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>My Pets & Profile</div>
+          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('profile_headerTitle')}</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ width:72, height:72, borderRadius:22, background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:700, color:'white', flexShrink:0 }}>
@@ -77,8 +79,8 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, padding:'16px 16px 0' }}>
         {[
-          { val: pets.length, label: 'Pets' },
-          { val: bookingCount, label: 'Bookings' },
+          { val: pets.length, label: tr('profile_statsPets') },
+          { val: bookingCount, label: tr('profile_statsBookings') },
         ].map((s, i) => (
           <div key={i} style={{ background:'white', borderRadius:16, padding:'16px', textAlign:'center', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize:28, fontWeight:700, color:t.primary }}>{s.val}</div>
@@ -90,16 +92,16 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
       <div style={{ padding:'16px 16px 0' }}>
         
         {/* My Pets */}
-        <div style={{ fontSize:12, fontWeight:600, color:'#AAA', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>My Pets</div>
-        
+        <div style={{ fontSize:12, fontWeight:600, color:'#AAA', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>{tr('nav_myPets')}</div>
+
         {pets.length === 0 ? (
           <div style={{ background:'white', borderRadius:16, padding:'24px 20px', textAlign:'center', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', marginBottom:14 }}>
             <div style={{ fontSize:40, marginBottom:10 }}>🐕</div>
-            <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>No pets added yet</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>Add your pet to start booking sitters</div>
+            <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('profile_noPetsTitle')}</div>
+            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('profile_noPetsSubtitle')}</div>
             <button onClick={onAddPet}
               style={{ padding:'10px 24px', borderRadius:100, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:600, cursor:'pointer' }}>
-              Add a pet 🐾
+              {tr('profile_addPetButton')}
             </button>
           </div>
         ) : (
@@ -115,10 +117,10 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{pet.name}</div>
                   <div style={{ fontSize:12, color:'#888', marginTop:2 }}>
-                    {[pet.breed, pet.age_years ? pet.age_years + ' yrs' : null, pet.weight_kg ? pet.weight_kg + 'kg' : null].filter(Boolean).join(' · ')}
+                    {[pet.breed, pet.age_years ? pet.age_years + ' ' + tr('profile_yearsUnit') : null, pet.weight_kg ? pet.weight_kg + ' ' + tr('profile_weightUnit') : null].filter(Boolean).join(' · ')}
                   </div>
                   <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
-                    {pet.is_vaccinated && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:'#E8F5E9', color:'#2E7D32', fontWeight:600 }}>Vaccinated</span>}
+                    {pet.is_vaccinated && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:'#E8F5E9', color:'#2E7D32', fontWeight:600 }}>{tr('profile_vaccinatedBadge')}</span>}
                     {pet.gender && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:t.light, color:t.primary, fontWeight:600 }}>{pet.gender}</span>}
                   </div>
                 </div>
@@ -130,20 +132,20 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
             ))}
             <button onClick={onAddPet}
               style={{ width:'100%', padding:'12px 0', borderRadius:14, border:'1.5px dashed '+t.primary, background:t.light, color:t.primary, fontSize:14, fontWeight:600, cursor:'pointer', marginBottom:14 }}>
-              + Add another pet
+              + {tr('profile_addAnotherPet')}
             </button>
           </div>
         )}
 
         {/* Account Settings */}
-        <div style={{ fontSize:12, fontWeight:600, color:'#AAA', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>Account</div>
-        
+        <div style={{ fontSize:12, fontWeight:600, color:'#AAA', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>{tr('profile_accountSection')}</div>
+
         {[
-          { icon:'❤️', label:'Favourite sitters', sub:'Sitters you have saved', action:'favourites' },
-          { icon:'⭐', label:'My reviews', sub:'Reviews you have written', action:'reviews' },
-          { icon:'🔔', label:'Notifications', sub:'Manage alerts and updates', action:'notifications' },
+          { icon:'❤️', label:tr('profile_favouriteSittersLabel'), sub:tr('profile_favouriteSittersSub'), action:'favourites' },
+          { icon:'⭐', label:tr('profile_myReviewsLabel'), sub:tr('profile_myReviewsSub'), action:'reviews' },
+          { icon:'🔔', label:tr('profile_notificationsLabel'), sub:tr('profile_notificationsSub'), action:'notifications' },
         ].map((item, i) => (
-          <div key={i} onClick={() => alert(item.label + ' — coming soon! 🐾')} style={{ background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+          <div key={i} onClick={() => alert(item.label + tr('profile_comingSoonSuffix'))} style={{ background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
             <div style={{ width:40, height:40, borderRadius:12, background:t.light, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
               {item.icon}
             </div>
@@ -156,12 +158,12 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
         ))}
 
         {whatsapp && (
-          <div onClick={() => openWhatsAppSupport(whatsapp, 'Hi Fursday, I need help with')}
+          <div onClick={() => openWhatsAppSupport(whatsapp, tr('profile_whatsappMessage'))}
             style={{ background:'#25D366', borderRadius:16, padding:'14px 16px', marginBottom:8, display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
             <div style={{ width:40, height:40, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>💬</div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:600, color:'white' }}>Chat with Fursday on WhatsApp</div>
-              <div style={{ fontSize:12, color:'rgba(255,255,255,0.85)', marginTop:1 }}>We usually reply within minutes</div>
+              <div style={{ fontSize:14, fontWeight:600, color:'white' }}>{tr('profile_whatsappChatTitle')}</div>
+              <div style={{ fontSize:12, color:'rgba(255,255,255,0.85)', marginTop:1 }}>{tr('profile_whatsappChatSub')}</div>
             </div>
           </div>
         )}
@@ -171,24 +173,24 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
             🚪
           </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:14, fontWeight:600, color:'#A32D2D' }}>Sign out</div>
+            <div style={{ fontSize:14, fontWeight:600, color:'#A32D2D' }}>{tr('profile_signOut')}</div>
             <div style={{ fontSize:12, color:'#888', marginTop:1 }}>{user?.email}</div>
           </div>
         </div>
 
         <div style={{ textAlign:'center', padding:'20px 0', fontSize:12, color:'#CCC', lineHeight:1.6 }}>
-          Fursday · v1.0 · Made with 🐾 in India
+          {tr('profile_footerTagline')}
         </div>
       </div>
 
       {/* Bottom Nav */}
       <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
         {[
-          { id:'home', label:'Home', emoji:'🏠' },
-          { id:'book', label:'Bookings', emoji:'📋' },
-          { id:'explore', label:'Explore', emoji:'🔍' },
-          { id:'profile', label:'My Pets', emoji:'\uD83D\uDC15' },
-          { id:'settings', label:'Settings', emoji:'\u2699\uFE0F' },
+          { id:'home', label:tr('nav_home'), emoji:'🏠' },
+          { id:'book', label:tr('nav_bookings'), emoji:'📋' },
+          { id:'explore', label:tr('nav_explore'), emoji:'🔍' },
+          { id:'profile', label:tr('nav_myPets'), emoji:'\uD83D\uDC15' },
+          { id:'settings', label:tr('nav_settings'), emoji:'\u2699\uFE0F' },
         ].map(n => (
           <div key={n.id} onClick={() => { if(n.id==='profile') return; if(onNav) onNav(n.id); else onBack(); }}
             style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>

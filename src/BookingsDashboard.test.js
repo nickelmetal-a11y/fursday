@@ -16,6 +16,31 @@ jest.mock('./supportContact', () => ({
   callSupport: jest.fn(),
 }));
 
+// The real src/i18n.js dictionary doesn't have BookingsDashboard's new
+// bookings_* keys yet — they're merged in separately (see CLAUDE.md i18n
+// rollout notes) to avoid concurrent-edit conflicts on that shared file.
+// Mocking useLanguage() here keeps this test's assertions (plain English
+// strings) stable regardless of when that merge lands, same as every other
+// dependency already mocked in this file.
+jest.mock('./i18n', () => ({
+  useLanguage: () => ({
+    lang: 'en',
+    setLang: () => {},
+    t: (key, vars) => {
+      const dict = {
+        bookings_noUpcoming: 'No upcoming bookings',
+        bookings_cancelBooking: 'Cancel booking',
+        bookings_call: 'Call',
+        bookings_message: 'Message',
+        bookings_cancelSuccess: 'Booking cancelled successfully.',
+      };
+      let str = dict[key] ?? key;
+      if (vars) Object.keys(vars).forEach(k => { str = str.replace('{' + k + '}', vars[k]); });
+      return str;
+    },
+  }),
+}));
+
 jest.mock('./notificationService', () => ({
   notifyNoShow: jest.fn().mockResolvedValue(undefined),
 }));

@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Calendar } from 'lucide-react';
 import { supabase } from './supabase';
+import { useLanguage } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
-const SERVICE_NAMES = { walk30: '30-min walk', walk60: '60-min walk', boarding: 'Home boarding', daycare: 'Doggy daycare', dropin: 'Drop-in visit', housesit: 'House sitting' };
+// Maps a schedule-card service code to its i18n key (the map itself can't
+// call the translation hook — it's module scope, not component scope).
+const SERVICE_NAME_KEYS = { walk30: 'chat_service_walk30', walk60: 'chat_service_walk60', boarding: 'chat_service_boarding', daycare: 'chat_service_daycare', dropin: 'chat_service_dropin', housesit: 'chat_service_housesit' };
 
 // A chat "message" is an image if it's a URL we uploaded to storage, rather
 // than freeform text — there's no separate photo_url column on messages.
@@ -41,6 +44,7 @@ const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
 
 export default function ChatScreen({ onBack, city, booking, userType }) {
   const t = THEMES[city] || THEMES.Gurgaon;
+  const { t: tr } = useLanguage();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -53,8 +57,8 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
   const [proposedTime, setProposedTime] = useState('');
 
   const otherPartyName = userType === 'sitter'
-    ? (booking?.parentName || 'Pet parent')
-    : (booking?.sitterName || 'Sitter');
+    ? (booking?.parentName || tr('chat_defaultParentName'))
+    : (booking?.sitterName || tr('chat_defaultSitterName'));
 
   const otherPartyPhone = booking?.otherPhone || '';
 
@@ -102,7 +106,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
       if (sendError) {
         console.error('Send message failed:', sendError);
         setText(messageText);
-        alert('Message failed to send. Please try again.');
+        alert(tr('chat_sendFailedAlert'));
         return;
       }
 
@@ -140,7 +144,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         sender_type: userType,
         message: payload,
       });
-      if (sendError) { alert('Could not share schedule: ' + sendError.message); return; }
+      if (sendError) { alert(tr('chat_scheduleFailedAlert') + sendError.message); return; }
       setShowScheduleForm(false);
 
       if (booking?.recipientUserId) {
@@ -151,7 +155,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         } catch (notifErr) { console.error('Schedule notification failed:', notifErr); }
       }
     } catch (err) {
-      alert('Could not share schedule: ' + (err.message || err));
+      alert(tr('chat_scheduleFailedAlert') + (err.message || err));
     }
   };
 
@@ -182,7 +186,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         } catch (notifErr) { console.error('Photo notification failed:', notifErr); }
       }
     } catch (err) {
-      alert('Photo failed to send: ' + (err.message || err));
+      alert(tr('chat_photoFailedAlert') + (err.message || err));
     }
     setUploadingPhoto(false);
     if (photoInputRef.current) photoInputRef.current.value = '';
@@ -203,7 +207,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         </div>
         <div style={{ flex:1 }}>
           <div style={{ color:'white', fontSize:15, fontWeight:700 }}>{otherPartyName}</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>{booking?.service || 'Booking chat'}</div>
+          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>{booking?.service || tr('chat_defaultServiceLabel')}</div>
         </div>
         {otherPartyPhone && (
           <a href={'tel:'+otherPartyPhone} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
@@ -214,13 +218,13 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
 
       <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 8px' }}>
         {loading && (
-          <div style={{ textAlign:'center', padding:40, color:'#888', fontSize:13 }}>Loading messages...</div>
+          <div style={{ textAlign:'center', padding:40, color:'#888', fontSize:13 }}>{tr('chat_loadingMessages')}</div>
         )}
         {!loading && messages.length === 0 && (
           <div style={{ textAlign:'center', padding:'40px 20px' }}>
             <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>No messages yet</div>
-            <div style={{ fontSize:12, color:'#888' }}>Say hello to {otherPartyName}!</div>
+            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('chat_noMessages')}</div>
+            <div style={{ fontSize:12, color:'#888' }}>{tr('chat_sayHello', { name: otherPartyName })}</div>
           </div>
         )}
         {!loading && messages.map((m, i) => {
@@ -233,13 +237,13 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
                   <div style={{ minWidth:200 }}>
                     <div style={{ background:isMine?'rgba(255,255,255,0.15)':t.light, padding:'10px 14px', display:'flex', alignItems:'center', gap:6 }}>
                       <Calendar size={14} color={isMine?'white':t.primary} />
-                      <span style={{ fontSize:12, fontWeight:700, color:isMine?'white':t.primary }}>Proposed schedule</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:isMine?'white':t.primary }}>{tr('chat_proposedSchedule')}</span>
                     </div>
                     <div style={{ padding:'10px 14px' }}>
-                      {schedule.service && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>{SERVICE_NAMES[schedule.service] || schedule.service}</div>}
+                      {schedule.service && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>{SERVICE_NAME_KEYS[schedule.service] ? tr(SERVICE_NAME_KEYS[schedule.service]) : schedule.service}</div>}
                       {schedule.date && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>📅 {schedule.date}</div>}
                       {schedule.time && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>🕐 {schedule.time}</div>}
-                      {schedule.price != null && <div style={{ fontSize:13, fontWeight:700, color:isMine?'white':t.primary }}>Rs.{Math.round(schedule.price/100)}</div>}
+                      {schedule.price != null && <div style={{ fontSize:13, fontWeight:700, color:isMine?'white':t.primary }}>{tr('chat_priceLabel', { amount: Math.round(schedule.price/100) })}</div>}
                     </div>
                   </div>
                 ) : isImageMessage(m.message)
@@ -257,7 +261,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
 
       {showScheduleForm && (
         <div style={{ padding:'12px 16px', background:t.light, borderTop:'1px solid #F0F0F0', flexShrink:0 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:t.primary, marginBottom:8 }}>Propose a date & time</div>
+          <div style={{ fontSize:12, fontWeight:700, color:t.primary, marginBottom:8 }}>{tr('chat_proposeSchedule')}</div>
           <div style={{ display:'flex', gap:8, marginBottom:10 }}>
             <input type="date" value={proposedDate} onChange={e => setProposedDate(e.target.value)}
               style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', fontFamily:'inherit' }} />
@@ -267,11 +271,11 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => setShowScheduleForm(false)}
               style={{ flex:1, padding:'10px 0', borderRadius:10, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-              Cancel
+              {tr('common_cancel')}
             </button>
             <button onClick={sendSchedule} disabled={!proposedDate || !proposedTime}
               style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
-              Send proposal
+              {tr('chat_sendProposal')}
             </button>
           </div>
         </div>
@@ -289,20 +293,20 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
       <div style={{ padding:'10px 16px 20px', display:'flex', gap:8, background:'white', borderTop:'1px solid #F0F0F0', flexShrink:0 }}>
         <input value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          placeholder="Type a message..."
+          placeholder={tr('chat_typePlaceholder')}
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
         {(booking?.date || booking?.time || booking?.price != null) && (
-          <button onClick={openScheduleForm} title="Propose a date & time"
+          <button onClick={openScheduleForm} title={tr('chat_proposeSchedule')}
             style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
             <Calendar size={18} />
           </button>
         )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
-        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} aria-label="Attach photo"
+        <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} aria-label={tr('chat_attachPhoto')}
           style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
           <ImageIcon size={18} />
         </button>
-        <button onClick={sendMessage} aria-label="Send message"
+        <button onClick={sendMessage} aria-label={tr('chat_send')}
           style={{ width:44, height:44, borderRadius:22, border:'none', background:t.primary, color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <Send size={18} />
         </button>
