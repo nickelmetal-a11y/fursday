@@ -138,7 +138,6 @@ export default function SitterOnboarding({ onDone, city }) {
           if (draft.max_dogs) setMaxDogs(String(draft.max_dogs));
           if (draft.advance_notice) setAdvanceNotice(draft.advance_notice);
           if (draft.profile_photo_url) setPhotoUrl(draft.profile_photo_url);
-          if (draft.upi_id) setUpiId(draft.upi_id);
 
           const { data: userRow } = await supabase.from('users').select('name').eq('id', user.id).single();
           if (userRow?.name && userRow.name.toLowerCase() !== user.email?.toLowerCase()) setName(userRow.name);
@@ -151,8 +150,9 @@ export default function SitterOnboarding({ onDone, city }) {
             setPrices(prev => { const next = { ...prev }; svcRows.forEach(r => { next[r.service_type] = Math.round(r.price_paise / 100); }); return next; });
           }
 
-          const { data: pii } = await supabase.from('sitter_pii').select('aadhaar_number').eq('sitter_id', draft.id).single();
+          const { data: pii } = await supabase.from('sitter_pii').select('aadhaar_number, upi_id').eq('sitter_id', draft.id).maybeSingle();
           if (pii?.aadhaar_number) setAadhaar(pii.aadhaar_number);
+          if (pii?.upi_id) setUpiId(pii.upi_id);
 
           setScreen(Math.max(draft.onboarding_step || 1, 1));
         }
@@ -175,7 +175,7 @@ export default function SitterOnboarding({ onDone, city }) {
         bio, experience_years: parseInt(experience) || 0, experience_text: experience || null,
         languages, availability_days: availableDays, morning_slot: morningSlot,
         afternoon_slot: afternoonSlot, evening_slot: eveningSlot, max_dogs: parseInt(maxDogs) || 1,
-        advance_notice: advanceNotice, profile_photo_url: photoUrl, upi_id: upiId || null,
+        advance_notice: advanceNotice, profile_photo_url: photoUrl,
         ...extra,
       }, { onConflict: 'user_id' }).select().single();
       if (error) { console.log('Draft save error:', error.message); return draftSitterId; }

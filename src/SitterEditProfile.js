@@ -95,9 +95,9 @@ export default function SitterEditProfile({ onBack, city }) {
       setBio(profile.bio || '');
       setExperience(profile.experience_text || (profile.experience_years ? profile.experience_years + ' years' : ''));
       setLanguages(profile.languages || ['Hindi', 'English']);
-      // Load PII from sitter_pii table (UPI was moved to separate table)
-      const { data: piiData } = await supabase.from('sitter_pii').select('upi_id').eq('sitter_id', profile.id).single().catch(() => ({ data: {} }));
-      setUpiId(piiData?.upi_id || profile.upi_id || '');
+      const { data: piiData } = await supabase.from('sitter_pii').select('upi_id, aadhaar_number').eq('sitter_id', profile.id).maybeSingle();
+      setUpiId(piiData?.upi_id || '');
+      setSitterProfile({ ...profile, aadhaar_number: piiData?.aadhaar_number || null });
       setIsPaused(profile.is_paused || false);
       setPhotoUrl(profile.profile_photo_url || null);
       setAvailableDays(profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
@@ -181,7 +181,6 @@ export default function SitterEditProfile({ onBack, city }) {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      // Update sitter_profiles (upi_id removed after migration)
       const updateData = {
         bio, experience_years: parseInt(experience) || 0, experience_text: experience || null, languages,
         is_paused: isPaused, profile_photo_url: photoUrl,
@@ -189,33 +188,34 @@ export default function SitterEditProfile({ onBack, city }) {
         afternoon_slot: afternoonSlot, evening_slot: eveningSlot,
         max_dogs: maxDogs, advance_notice: advanceNotice,
       };
-      // For backward compatibility, include upi_id if the column still exists
-      if (sitterProfile?.upi_id !== undefined) updateData.upi_id = upiId || null;
+      const { error: profileError } = await supabase.from('sitter_profiles').update(updateData).eq('user_id', user.id);
+      if (profileError) throw profileError;
 
-      await supabase.from('sitter_profiles').update(updateData).eq('user_id', user.id);
-
-      // Update sitter_pii with UPI data
       if (sitterProfile) {
         if (upiId) {
-          await supabase.from('sitter_pii').upsert({
+          const { error: piiError } = await supabase.from('sitter_pii').upsert({
             sitter_id: sitterProfile.id,
             upi_id: upiId,
-          });
+          }, { onConflict: 'sitter_id' });
+          if (piiError) throw piiError;
         }
 
-        await supabase.from('sitter_services').delete().eq('sitter_id', sitterProfile.id);
+        const { error: svcDelError } = await supabase.from('sitter_services').delete().eq('sitter_id', sitterProfile.id);
+        if (svcDelError) throw svcDelError;
         if (activeServices.length > 0) {
-          await supabase.from('sitter_services').insert(
+          const { error: svcError } = await supabase.from('sitter_services').insert(
             activeServices.map(id => ({ sitter_id: sitterProfile.id, service_type: id, price_paise: (prices[id] || 299) * 100, is_active: true }))
           );
+          if (svcError) throw svcError;
         }
 
-        // Save profile photos
-        await supabase.from('sitter_profile_photos').delete().eq('sitter_id', sitterProfile.id);
+        const { error: photoDelError } = await supabase.from('sitter_profile_photos').delete().eq('sitter_id', sitterProfile.id);
+        if (photoDelError) throw photoDelError;
         if (photos.length > 0) {
-          await supabase.from('sitter_profile_photos').insert(
+          const { error: photoError } = await supabase.from('sitter_profile_photos').insert(
             photos.map((p, idx) => ({ sitter_id: sitterProfile.id, photo_url: p.url, display_order: idx }))
           );
+          if (photoError) throw photoError;
         }
       }
       setSaved(true);

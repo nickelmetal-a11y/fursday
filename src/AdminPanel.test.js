@@ -82,9 +82,12 @@ jest.mock('./supabase', () => {
         if (table === 'bookings') return bookingsTable;
         if (table === 'referral_bonuses') return referralBonusesTable;
         if (table === 'users') return usersTable;
+        if (table === 'sitter_pii') return { select: () => Promise.resolve({ data: global.__pii || [] }) };
+        if (table === 'app_settings') return { select: () => Promise.resolve({ data: [] }) };
         throw new Error('unexpected table: ' + table);
       },
       rpc: (fn, args) => {
+        if (fn === 'is_admin_user') return Promise.resolve({ data: !!global.__mockUser && global.__isAdmin, error: null });
         global.__rpcCalls.push({ fn, args });
         return Promise.resolve({ data: [{ email: 'sitter@test.com', phone: '9111111111' }], error: null });
       },
@@ -107,6 +110,7 @@ beforeEach(() => {
   global.__pendingSitters = [];
   global.__unpaidBookings = [];
   global.__pendingBonus = null;
+  global.__pii = [];
   updateCalls = global.__updateCalls;
 });
 
@@ -152,15 +156,28 @@ describe('AdminPanel sitter actions', () => {
       sitter_services: [],
       created_at: new Date().toISOString(),
     }];
+    global.__pii = [{ sitter_id: 'sitter-profile-9', aadhaar_number: '123412341234', upi_id: 'priya@upi' }];
     await signIn();
 
-    fireEvent.click(await screen.findByText('Approve'));
+    expect(await screen.findByText(/1234 1234 1234/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Approve'));
 
     const { createNotification } = require('./notificationService');
     await waitFor(() => expect(createNotification).toHaveBeenCalledWith(
       'sitter-user-9', 'sitter_approved', '🎉 Account Approved!', expect.any(String)
     ));
-    expect(updateCalls).toContainEqual({ table: 'sitter_profiles', fields: { status: 'active' } });
+    expect(updateCalls).toContainEqual({ table: 'sitter_profiles', fields: { status: 'active', aadhaar_verified: true } });
+  });
+
+  test('a sitter with no Aadhaar cannot be approved', async () => {
+    global.__pendingSitters = [{
+      id: 'sitter-profile-8', user_id: 'sitter-user-8', status: 'pending',
+      users: { name: 'Ravi' }, cities: { name: 'Pune' }, sitter_services: [], created_at: new Date().toISOString(),
+    }];
+    global.__pii = [];
+    await signIn();
+    expect(await screen.findByText(/No Aadhaar submitted/)).toBeInTheDocument();
+    expect(screen.getByText('Approve').closest('button')).toBeDisabled();
   });
 
   test('marking a payout paid resolves the sitter real users.id for both the payout and any pending referral bonus', async () => {

@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, Award, PauseCircle, PlayCircle } from 'lucide-rea
 import AdminAuditLogs from './AdminAuditLogs';
 import AdminDisputes from './AdminDisputes';
 import AdminPromotions from './AdminPromotions';
+import AdminSettings from './AdminSettings';
 import { logSitterApproved, logSitterRejected, logSitterSuspended, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ORANGE = '#FF6B35';
@@ -54,7 +55,9 @@ export default function AdminPanel({ onSignOut }) {
       const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitter.user_id });
       return { ...sitter, users: { ...sitter.users, phone: contact?.[0]?.phone, email: contact?.[0]?.email } };
     }));
-    setSitters(sittersWithContact);
+    const { data: pii } = await supabase.from('sitter_pii').select('sitter_id, aadhaar_number, upi_id');
+    const piiBySitter = Object.fromEntries((pii || []).map(p => [p.sitter_id, p]));
+    setSitters(sittersWithContact.map(s => ({ ...s, aadhaar_number: piiBySitter[s.id]?.aadhaar_number || null, upi_id: piiBySitter[s.id]?.upi_id || null })));
     const { data: b } = await supabase
       .from('bookings')
       .select('*, cities(name)')
@@ -71,8 +74,8 @@ export default function AdminPanel({ onSignOut }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsRealAdmin(false); setAdminChecked(true); return; }
-      const { data } = await supabase.from('users').select('is_admin').eq('id', user.id).single();
-      setIsRealAdmin(!!data?.is_admin);
+      const { data } = await supabase.rpc('is_admin_user');
+      setIsRealAdmin(data === true);
       setAdminChecked(true);
     })();
   }, []);
@@ -97,7 +100,9 @@ export default function AdminPanel({ onSignOut }) {
 
   const approveSitter = async (id) => {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('sitter_profiles').update({ status: 'active' }).eq('id', id);
+    const hasAadhaar = !!sitters.find(s => s.id === id)?.aadhaar_number;
+    const { error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: hasAadhaar }).eq('id', id);
+    if (approveError) { showMsg('Could not approve: ' + approveError.message); return; }
     if (user) await logSitterApproved(user.id, id);
 
     // TIER 2: Send sitter approval notification
@@ -390,6 +395,7 @@ export default function AdminPanel({ onSignOut }) {
     { id: 'disputes', icon: '⚖️', label: 'Disputes' },
     { id: 'promotions', icon: '🎟️', label: 'Promotions' },
     { id: 'audit', icon: '📜', label: 'Audit' },
+    { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
   const activeNavItem = navItems.find(n => n.id === tab);
 
@@ -504,7 +510,10 @@ export default function AdminPanel({ onSignOut }) {
                   </div>
                   <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[s.status]?.bg, color: STATUS_COLORS[s.status]?.color, fontWeight: 600 }}>{s.status}</div>
                 </div>
-                {s.aadhaar_number && <div style={{ fontSize: 12, color: '#1565C0', background: '#E3F2FD', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block' }}>🪪 Aadhaar: {s.aadhaar_number}</div>}
+                {s.profile_photo_url && <img src={s.profile_photo_url} alt={'Photo of ' + (s.users?.name || 'sitter')} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', display: 'block', marginBottom: 10 }} />}
+                {s.aadhaar_number
+                  ? <div style={{ fontSize: 12, color: '#1565C0', background: '#E3F2FD', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block' }}>🪪 Aadhaar: {s.aadhaar_number.replace(/(\d{4})(?=\d)/g, '$1 ')}</div>
+                  : <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block' }}>No Aadhaar submitted. Ask for changes before approving.</div>}
                 {s.upi_id && <div style={{ fontSize: 12, color: '#2E7D32', background: '#E8F5E9', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block', marginLeft: 6 }}>💳 UPI: {s.upi_id}</div>}
                 {s.bio && <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 10, padding: '8px 12px', background: '#F8F8F8', borderRadius: 10 }}>{s.bio}</div>}
                 {s.sitter_services && s.sitter_services.length > 0 && (
@@ -518,8 +527,8 @@ export default function AdminPanel({ onSignOut }) {
                 )}
                 <div style={{ fontSize: 11, color: '#AAA', marginBottom: 12 }}>Applied: {new Date(s.created_at).toLocaleDateString('en-IN')}</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => approveSitter(s.id)}
-                    style={{ flex: 2, padding: '10px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <button onClick={() => approveSitter(s.id)} disabled={!s.aadhaar_number} title={s.aadhaar_number ? '' : 'Aadhaar is required before approval'}
+                    style={{ flex: 2, padding: '10px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: s.aadhaar_number ? 'pointer' : 'not-allowed', opacity: s.aadhaar_number ? 1 : 0.45, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <CheckCircle size={16} /> Approve
                   </button>
                   <button onClick={() => requestChanges(s.id)}
@@ -643,6 +652,8 @@ export default function AdminPanel({ onSignOut }) {
         {!loading && tab === 'promotions' && <AdminPromotions />}
 
         {!loading && tab === 'audit' && <AdminAuditLogs />}
+
+        {!loading && tab === 'settings' && <AdminSettings />}
       </div>
     </div>
   );

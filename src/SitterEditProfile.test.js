@@ -26,14 +26,14 @@ jest.mock('./supabase', () => {
   const makeSingleChain = (resolveValue) => ({
     eq: () => makeSingleChain(resolveValue),
     single: () => Promise.resolve(resolveValue),
-    catch: () => makeSingleChain(resolveValue),
+    maybeSingle: () => Promise.resolve(resolveValue),
   });
   const sitterProfilesTable = {
     select: () => ({ eq: () => makeSingleChain({ data: global.__sitterProfile }) }),
     update: (fields) => { global.__updateCalls.push({ table: 'sitter_profiles', fields }); return { eq: () => Promise.resolve({ error: null }) }; },
   };
   const sitterPiiTable = {
-    select: () => ({ eq: () => makeSingleChain({ data: {} }) }),
+    select: () => ({ eq: () => makeSingleChain({ data: { aadhaar_number: global.__sitterProfile?.aadhaar_number, upi_id: 'priya@upi' } }) }),
     upsert: (fields) => { global.__insertCalls.push({ table: 'sitter_pii', fields }); return Promise.resolve({ error: null }); },
   };
   const photosTable = {
