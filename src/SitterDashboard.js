@@ -474,8 +474,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           <div onClick={() => setTab('requests')} style={{ background:'#FFF3E0', borderRadius:12, padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', cursor:'pointer', border:'1px solid #FFB085' }}>
             <span style={{ fontSize:18 }}>📢</span>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'#E65100' }}>{broadcastRequests.length} open request{broadcastRequests.length>1?'s':''} near you</div>
-              <div style={{ fontSize:11, color:'#BF6000' }}>Pet parents looking for help — tap to respond</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#E65100' }}>{tr(broadcastRequests.length > 1 ? 'sitter_openRequestsMany' : 'sitter_openRequestsOne', { n: broadcastRequests.length })}</div>
+              <div style={{ fontSize:11, color:'#BF6000' }}>{tr('sitter_openRequestsHint')}</div>
             </div>
             <span style={{ color:'#FF6B35', fontSize:16 }}>›</span>
           </div>
@@ -552,10 +552,10 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div key={req.id} style={{ background:'white', borderRadius:20, padding:16, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px solid ' + t.primary }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
                   <div>
-                    <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{SERVICE_NAMES[req.service_type] || req.service_type}</div>
-                    <div style={{ fontSize:12, color:'#888' }}>{req.area || 'Nearby area'}</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{SERVICE_NAME_KEYS[req.service_type] ? tr(SERVICE_NAME_KEYS[req.service_type]) : req.service_type}</div>
+                    <div style={{ fontSize:12, color:'#888' }}>{req.area || tr('sitter_nearbyArea')}</div>
                   </div>
-                  <div style={{ fontSize:11, background:t.light, color:t.primary, borderRadius:10, padding:'3px 10px', fontWeight:600 }}>Open</div>
+                  <div style={{ fontSize:11, background:t.light, color:t.primary, borderRadius:10, padding:'3px 10px', fontWeight:600 }}>{tr('sitter_openBadge')}</div>
                 </div>
                 <div style={{ display:'flex', gap:12, marginBottom:10 }}>
                   <div style={{ fontSize:12, color:'#555' }}>📅 {req.scheduled_date}</div>
