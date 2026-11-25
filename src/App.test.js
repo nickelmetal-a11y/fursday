@@ -25,8 +25,14 @@ jest.mock('./supabase', () => {
   const queryBuilder = {
     select: () => queryBuilder,
     eq: () => queryBuilder,
+    lte: () => queryBuilder,
+    gte: () => queryBuilder,
+    order: () => queryBuilder,
+    limit: () => queryBuilder,
     upsert: () => Promise.resolve({ data: null, error: null }),
     single: () => Promise.resolve({ data: { name: 'Test User' }, error: null }),
+    // promo_codes' featured-home lookup (App.js) expects no promo active by default in tests.
+    maybeSingle: () => Promise.resolve({ data: null, error: null }),
   };
   return {
     supabase: {

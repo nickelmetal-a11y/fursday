@@ -97,6 +97,7 @@ export default function App() {
   const [search, setSearch]               = useState('');
   const [locationLoading, setLocationLoading] = useState(true);
   const [promoCopied, setPromoCopied] = useState(false);
+  const [featuredPromo, setFeaturedPromo] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [regionRestricted, setRegionRestricted] = useState(false);
   const [userIP, setUserIP] = useState(null);
@@ -215,6 +216,19 @@ export default function App() {
       }
     };
     checkIfSitter();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadFeaturedPromo = async () => {
+      const now = new Date().toISOString();
+      const { data } = await supabase.from('promo_codes').select('*')
+        .eq('status', 'active').eq('featured_home', true)
+        .lte('valid_from', now).gte('valid_until', now)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      setFeaturedPromo(data || null);
+    };
+    loadFeaturedPromo();
   }, [user]);
 
   // Auth
@@ -440,19 +454,27 @@ export default function App() {
               style={{ width:'100%', padding:'14px', background:theme.primary, border:'none', borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>🔍 {tr('common_seeAll')} {tr('nav_explore').toLowerCase()}</button>
           </div>
 
-          {/* First-booking promo banner */}
-          <div style={{ padding:'0 16px 16px' }}>
-            <div style={{ background:'linear-gradient(135deg, #FF6B35, #FF8C5A)', borderRadius:14, padding:14, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
-              <div>
-                <div style={{ color:'white', fontSize:13, fontWeight:700, marginBottom:4 }}>🎁 {tr('home_promoTitle')}</div>
-                <div style={{ color:'rgba(255,255,255,0.85)', fontSize:11 }}>{tr('home_promoCodeLabel')}: <strong style={{ letterSpacing:1 }}>WELCOME100</strong></div>
+          {/* Admin-declared promo banner (AdminPanel's Promotions tab) */}
+          {featuredPromo && (
+            <div style={{ padding:'0 16px 16px' }}>
+              <div style={{ position:'relative', overflow:'hidden', borderRadius:16, background:'linear-gradient(135deg, #6A3DE8, #FF6B35)', padding:16 }}>
+                <div style={{ position:'absolute', top:-20, right:-20, width:90, height:90, borderRadius:'50%', background:'rgba(255,255,255,0.12)' }} />
+                <div style={{ position:'absolute', bottom:-30, right:30, width:60, height:60, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }} />
+                <div style={{ display:'inline-block', background:'rgba(255,255,255,0.2)', borderRadius:20, padding:'3px 10px', fontSize:10, fontWeight:800, color:'white', letterSpacing:0.5, marginBottom:8, position:'relative' }}>{tr('home_promoBadge')}</div>
+                <div style={{ color:'white', fontSize:17, fontWeight:800, marginBottom:2, position:'relative' }}>
+                  {featuredPromo.discount_amount ? tr('home_promoTitleAmount', { amount: featuredPromo.discount_amount }) : tr('home_promoTitlePercent', { percent: featuredPromo.discount_percent })}
+                </div>
+                {featuredPromo.description && <div style={{ color:'rgba(255,255,255,0.85)', fontSize:12, marginBottom:12, position:'relative' }}>{featuredPromo.description}</div>}
+                <div style={{ display:'flex', alignItems:'center', gap:8, position:'relative', marginTop: featuredPromo.description ? 0 : 12 }}>
+                  <div style={{ background:'rgba(255,255,255,0.15)', border:'1px dashed rgba(255,255,255,0.6)', borderRadius:8, padding:'7px 12px', color:'white', fontSize:13, fontWeight:800, letterSpacing:1, flex:1 }}>{featuredPromo.code}</div>
+                  <button onClick={() => { navigator.clipboard?.writeText(featuredPromo.code); setPromoCopied(true); setTimeout(() => setPromoCopied(false), 2000); }}
+                    style={{ background:'white', border:'none', borderRadius:8, padding:'9px 16px', color:'#FF6B35', fontSize:12, fontWeight:800, cursor:'pointer', flexShrink:0 }}>
+                    {promoCopied ? tr('home_promoCopied') : tr('home_promoCopyButton')}
+                  </button>
+                </div>
               </div>
-              <button onClick={() => { navigator.clipboard?.writeText('WELCOME100'); setPromoCopied(true); setTimeout(() => setPromoCopied(false), 2000); }}
-                style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:8, padding:'8px 14px', color:'white', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
-                {promoCopied ? tr('home_promoCopied') : tr('home_promoCopyButton')}
-              </button>
             </div>
-          </div>
+          )}
 
           {/* Service quick access */}
           <div style={{ padding:'16px' }}>

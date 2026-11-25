@@ -443,8 +443,9 @@ const translations = {
     trustInsurance: '₹25K vet insurance',
 
     // ── Home-screen promo banner + BookingFlow promo-code redemption ────
-    home_promoTitle: 'Get ₹100 off your first booking',
-    home_promoCodeLabel: 'Use code',
+    home_promoBadge: 'SPECIAL OFFER',
+    home_promoTitleAmount: 'Get ₹{amount} off 🐾',
+    home_promoTitlePercent: 'Get {percent}% off 🐾',
     home_promoCopyButton: 'Copy',
     home_promoCopied: 'Copied!',
     bookingFlow_promoCodeLabel: 'Have a promo code?',
@@ -1479,8 +1480,9 @@ const translations = {
     trustInsurance: '₹25K पशु चिकित्सा बीमा',
 
     // ── Home-screen promo banner + BookingFlow promo-code redemption ────
-    home_promoTitle: 'अपनी पहली बुकिंग पर ₹100 की छूट पाएं',
-    home_promoCodeLabel: 'कोड का उपयोग करें',
+    home_promoBadge: 'खास ऑफर',
+    home_promoTitleAmount: '₹{amount} की छूट पाएं 🐾',
+    home_promoTitlePercent: '{percent}% की छूट पाएं 🐾',
     home_promoCopyButton: 'कॉपी करें',
     home_promoCopied: 'कॉपी हो गया!',
     bookingFlow_promoCodeLabel: 'क्या आपके पास प्रोमो कोड है?',

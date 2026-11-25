@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { CheckCircle, XCircle, Award, PauseCircle, PlayCircle } from 'lucide-react';
 import AdminAuditLogs from './AdminAuditLogs';
 import AdminDisputes from './AdminDisputes';
+import AdminPromotions from './AdminPromotions';
 import { logSitterApproved, logSitterRejected, logSitterSuspended, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || '';
@@ -451,6 +452,7 @@ export default function AdminPanel({ onBack }) {
             { id: 'bookings', label: 'Bookings (' + bookings.length + ')' },
             { id: 'payouts', label: 'Payouts (' + unpaidPayouts.length + ')' },
             { id: 'disputes', label: 'Disputes' },
+            { id: 'promotions', label: 'Promotions' },
             { id: 'audit', label: 'Audit' },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -615,6 +617,8 @@ export default function AdminPanel({ onBack }) {
         )}
 
         {!loading && tab === 'disputes' && <AdminDisputes />}
+
+        {!loading && tab === 'promotions' && <AdminPromotions />}
 
         {!loading && tab === 'audit' && <AdminAuditLogs />}
       </div>
