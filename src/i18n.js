@@ -1,11 +1,88 @@
 import { useState, useEffect } from 'react';
 
 // Minimal, dependency-free i18n: a flat key->string dictionary per language,
-// persisted to localStorage (not per-component state) so a language choice
-// made on one screen holds across navigation, which in this app means a
-// full component remount rather than a client-side route change.
+// persisted to localStorage AND broadcast to every mounted useLanguage()
+// consumer via a module-level pub/sub (the `storage` event only fires in
+// OTHER tabs, never the tab that made the change, so same-tab components —
+// e.g. the global LanguageToggle plus whichever screen is on-screen —
+// would otherwise go out of sync the instant you flip the toggle).
 const translations = {
   en: {
+    // ── Common / shared across screens ──────────────────────────────────
+    common_loading: 'Loading...',
+    common_tryAgain: 'Try again',
+    common_continueAnyway: 'Continue anyway',
+    common_book: 'Book',
+    common_save: 'Save',
+    common_cancel: 'Cancel',
+    common_back: 'Back',
+    common_edit: 'Edit',
+    common_delete: 'Delete',
+    common_confirm: 'Confirm',
+    common_yes: 'Yes',
+    common_no: 'No',
+    common_close: 'Close',
+    common_submit: 'Submit',
+    common_next: 'Next',
+    common_done: 'Done',
+    common_search: 'Search',
+    common_seeAll: 'See all',
+    common_viewDetails: 'View details',
+    common_retry: 'Retry',
+    common_sending: 'Sending...',
+    common_saving: 'Saving...',
+    common_required: 'Required',
+    common_optional: 'Optional',
+    common_error: 'Something went wrong',
+    settings_loading: 'Loading settings...',
+    settings_languageNote: 'Use the EN / हिं toggle at the top of the screen',
+
+    // ── App.js: Home / map screen ───────────────────────────────────────
+    home_findingLocation: 'Finding your location',
+    home_findingLocationHint: 'Getting nearby pet sitters...',
+    home_enableLocation: 'Enable location access',
+    home_enableLocationHint: 'Please enable location in your browser settings',
+    home_distance: 'Distance',
+    home_avgRating: 'Avg rating',
+    home_available: 'Available',
+    home_prosCount: '{n} pros',
+    home_browseSittersMap: '📍 Browse sitters on map',
+    home_useMyLocation: 'Use my location',
+    home_whatDoYouNeed: 'What do you need?',
+    home_availableNow: 'Available now',
+    home_walksSuffix: '{n} walks',
+    home_seeAllSitters: 'See all {n} sitters',
+    home_sitterMode: 'Sitter mode',
+    home_becomePro: 'Become a Pro',
+    home_earnRange: 'Earn Rs.12k-45k/month',
+    home_requestSent: '✓ Request sent to {name}!',
+    service_walk: 'Request a walker',
+    service_walkPrice: 'from Rs.299',
+    service_boarding: 'Home boarding',
+    service_boardingPrice: 'from Rs.849/night',
+    service_daycare: 'Doggy daycare',
+    service_daycarePrice: 'from Rs.649/day',
+    service_broadcast: 'Broadcast request',
+    service_broadcastPrice: 'all pros respond',
+    nav_home: 'Home',
+    nav_bookings: 'Bookings',
+    nav_explore: 'Explore',
+    nav_myPets: 'My Pets',
+    nav_settings: 'Settings',
+    comingSoon_title: 'Coming Soon!',
+    comingSoon_body: "Fursday is currently available only in Delhi & NCR region.",
+    comingSoon_expanding: "We're expanding to your area soon! Stay tuned! 🐾",
+    comingSoon_yourIp: 'Your IP:',
+    comingSoon_checkAgain: 'Check Again',
+    outside_title: 'Coming to your city soon!',
+    outside_body: 'Fursday is in {cities}. Expanding fast!',
+    outside_joinWaitlist: 'Join the waitlist',
+    outside_iAmIn: 'I am in {cities}',
+    outside_onList: 'You are on the list!',
+    outside_willEmail: 'We will email you when Fursday launches in your city.',
+    footerExpanding: 'Expanding to your city soon.',
+
+    // ── Sitter dashboard ─────────────────────────────────────────────────
     greeting: 'Hi',
     live: '● You are live',
     pendingApproval: '○ Pending approval',
@@ -55,6 +132,7 @@ const translations = {
     openRequestsEmptyHint: 'When pet parents broadcast a request, it will appear here.',
     acceptThisRequest: 'Accept this request',
 
+    // ── Login screen ─────────────────────────────────────────────────────
     welcome: 'Welcome to Fursday',
     taglineEmail: 'Trusted pet care, right at your doorstep.',
     taglineOtp: 'Enter the 6-digit code we sent to your email.',
@@ -68,8 +146,86 @@ const translations = {
     verifying: 'Verifying...',
     useDifferentEmail: 'Use a different email',
     resendCode: 'Resend code',
+    trustAadhaar: 'Aadhaar-verified sitters',
+    trustGps: 'Live GPS every walk',
+    trustInsurance: '₹25K vet insurance',
   },
   hi: {
+    // ── Common / shared across screens ──────────────────────────────────
+    common_loading: 'लोड हो रहा है...',
+    common_tryAgain: 'फिर से कोशिश करें',
+    common_continueAnyway: 'फिर भी जारी रखें',
+    common_book: 'बुक करें',
+    common_save: 'सेव करें',
+    common_cancel: 'रद्द करें',
+    common_back: 'वापस',
+    common_edit: 'बदलें',
+    common_delete: 'हटाएं',
+    common_confirm: 'पुष्टि करें',
+    common_yes: 'हां',
+    common_no: 'नहीं',
+    common_close: 'बंद करें',
+    common_submit: 'जमा करें',
+    common_next: 'आगे',
+    common_done: 'हो गया',
+    common_search: 'खोजें',
+    common_seeAll: 'सभी देखें',
+    common_viewDetails: 'विवरण देखें',
+    common_retry: 'फिर कोशिश करें',
+    common_sending: 'भेजा जा रहा है...',
+    common_saving: 'सेव हो रहा है...',
+    common_required: 'आवश्यक',
+    common_optional: 'वैकल्पिक',
+    common_error: 'कुछ गलत हो गया',
+    settings_loading: 'सेटिंग्स लोड हो रही हैं...',
+    settings_languageNote: 'EN / हिं टॉगल ऊपर स्क्रीन पर है',
+
+    // ── App.js: Home / map screen ───────────────────────────────────────
+    home_findingLocation: 'आपकी लोकेशन ढूंढी जा रही है',
+    home_findingLocationHint: 'आस-पास के सिटर खोजे जा रहे हैं...',
+    home_enableLocation: 'लोकेशन एक्सेस चालू करें',
+    home_enableLocationHint: 'कृपया अपनी ब्राउज़र सेटिंग्स में लोकेशन चालू करें',
+    home_distance: 'दूरी',
+    home_avgRating: 'औसत रेटिंग',
+    home_available: 'उपलब्ध',
+    home_prosCount: '{n} सिटर',
+    home_browseSittersMap: '📍 मैप पर सिटर देखें',
+    home_useMyLocation: 'मेरी लोकेशन इस्तेमाल करें',
+    home_whatDoYouNeed: 'आपको क्या चाहिए?',
+    home_availableNow: 'अभी उपलब्ध',
+    home_walksSuffix: '{n} वॉक',
+    home_seeAllSitters: 'सभी {n} सिटर देखें',
+    home_sitterMode: 'सिटर मोड',
+    home_becomePro: 'पेशेवर बनें',
+    home_earnRange: 'कमाएं ₹12k-45k/माह',
+    home_requestSent: '✓ {name} को रिक्वेस्ट भेज दी गई!',
+    service_walk: 'वॉकर बुलाएं',
+    service_walkPrice: '₹299 से शुरू',
+    service_boarding: 'होम बोर्डिंग',
+    service_boardingPrice: '₹849/रात से शुरू',
+    service_daycare: 'डॉगी डेकेयर',
+    service_daycarePrice: '₹649/दिन से शुरू',
+    service_broadcast: 'ब्रॉडकास्ट रिक्वेस्ट',
+    service_broadcastPrice: 'सभी सिटर जवाब देंगे',
+    nav_home: 'होम',
+    nav_bookings: 'बुकिंग',
+    nav_explore: 'खोजें',
+    nav_myPets: 'मेरे पालतू',
+    nav_settings: 'सेटिंग्स',
+    comingSoon_title: 'जल्द आ रहा है!',
+    comingSoon_body: 'फर्सडे अभी केवल दिल्ली और एनसीआर क्षेत्र में उपलब्ध है।',
+    comingSoon_expanding: 'हम जल्द ही आपके क्षेत्र में आ रहे हैं! बने रहें! 🐾',
+    comingSoon_yourIp: 'आपका IP:',
+    comingSoon_checkAgain: 'फिर से जांचें',
+    outside_title: 'जल्द ही आपके शहर में!',
+    outside_body: 'फर्सडे {cities} में उपलब्ध है। हम तेज़ी से बढ़ रहे हैं!',
+    outside_joinWaitlist: 'वेटलिस्ट में शामिल हों',
+    outside_iAmIn: 'मैं {cities} में हूं',
+    outside_onList: 'आप लिस्ट में शामिल हो गए हैं!',
+    outside_willEmail: 'जब फर्सडे आपके शहर में शुरू होगा, हम आपको ईमेल करेंगे।',
+    footerExpanding: 'जल्द ही आपके शहर में भी।',
+
+    // ── Sitter dashboard ─────────────────────────────────────────────────
     greeting: 'नमस्ते',
     live: '● आप लाइव हैं',
     pendingApproval: '○ स्वीकृति बाकी है',
@@ -119,6 +275,7 @@ const translations = {
     openRequestsEmptyHint: 'जब पालक कोई रिक्वेस्ट भेजेंगे, वह यहां दिखेगी।',
     acceptThisRequest: 'यह रिक्वेस्ट स्वीकार करें',
 
+    // ── Login screen ─────────────────────────────────────────────────────
     welcome: 'फर्सडे में आपका स्वागत है',
     taglineEmail: 'भरोसेमंद पेट केयर, आपके दरवाज़े पर।',
     taglineOtp: 'वह 6 अंकों का कोड डालें जो हमने आपके ईमेल पर भेजा है।',
@@ -132,24 +289,33 @@ const translations = {
     verifying: 'जांचा जा रहा है...',
     useDifferentEmail: 'दूसरा ईमेल इस्तेमाल करें',
     resendCode: 'फिर से कोड भेजें',
+    trustAadhaar: 'आधार-सत्यापित सिटर',
+    trustGps: 'हर वॉक में लाइव GPS',
+    trustInsurance: '₹25K पशु चिकित्सा बीमा',
   },
 };
 
 const LANG_KEY = 'fursday_lang';
+let currentLang = (typeof localStorage !== 'undefined' && localStorage.getItem(LANG_KEY)) || 'en';
+const listeners = new Set();
+
+function broadcastLang(l) {
+  currentLang = l;
+  localStorage.setItem(LANG_KEY, l);
+  listeners.forEach(fn => fn(l));
+}
 
 export function useLanguage() {
-  const [lang, setLangState] = useState(() => localStorage.getItem(LANG_KEY) || 'en');
+  const [lang, setLangState] = useState(currentLang);
 
   useEffect(() => {
-    const onStorage = (e) => { if (e.key === LANG_KEY && e.newValue) setLangState(e.newValue); };
+    if (lang !== currentLang) setLangState(currentLang);
+    listeners.add(setLangState);
+    const onStorage = (e) => { if (e.key === LANG_KEY && e.newValue) broadcastLang(e.newValue); };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    return () => { listeners.delete(setLangState); window.removeEventListener('storage', onStorage); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const setLang = (l) => {
-    localStorage.setItem(LANG_KEY, l);
-    setLangState(l);
-  };
 
   const dict = translations[lang] || translations.en;
   const t = (key, vars) => {
@@ -158,5 +324,13 @@ export function useLanguage() {
     return str;
   };
 
-  return { lang, setLang, t };
+  return { lang, setLang: broadcastLang, t };
+}
+
+// Merges additional per-screen translations into both dictionaries at module
+// load time, so large screens can own their own key/value pairs in a
+// separate file instead of all screens fighting over one giant literal here.
+export function registerTranslations(extra) {
+  if (extra.en) Object.assign(translations.en, extra.en);
+  if (extra.hi) Object.assign(translations.hi, extra.hi);
 }

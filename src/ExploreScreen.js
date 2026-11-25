@@ -220,6 +220,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           { id:'book', label:'Bookings', emoji:'📋' },
           { id:'explore', label:'Explore', emoji:'🔍' },
           { id:'profile', label:'My Pets', emoji:'\uD83D\uDC15' },
+          { id:'settings', label:'Settings', emoji:'\u2699\uFE0F' },
         ].map(n => (
           <div key={n.id} onClick={() => { if(n.id==='explore') return; if(onNav) onNav(n.id); else onBack(); }}
             style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>

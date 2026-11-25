@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { ChevronRight, LogOut, Save } from 'lucide-react';
+import { useLanguage } from './i18n';
+import { useSupportContact, openWhatsAppSupport, callSupport } from './supportContact';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB' },
   Pune:    { primary: '#6C5CE7', light: '#F0EEFF' },
 };
 
-export default function SettingsScreen({ onBack, city, userName }) {
+export default function SettingsScreen({ onBack, city, userName, onNav, activeNav }) {
   const [user, setUser] = useState(null);
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
@@ -18,43 +20,63 @@ export default function SettingsScreen({ onBack, city, userName }) {
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [notificationFrequency, setNotificationFrequency] = useState('immediate');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errors, setErrors] = useState({});
   const [bookingCount, setBookingCount] = useState(0);
   const [memberSince, setMemberSince] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const [showTermsLocal, setShowTermsLocal] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const { t: tr } = useLanguage();
+  const { whatsapp: supportWa, phone: supportPhone } = useSupportContact();
 
   const theme = THEMES[city] || THEMES.Gurgaon;
 
   useEffect(() => {
+    let cancelled = false;
     const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setUserEmail(user?.email || '');
-      setUserNameEdit(userName || '');
+      setLoading(true);
+      setLoadError(false);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (cancelled) return;
+        setUser(user);
+        setUserEmail(user?.email || '');
+        setUserNameEdit(userName || '');
 
-      if (user) {
-        const { data } = await supabase.from('users').select('created_at').eq('id', user.id).single();
-        if (data?.created_at) {
-          setMemberSince(new Date(data.created_at).toLocaleDateString());
+        if (user) {
+          const { data } = await supabase.from('users').select('created_at').eq('id', user.id).single();
+          if (data?.created_at) {
+            setMemberSince(new Date(data.created_at).toLocaleDateString());
+          }
+          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: user.id });
+          setUserPhone(contact?.[0]?.phone || '');
+
+          const { data: bookings } = await supabase.from('bookings').select('id').eq('pet_parent_id', user.id);
+          setBookingCount(bookings?.length || 0);
+
+          const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).single();
+          if (prefs) {
+            setNotificationsEnabled(prefs.push_enabled);
+            setEmailNotifications(prefs.email_enabled);
+            setSmsNotifications(prefs.sms_enabled);
+          }
         }
-        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: user.id });
-        setUserPhone(contact?.[0]?.phone || '');
-
-        const { data: bookings } = await supabase.from('bookings').select('id').eq('pet_parent_id', user.id);
-        setBookingCount(bookings?.length || 0);
-
-        const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).single();
-        if (prefs) {
-          setNotificationsEnabled(prefs.push_enabled);
-          setEmailNotifications(prefs.email_enabled);
-          setSmsNotifications(prefs.sms_enabled);
-        }
+      } catch (e) {
+        // A thrown (not just {error}-returning) failure here — e.g. a
+        // network blip — used to leave `loading` stuck true forever with
+        // no way out, since setLoading(false) below never ran. Settings
+        // would just hang on "Loading settings..." permanently.
+        if (!cancelled) setLoadError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     };
     fetchUserData();
-  }, [userName]);
+    return () => { cancelled = true; };
+  }, [userName, reloadKey]);
 
   const validatePhone = (phone) => {
     if (!phone) return true;
@@ -116,13 +138,29 @@ export default function SettingsScreen({ onBack, city, userName }) {
     }
   };
 
+  if (showTermsLocal) {
+    const TermsAndConditions = require('./TermsAndConditions').default;
+    return <TermsAndConditions onBack={() => setShowTermsLocal(false)} city={city} />;
+  }
+
   if (loading) {
     return (
       <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F5F5F5', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:32, marginBottom:12 }}>⚙️</div>
-          <div style={{ color:'#888', fontSize:13 }}>Loading settings...</div>
+          <div style={{ color:'#888', fontSize:13 }}>{tr('settings_loading')}</div>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F5F5F5', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12, padding:'0 24px', textAlign:'center' }}>
+        <div style={{ fontSize:32 }}>⚠️</div>
+        <div style={{ color:'#666', fontSize:13 }}>{tr('common_error')}</div>
+        <button onClick={() => setReloadKey(k => k + 1)} style={{ background:theme.primary, color:'white', border:'none', padding:'10px 20px', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:12 }}>{tr('common_retry')}</button>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#999', fontSize:13, cursor:'pointer' }}>{tr('common_back')}</button>
       </div>
     );
   }
@@ -299,30 +337,38 @@ export default function SettingsScreen({ onBack, city, userName }) {
             </div>
 
             <div>
-              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>Language</div>
-              <select style={{ width:'100%', padding:'8px', borderRadius:6, border:'0.5px solid #DDD', fontSize:12, color:'#1a1a1a' }}>
-                <option>English</option>
-                <option>हिन्दी (Hindi)</option>
-                <option>मराठी (Marathi)</option>
-              </select>
+              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>Language</div>
+              <div style={{ fontSize:11, color:'#888' }}>{tr('settings_languageNote')}</div>
             </div>
           </div>
         </div>
 
         {/* Help Section */}
         <div style={{ background:'white', borderRadius:12, overflow:'hidden', marginBottom:12, border:'0.5px solid #E8E8E8' }}>
-          <button style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a', borderBottom:'0.5px solid #F0F0F0' }}>
+          <button onClick={() => { if (supportWa) openWhatsAppSupport(supportWa, 'Hi, I need help with Fursday'); else if (supportPhone) callSupport(supportPhone); else window.open('mailto:support@fursday.app'); }}
+            style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a', borderBottom:'0.5px solid #F0F0F0' }}>
             <span>📖 Help & FAQ</span>
             <ChevronRight size={16} color="#888" />
           </button>
-          <button style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a', borderBottom:'0.5px solid #F0F0F0' }}>
+          <button onClick={() => { if (supportPhone) callSupport(supportPhone); else if (supportWa) openWhatsAppSupport(supportWa, 'SOS: I need help now'); else alert('Support contact is being set up. Please email support@fursday.app'); }}
+            style={{ width:'100%', padding:'16px', background:'#FFEBEE', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:700, color:'#C62828', borderBottom:'0.5px solid #F0F0F0' }}>
+            <span>🆘 {tr('sos').replace('🆘 ', '')}</span>
+            <ChevronRight size={16} color="#C62828" />
+          </button>
+          <button onClick={() => setShowTermsLocal(true)}
+            style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a', borderBottom:'0.5px solid #F0F0F0' }}>
             <span>📋 Terms & Privacy</span>
             <ChevronRight size={16} color="#888" />
           </button>
-          <button style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a' }}>
+          <button onClick={() => setShowAbout(a => !a)} style={{ width:'100%', padding:'16px', background:'none', border:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontSize:13, fontWeight:600, color:'#1a1a1a' }}>
             <span>ℹ️ About Fursday</span>
             <ChevronRight size={16} color="#888" />
           </button>
+          {showAbout && (
+            <div style={{ padding:'0 16px 16px', fontSize:12, color:'#666', lineHeight:1.6 }}>
+              Fursday connects pet parents with vetted sitters for walks, boarding and daycare. Version 1.0.0.
+            </div>
+          )}
         </div>
 
         {/* Danger Zone */}
@@ -341,11 +387,30 @@ export default function SettingsScreen({ onBack, city, userName }) {
         </div>
 
         {/* Footer */}
-        <div style={{ textAlign:'center', marginTop:24, paddingBottom:40 }}>
+        <div style={{ textAlign:'center', marginTop:24, paddingBottom:70 }}>
           <div style={{ fontSize:11, color:'#999' }}>Fursday v1.0.0</div>
           <div style={{ fontSize:10, color:'#CCC', marginTop:4 }}>© 2026 Fursday. All rights reserved.</div>
         </div>
 
+      </div>
+
+      {/* BOTTOM NAV — was missing entirely, so there was no way back to
+          Bookings/Explore/My Pets from Settings except the back arrow. */}
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', display:'flex', justifyContent:'space-around', padding:'10px 0 16px', zIndex:100 }}>
+        {[
+          { id:'home', label:'Home', emoji:'🏠' },
+          { id:'book', label:'Bookings', emoji:'📋' },
+          { id:'explore', label:'Explore', emoji:'🔍' },
+          { id:'profile', label:'My Pets', emoji:'🐕' },
+          { id:'settings', label:'Settings', emoji:'⚙️' },
+        ].map(n => (
+          <div key={n.id} onClick={() => { if(n.id==='settings') return; if(onNav) onNav(n.id); else onBack(); }}
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+            <span style={{ fontSize:20 }}>{n.emoji}</span>
+            <span style={{ fontSize:10, fontWeight:n.id==='settings'?700:400, color:n.id==='settings'?theme.primary:'#BBB' }}>{n.label}</span>
+            {n.id==='settings' && <div style={{ width:4, height:4, borderRadius:2, background:theme.primary }} />}
+          </div>
+        ))}
       </div>
     </div>
   );

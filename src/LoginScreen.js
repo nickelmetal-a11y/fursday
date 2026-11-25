@@ -21,7 +21,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   const [showTermsError, setShowTermsError] = useState(false);
   const [showTermsLocal, setShowTermsLocal] = useState(false);
   const [showPrivacyLocal, setShowPrivacyLocal] = useState(false);
-  const { lang, setLang, t: tr } = useLanguage();
+  const { t: tr } = useLanguage();
 
   const sendOtp = async () => {
     if (!email.includes('@')) { setError('Enter a valid email address'); return; }
@@ -80,12 +80,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: DARK, fontFamily: '-apple-system, sans-serif', display: 'flex', flexDirection: 'column', padding: '0 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16 }}>
-        <div onClick={() => setLang(lang === 'hi' ? 'en' : 'hi')} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: 'white', cursor: 'pointer' }}>
-          {lang === 'hi' ? 'English' : 'हिन्दी'}
-        </div>
-      </div>
-      <div style={{ paddingTop: 24, marginBottom: 48 }}>
+      <div style={{ paddingTop: 40, marginBottom: 32 }}>
         <div style={{ width: 56, height: 56, borderRadius: 16, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 24 }}>
           🐾
         </div>
@@ -100,9 +95,9 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
       {step === 'email' && (
         <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '14px 16px', marginBottom: 24, display: 'flex', gap: 12 }}>
           {[
-            { emoji: '🛡️', text: 'Aadhaar-verified sitters' },
-            { emoji: '📍', text: 'Live GPS every walk' },
-            { emoji: '💰', text: '₹25K vet insurance' },
+            { emoji: '🛡️', text: tr('trustAadhaar') },
+            { emoji: '📍', text: tr('trustGps') },
+            { emoji: '💰', text: tr('trustInsurance') },
           ].map((item, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center', opacity: i === 2 ? 0.5 : 1 }}>
               <div style={{ fontSize: 20, marginBottom: 4 }}>{item.emoji}</div>
@@ -184,7 +179,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
       )}
 
       <div style={{ marginTop: 'auto', paddingBottom: 40, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.6 }}>
-        Expanding to your city soon.
+        {tr('footerExpanding')}
       </div>
     </div>
   );

@@ -66,7 +66,9 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Settings/i)).toBeInTheDocument();
+      // "Settings" also appears as a bottom-nav label now, so scope to the
+      // header's title div specifically.
+      expect(screen.getByText('Settings', { selector: 'div' })).toBeInTheDocument();
       expect(screen.getByText(/Manage your account/i)).toBeInTheDocument();
     });
   });
@@ -222,27 +224,15 @@ describe('SettingsScreen - App Store Ready', () => {
     });
   });
 
-  test('language dropdown has correct options', async () => {
+  test('language section points to the global EN/हिं toggle', async () => {
+    // The per-screen language <select> was dead (no value/onChange wired to
+    // anything) and has been replaced by one global toggle rendered outside
+    // every screen (see LanguageToggle.js) so switching language actually
+    // affects the whole app instead of silently doing nothing here.
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/English/i)).toBeInTheDocument();
-      expect(screen.getByText(/Hindi/i)).toBeInTheDocument();
-      expect(screen.getByText(/Marathi/i)).toBeInTheDocument();
-    });
-  });
-
-  test('language can be changed', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // combobox[0] is "Notification Frequency" (Immediate/Hourly/.../);
-      // the language select is the second one on the page.
-      const select = screen.getAllByRole('combobox')[1];
-      // The Hindi <option> has no explicit value attr, so its value is its
-      // text content, "हिन्दी (Hindi)" — not the bare string "Hindi".
-      fireEvent.change(select, { target: { value: 'हिन्दी (Hindi)' } });
-      expect(select.value).toBe('हिन्दी (Hindi)');
+      expect(screen.getByText(/EN \/ हिं/i)).toBeInTheDocument();
     });
   });
 
@@ -323,10 +313,11 @@ describe('SettingsScreen - App Store Ready', () => {
     render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
 
     await waitFor(() => {
-      // getByText('Settings') returns the title div itself. The max-width
-      // lives on the outer page container, three levels up: title div ->
-      // flex:1 wrapper -> header row -> outer container.
-      const header = screen.getByText('Settings');
+      // getByText('Settings', {selector:'div'}) returns the title div itself
+      // (scoped because "Settings" also appears as a bottom-nav label now).
+      // The max-width lives on the outer page container, three levels up:
+      // title div -> flex:1 wrapper -> header row -> outer container.
+      const header = screen.getByText('Settings', { selector: 'div' });
       const container = header.parentElement.parentElement.parentElement;
       expect(container.style.maxWidth).toBe('390px');
     });
@@ -353,8 +344,9 @@ describe('SettingsScreen - App Store Ready', () => {
 
     await waitFor(() => {
       // React serializes the inline style as kebab-case ("min-height: 100vh"),
-      // not the camelCase JS property name used in source.
-      const scrollContainer = screen.getByText('Settings').closest('[style*="min-height"]');
+      // not the camelCase JS property name used in source. Scoped to the
+      // title div since "Settings" also appears as a bottom-nav label now.
+      const scrollContainer = screen.getByText('Settings', { selector: 'div' }).closest('[style*="min-height"]');
       expect(scrollContainer).toBeInTheDocument();
     });
   });

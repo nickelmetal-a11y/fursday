@@ -38,7 +38,7 @@ const STATUS_COLORS = {
 export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile }) {
   const t = THEMES[city] || THEMES.Gurgaon;
   const { whatsapp: supportWa, phone: supportPhone } = useSupportContact();
-  const { lang, setLang, t: tr } = useLanguage();
+  const { t: tr } = useLanguage();
   const [tab, setTab] = useState('new');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -394,11 +394,6 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
       <div style={{ background:'#0f0f1a', padding:'48px 16px 16px' }}>
-        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
-          <div onClick={() => setLang(lang === 'hi' ? 'en' : 'hi')} style={{ background:'rgba(255,255,255,0.1)', borderRadius:20, padding:'4px 10px', fontSize:11, fontWeight:700, color:'white', cursor:'pointer' }}>
-            {lang === 'hi' ? 'English' : 'हिन्दी'}
-          </div>
-        </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <div>
             <div style={{ color:'white', fontSize:18, fontWeight:700 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || 'there'} 👋</div>
