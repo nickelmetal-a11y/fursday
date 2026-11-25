@@ -1,382 +1,163 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import SettingsScreen from './SettingsScreen';
-import { supabase } from './supabase';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { db } from './testing/fakeSupabase';
+import { buildSeed, IDS } from './testing/seed';
+import SettingsScreen, { maskAadhaar, maskUpi, durationSince } from './SettingsScreen';
 
-jest.mock('./supabase', () => ({
-  supabase: {
-    auth: {
-      getUser: jest.fn(),
-      signOut: jest.fn(),
-    },
-    from: jest.fn(),
-    // Plain function, not jest.fn().mockResolvedValue(...) — CRA's jest
-    // config sets resetMocks:true, which wipes a mockResolvedValue set
-    // inside this factory after the first test in the file; every later
-    // test would get `undefined` back instead of the canned response.
-    rpc: () => Promise.resolve({ data: [{ phone: '+91-9876543210', email: null }], error: null }),
-  },
-}));
+jest.mock('./supabase', () => require('./testing/fakeSupabase'));
 
-describe('SettingsScreen - App Store Ready', () => {
+const monthsAgo = (n) => { const d = new Date(); d.setMonth(d.getMonth() - n); d.setDate(d.getDate() - 1); return d.toISOString(); };
 
-  const mockUser = {
-    id: 'user-123',
-    email: 'test@example.com',
-  };
+beforeEach(() => {
+  db.reset(buildSeed());
+  window.alert = jest.fn();
+  window.confirm = jest.fn(() => true);
+});
 
-  const mockOnBack = jest.fn();
-  const city = 'Gurgaon';
-  const userName = 'John Doe';
+const renderAs = async (userId, name) => {
+  db.signInAs(userId);
+  const r = render(<SettingsScreen onBack={jest.fn()} city="Gurgaon" userName={name} onNav={jest.fn()} />);
+  await screen.findByText('Manage your account');
+  return r;
+};
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    supabase.auth.getUser.mockResolvedValue({
-      data: { user: mockUser },
-    });
-    // supabase.rpc is a plain function (see note above), not a jest.fn(), so
-    // jest.clearAllMocks() won't reset a test-local override of it back to
-    // this default — restore it explicitly before every test.
-    supabase.rpc = () => Promise.resolve({ data: [{ phone: '+91-9876543210', email: null }], error: null });
-    supabase.from.mockImplementation((table) => {
-      if (table === 'notification_preferences') {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({ data: null }),
-            }),
-          }),
-          upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: { phone: '+91-9876543210' },
-            }),
-          }),
-        }),
-      };
-    });
+describe('helpers', () => {
+  test('Aadhaar shows only the last 3 digits', () => {
+    expect(maskAadhaar('111122223333')).toBe('XXXX XXXX X333');
+    expect(maskAadhaar(null)).toBeNull();
+  });
+  test('UPI hides most of the handle', () => {
+    expect(maskUpi('priya@okaxis')).toBe('pr•••@okaxis');
+  });
+  test('durations read naturally in both languages', () => {
+    expect(durationSince(monthsAgo(14), false)).toBe('1 year 2 months');
+    expect(durationSince(monthsAgo(3), false)).toBe('3 months');
+    expect(durationSince(monthsAgo(3), true)).toBe('3 महीने');
+    expect(durationSince(new Date(Date.now() - 5 * 86400000).toISOString(), false)).toBe('5 days');
+  });
+});
+
+describe('pet parent profile', () => {
+  test('private view shows contact, how long they have been a member, pets and booking counts', async () => {
+    db.one('users', { id: IDS.ananya }).created_at = monthsAgo(4);
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    expect(screen.getByText('ananya@test.example')).toBeInTheDocument();
+    expect(screen.getByText('9810000001')).toBeInTheDocument();
+    expect(screen.getByText(/· 4 months$/)).toBeInTheDocument();
+    expect(screen.getByText('Bruno')).toBeInTheDocument();
+    expect(screen.getByText('Bookings completed').nextSibling.textContent).toBe('1');
   });
 
-  // ─── HEADER TESTS ──────────────────────────────────────────
-
-  test('renders settings header with back button', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // "Settings" also appears as a bottom-nav label now, so scope to the
-      // header's title div specifically.
-      expect(screen.getByText('Settings', { selector: 'div' })).toBeInTheDocument();
-      expect(screen.getByText(/Manage your account/i)).toBeInTheDocument();
-    });
+  test('public view hides contact details and shows a shortened name', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByRole('tab', { name: /Public/ }));
+    expect(screen.getByText('Ananya S.')).toBeInTheDocument();
+    expect(screen.queryByText('ananya@test.example')).toBeNull();
+    expect(screen.queryByText('9810000001')).toBeNull();
+    expect(screen.getByText(/never public/)).toBeInTheDocument();
   });
 
-  test('back button calls onBack callback', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const backButton = screen.getByText('‹');
-      fireEvent.click(backButton);
-      expect(mockOnBack).toHaveBeenCalled();
-    });
+  test('an invalid phone number is rejected on save', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText('Edit profile'));
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '12345' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(await screen.findByText(/10-digit Indian mobile/)).toBeInTheDocument();
+    expect(db.one('users', { id: IDS.ananya }).phone).toBe('9810000001');
   });
 
-  // ─── PROFILE SECTION TESTS ─────────────────────────────────
+  test('a valid edit is saved', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText('Edit profile'));
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Ananya Sharma Rao' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(db.one('users', { id: IDS.ananya }).name).toBe('Ananya Sharma Rao'));
+    expect(await screen.findByText(/Profile saved/)).toBeInTheDocument();
+  });
+});
 
-  test('displays profile section', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // Exact match: a loose /Profile/i regex also matches the "Edit profile" button.
-      expect(screen.getByText('Profile')).toBeInTheDocument();
-    });
+describe('sitter profile', () => {
+  test('private view shows masked Aadhaar, masked UPI, approval date and how long ago', async () => {
+    Object.assign(db.one('sitter_profiles', { id: IDS.priya }), { approved_at: monthsAgo(2), aadhaar_verified_at: monthsAgo(2) });
+    await renderAs(IDS.priyaUser, 'Priya Kapoor');
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.getByText('Approved as sitter').nextSibling.textContent).toMatch(/· 2 months$/);
+    expect(screen.getByText('Aadhaar').nextSibling.textContent).toMatch(/^XXXX XXXX X333/);
+    expect(screen.queryByText(/111122223333/)).toBeNull();
+    expect(screen.getByText('pr•••@okaxis')).toBeInTheDocument();
+    expect(screen.getByText('15% per booking')).toBeInTheDocument();
   });
 
-  test('shows user name correctly', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(userName)).toBeInTheDocument();
-    });
+  test('a Founding Sitter sees 0% commission and the public badge', async () => {
+    await renderAs(IDS.sunitaUser, 'सुनीता देवी');
+    expect(screen.getByText('0% (Founding Sitter)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /Public/ }));
+    expect(screen.getByText('Founding Sitter')).toBeInTheDocument();
+    expect(screen.getByText('Aadhaar verified')).toBeInTheDocument();
   });
 
-  test('displays user email', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
+  test('a sitter under review sees the status and what is missing', async () => {
+    await renderAs(IDS.vikramUser, 'Vikram Rao');
+    expect(screen.getByText('Under review')).toBeInTheDocument();
+    expect(screen.getByText(/Still missing:.*Aadhaar/)).toBeInTheDocument();
+  });
+});
 
-    await waitFor(() => {
-      expect(screen.getByText(mockUser.email)).toBeInTheDocument();
-    });
+describe('help, safety and account', () => {
+  test('Help & FAQ opens a real FAQ, not just WhatsApp', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText(/Help & FAQ/));
+    expect(await screen.findByText('What is the refund policy if I cancel?')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'commission' } });
+    expect(screen.getByText('How much does Fursday take?')).toBeInTheDocument();
   });
 
-  test('shows phone number when available', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/\+91-9876543210/)).toBeInTheDocument();
-    });
+  test('SOS opens the emergency sheet with support, 112 and nearest vet', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText(/SOS — Emergency help/));
+    const sheet = within(await screen.findByRole('dialog', { name: 'SOS' }));
+    expect(await sheet.findByText('Call Fursday support')).toBeInTheDocument();
+    expect(sheet.getByText('WhatsApp support with my location')).toBeInTheDocument();
+    expect(sheet.getByText('Call 112').closest('a')).toHaveAttribute('href', 'tel:112');
+    expect(sheet.getByText('Nearest vet hospital')).toBeInTheDocument();
   });
 
-  test('shows "Not added" when phone is missing', async () => {
-    supabase.rpc = () => Promise.resolve({ data: [{ phone: null, email: null }], error: null });
-
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Not added/)).toBeInTheDocument();
-    });
+  test('SOS hides support options when the configured number is not a real one', async () => {
+    db.table('app_settings').forEach(r => { r.value = 'YOUR_REAL_NUMBER'; });
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText(/SOS — Emergency help/));
+    expect(await screen.findByText(/support number is not available/)).toBeInTheDocument();
+    expect(screen.queryByText('Call Fursday support')).toBeNull();
+    expect(screen.getByText('Call 112')).toBeInTheDocument();
   });
 
-  test('displays Edit profile button', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Edit profile/i)).toBeInTheDocument();
-    });
+  test('Privacy Policy and Terms open their own screens', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByText(/Privacy Policy/));
+    expect(await screen.findByText(/Digital Personal Data Protection Act/)).toBeInTheDocument();
   });
 
-  // ─── NOTIFICATIONS SECTION TESTS ───────────────────────────
-
-  test('renders notifications section', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // Exact match: a loose /Notifications/i regex also matches the
-      // "Push/Email/SMS notifications" toggle labels.
-      expect(screen.getByText('Notifications')).toBeInTheDocument();
-    });
+  test('requesting account deletion records it and can be undone', async () => {
+    await renderAs(IDS.rohit, 'Rohit Verma');
+    fireEvent.click(screen.getByText(/Delete my account/));
+    fireEvent.change(screen.getByLabelText(/Tell us why/), { target: { value: 'Moving abroad' } });
+    fireEvent.click(screen.getByText('Request deletion'));
+    expect(await screen.findByText(/Deletion requested on/)).toBeInTheDocument();
+    expect(db.rows('account_deletion_requests', { user_id: IDS.rohit })[0]).toMatchObject({ reason: 'Moving abroad' });
+    fireEvent.click(screen.getByText('Keep my account'));
+    await waitFor(() => expect(db.rows('account_deletion_requests', { user_id: IDS.rohit })[0].status).toBe('cancelled'));
   });
 
-  test('shows push notifications toggle', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Push notifications/i)).toBeInTheDocument();
-      expect(screen.getByText(/Get alerts in the app/i)).toBeInTheDocument();
-    });
+  test('turning email off is saved', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    fireEvent.click(screen.getByLabelText(/Email notifications/));
+    await waitFor(() => expect(db.one('notification_preferences', { user_id: IDS.ananya })).toMatchObject({ email_enabled: false, push_enabled: true }));
   });
 
-  test('shows email notifications toggle', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Email notifications/i)).toBeInTheDocument();
-      expect(screen.getByText(/Updates via email/i)).toBeInTheDocument();
-    });
-  });
-
-  test('shows SMS notifications toggle', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/SMS notifications/i)).toBeInTheDocument();
-      expect(screen.getByText(/Text message updates/i)).toBeInTheDocument();
-    });
-  });
-
-  test('notification toggles are initially checked', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const checkboxes = screen.getAllByRole('checkbox');
-      expect(checkboxes.length).toBeGreaterThanOrEqual(3);
-    });
-  });
-
-  test('toggles can be clicked', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const checkboxes = screen.getAllByRole('checkbox');
-      if (checkboxes.length > 0) {
-        fireEvent.click(checkboxes[0]);
-        expect(checkboxes[0].checked).toBe(false);
-      }
-    });
-  });
-
-  // ─── PREFERENCES SECTION TESTS ──────────────────────────────
-
-  test('renders preferences section', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Preferences/i)).toBeInTheDocument();
-    });
-  });
-
-  test('shows dark mode toggle (disabled)', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Dark mode/i)).toBeInTheDocument();
-      expect(screen.getByText(/Coming soon/i)).toBeInTheDocument();
-    });
-  });
-
-  test('displays language selection dropdown', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const selects = screen.getAllByRole('combobox');
-      expect(selects.length).toBeGreaterThan(0);
-    });
-  });
-
-  test('language section points to the global EN/हिं toggle', async () => {
-    // The per-screen language <select> was dead (no value/onChange wired to
-    // anything) and has been replaced by one global toggle rendered outside
-    // every screen (see LanguageToggle.js) so switching language actually
-    // affects the whole app instead of silently doing nothing here.
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/EN \/ हिं/i)).toBeInTheDocument();
-    });
-  });
-
-  // ─── HELP SECTION TESTS ────────────────────────────────────
-
-  test('renders help section', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Help & FAQ/i)).toBeInTheDocument();
-    });
-  });
-
-  test('displays FAQ link', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Help & FAQ/i)).toBeInTheDocument();
-    });
-  });
-
-  test('displays Terms & Privacy link', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Terms & Privacy/i)).toBeInTheDocument();
-    });
-  });
-
-  test('displays About link', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/About Fursday/i)).toBeInTheDocument();
-    });
-  });
-
-  // ─── SIGN OUT TESTS ────────────────────────────────────────
-
-  test('displays sign out button', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Sign out/i)).toBeInTheDocument();
-    });
-  });
-
-  test('sign out button has danger styling', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const signOutButton = screen.getByText(/Sign out/i).closest('button');
-      expect(signOutButton).toHaveStyle('color: #E53935');
-    });
-  });
-
-  test('shows signed in email in danger zone', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(`Signed in as: ${mockUser.email}`)).toBeInTheDocument();
-    });
-  });
-
-  // ─── LOADING STATES TESTS ──────────────────────────────────
-
-  test('shows loading state initially', async () => {
-    supabase.auth.getUser.mockImplementation(() => new Promise(() => {}));
-
-    const { rerender } = render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    expect(screen.getByText(/Loading settings/i)).toBeInTheDocument();
-  });
-
-  // ─── APP STORE READINESS TESTS ─────────────────────────────
-
-  test('all sections are responsive and mobile-friendly', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // getByText('Settings', {selector:'div'}) returns the title div itself
-      // (scoped because "Settings" also appears as a bottom-nav label now).
-      // The max-width lives on the outer page container, three levels up:
-      // title div -> flex:1 wrapper -> header row -> outer container.
-      const header = screen.getByText('Settings', { selector: 'div' });
-      const container = header.parentElement.parentElement.parentElement;
-      expect(container.style.maxWidth).toBe('390px');
-    });
-  });
-
-  test('displays app version number', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Fursday v1.0.0/i)).toBeInTheDocument();
-    });
-  });
-
-  test('displays copyright notice', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/© 2026 Fursday/i)).toBeInTheDocument();
-    });
-  });
-
-  test('layout is properly scrollable', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      // React serializes the inline style as kebab-case ("min-height: 100vh"),
-      // not the camelCase JS property name used in source. Scoped to the
-      // title div since "Settings" also appears as a bottom-nav label now.
-      const scrollContainer = screen.getByText('Settings', { selector: 'div' }).closest('[style*="min-height"]');
-      expect(scrollContainer).toBeInTheDocument();
-    });
-  });
-
-  // ─── ACCESSIBILITY TESTS ───────────────────────────────────
-
-  test('all toggles have proper labels', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const checkboxes = screen.getAllByRole('checkbox');
-      expect(checkboxes.length).toBeGreaterThan(0);
-    });
-  });
-
-  test('back button is keyboard accessible', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const backButton = screen.getByText('‹').closest('button');
-      expect(backButton).toBeInTheDocument();
-    });
-  });
-
-  test('all buttons are clickable', async () => {
-    render(<SettingsScreen onBack={mockOnBack} city={city} userName={userName} />);
-
-    await waitFor(() => {
-      const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBeGreaterThan(0);
-    });
+  test('sign out asks first', async () => {
+    await renderAs(IDS.ananya, 'Ananya Sharma');
+    window.confirm = jest.fn(() => false);
+    fireEvent.click(screen.getByText('Sign out'));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(db.user).not.toBeNull();
   });
 });

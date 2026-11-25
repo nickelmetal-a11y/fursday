@@ -256,11 +256,10 @@ describe('Admin trust & safety scenarios', () => {
       };
 
       await mountSettings();
-      await waitFor(() => {
-        fireEvent.click(screen.getByText(/SOS — Call Fursday Support Now/));
-        expect(window.location.href).toBe('tel:+919315578325');
-      });
-      fireEvent.click(screen.getByText('📖 Help & FAQ'));
+      fireEvent.click(screen.getByText(/SOS — Emergency help/));
+      fireEvent.click(await screen.findByText('Call Fursday support'));
+      expect(window.location.href).toBe('tel:+919315578325');
+      fireEvent.click(screen.getByText('WhatsApp support with my location'));
       expect(window.open).toHaveBeenLastCalledWith(expect.stringContaining('https://wa.me/919315578325'), '_blank');
       cleanup();
 
@@ -276,11 +275,10 @@ describe('Admin trust & safety scenarios', () => {
 
       window.location.href = '';
       await mountSettings();
-      await waitFor(() => {
-        fireEvent.click(screen.getByText(/SOS — Call Fursday Support Now/));
-        expect(window.location.href).toBe('tel:+919876543210');
-      });
-      fireEvent.click(screen.getByText('📖 Help & FAQ'));
+      fireEvent.click(screen.getByText(/SOS — Emergency help/));
+      fireEvent.click(await screen.findByText('Call Fursday support'));
+      expect(window.location.href).toBe('tel:+919876543210');
+      fireEvent.click(screen.getByText('WhatsApp support with my location'));
       expect(window.open).toHaveBeenLastCalledWith(expect.stringContaining('https://wa.me/919123456789'), '_blank');
     } finally {
       window.location = realLocation;

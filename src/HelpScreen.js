@@ -29,7 +29,7 @@ const FAQ = [
   { group: 'sitter', q: { en: 'How do I get approved as a sitter?', hi: 'सिटर के रूप में मंज़ूरी कैसे मिलती है?' },
     a: { en: 'Finish all 8 signup steps, including Aadhaar and UPI. The team reviews you, usually within 24 to 48 hours. If something needs fixing, you will see the reason on your profile; update it and we review again.', hi: 'आधार और UPI सहित सभी 8 साइनअप स्टेप पूरे करें। टीम आमतौर पर 24 से 48 घंटे में जाँच करती है। अगर कुछ ठीक करना है, तो कारण आपकी प्रोफ़ाइल पर दिखेगा; उसे अपडेट करें और हम दोबारा जाँच करेंगे।' } },
   { group: 'sitter', q: { en: 'How much does Fursday take?', hi: 'Fursday कितना कमीशन लेता है?' },
-    a: { en: 'A flat 15% of each booking, so you keep 85%. The first 20 approved sitters (Founding Sitters) pay 0%.', hi: 'हर बुकिंग का सिर्फ़ 15%, यानी 85% आपका। पहले 20 मंज़ूर सिटर (फ़ाउंडिंग सिटर) 0% देते हैं।' } },
+    a: { en: 'The Fursday commission is a flat 15% of each booking, so you keep 85%. The first 20 approved sitters (Founding Sitters) pay 0%.', hi: 'हर बुकिंग का सिर्फ़ 15%, यानी 85% आपका। पहले 20 मंज़ूर सिटर (फ़ाउंडिंग सिटर) 0% देते हैं।' } },
   { group: 'sitter', q: { en: 'When do I get paid?', hi: 'मुझे भुगतान कब मिलता है?' },
     a: { en: 'After a booking is marked complete, your share goes to the UPI ID on your profile, normally within 48 hours. Check Earnings for the status of each payout.', hi: 'बुकिंग पूरी होने के बाद आपका हिस्सा आपकी प्रोफ़ाइल वाले UPI ID पर आमतौर पर 48 घंटे में आता है। हर भुगतान की स्थिति कमाई सेक्शन में देखें।' } },
   { group: 'sitter', q: { en: 'How do I start and finish a walk?', hi: 'सैर कैसे शुरू और खत्म करें?' },
