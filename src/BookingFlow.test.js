@@ -26,7 +26,14 @@ jest.mock('./supabase', () => {
     eq: () => citiesTable,
     single: () => Promise.resolve({ data: { id: 'city-1' } }),
   };
-  const bookingsTable = { insert: (row) => { global.__bookingInserts.push(row); return Promise.resolve({ data: row, error: null }); } };
+  const bookingsTable = {
+    insert: (row) => {
+      global.__bookingInserts.push(row);
+      return {
+        select: () => ({ single: () => Promise.resolve({ data: { id: 'booking-1' }, error: null }) }),
+      };
+    },
+  };
   const jobsTable = { insert: (row) => { global.__notifJobInserts.push(row); return Promise.resolve({ data: row, error: null }); } };
   return {
     supabase: {

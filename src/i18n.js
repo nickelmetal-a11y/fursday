@@ -441,7 +441,23 @@ const translations = {
     trustAadhaar: 'Aadhaar-verified sitters',
     trustGps: 'Live GPS every walk',
     trustInsurance: '₹25K vet insurance',
-  
+
+    // ── Home-screen promo banner + BookingFlow promo-code redemption ────
+    home_promoTitle: 'Get ₹100 off your first booking',
+    home_promoCodeLabel: 'Use code',
+    home_promoCopyButton: 'Copy',
+    home_promoCopied: 'Copied!',
+    bookingFlow_promoCodeLabel: 'Have a promo code?',
+    bookingFlow_promoCodePlaceholder: 'Enter code',
+    bookingFlow_promoApplyButton: 'Apply',
+    bookingFlow_promoApplying: 'Checking...',
+    bookingFlow_promoAppliedLabel: '{code} applied',
+    bookingFlow_promoRemove: 'Remove',
+    bookingFlow_promoDiscountLine: 'Promo discount',
+    bookingFlow_promoErrInvalid: 'Invalid or expired code',
+    bookingFlow_promoErrAlreadyUsed: "You've already used this code",
+    bookingFlow_promoErrMinAmount: 'Minimum booking amount for this code is {amount}',
+
     // ── Merged from screen-level registerTranslations() (SitterOnboarding, ParentOnboarding,
     // BroadcastRequest, PaymentScreen, BookingFlow, CancellationPolicyModal, PhotoUploadModal,
     // ReviewModal, BookingReceipt, WalkReportCard, DisputeForm, NotificationCenter, SitterProfile) ──
@@ -1461,7 +1477,23 @@ const translations = {
     trustAadhaar: 'आधार-सत्यापित सिटर',
     trustGps: 'हर वॉक में लाइव GPS',
     trustInsurance: '₹25K पशु चिकित्सा बीमा',
-  
+
+    // ── Home-screen promo banner + BookingFlow promo-code redemption ────
+    home_promoTitle: 'अपनी पहली बुकिंग पर ₹100 की छूट पाएं',
+    home_promoCodeLabel: 'कोड का उपयोग करें',
+    home_promoCopyButton: 'कॉपी करें',
+    home_promoCopied: 'कॉपी हो गया!',
+    bookingFlow_promoCodeLabel: 'क्या आपके पास प्रोमो कोड है?',
+    bookingFlow_promoCodePlaceholder: 'कोड दर्ज करें',
+    bookingFlow_promoApplyButton: 'लागू करें',
+    bookingFlow_promoApplying: 'जांच हो रही है...',
+    bookingFlow_promoAppliedLabel: '{code} लागू किया गया',
+    bookingFlow_promoRemove: 'हटाएं',
+    bookingFlow_promoDiscountLine: 'प्रोमो छूट',
+    bookingFlow_promoErrInvalid: 'अमान्य या समाप्त हो चुका कोड',
+    bookingFlow_promoErrAlreadyUsed: 'आप पहले से ही इस कोड का उपयोग कर चुके हैं',
+    bookingFlow_promoErrMinAmount: 'इस कोड के लिए न्यूनतम बुकिंग राशि {amount} है',
+
     // ── Merged from screen-level registerTranslations() (see matching comment in en) ──
     bookingFlow_stepService: "सेवा",
     bookingFlow_stepSchedule: "समय",

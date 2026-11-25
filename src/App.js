@@ -96,6 +96,7 @@ export default function App() {
   const [logoTaps, setLogoTaps]           = useState(0);
   const [search, setSearch]               = useState('');
   const [locationLoading, setLocationLoading] = useState(true);
+  const [promoCopied, setPromoCopied] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [regionRestricted, setRegionRestricted] = useState(false);
   const [userIP, setUserIP] = useState(null);
@@ -437,6 +438,20 @@ export default function App() {
           <div style={{ padding:'0 16px 0' }}>
             <button onClick={() => { setActiveNav('explore'); setShowExplore(true); }}
               style={{ width:'100%', padding:'14px', background:theme.primary, border:'none', borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>🔍 {tr('common_seeAll')} {tr('nav_explore').toLowerCase()}</button>
+          </div>
+
+          {/* First-booking promo banner */}
+          <div style={{ padding:'0 16px 16px' }}>
+            <div style={{ background:'linear-gradient(135deg, #FF6B35, #FF8C5A)', borderRadius:14, padding:14, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+              <div>
+                <div style={{ color:'white', fontSize:13, fontWeight:700, marginBottom:4 }}>🎁 {tr('home_promoTitle')}</div>
+                <div style={{ color:'rgba(255,255,255,0.85)', fontSize:11 }}>{tr('home_promoCodeLabel')}: <strong style={{ letterSpacing:1 }}>WELCOME100</strong></div>
+              </div>
+              <button onClick={() => { navigator.clipboard?.writeText('WELCOME100'); setPromoCopied(true); setTimeout(() => setPromoCopied(false), 2000); }}
+                style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:8, padding:'8px 14px', color:'white', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                {promoCopied ? tr('home_promoCopied') : tr('home_promoCopyButton')}
+              </button>
+            </div>
           </div>
 
           {/* Service quick access */}

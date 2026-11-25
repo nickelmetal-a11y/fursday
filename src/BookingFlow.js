@@ -86,6 +86,10 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const [aggressionConfirmed, setAggressionConfirmed] = useState(false);
   const [temperature, setTemperature] = useState(null);
   const [heatWarningDismissed, setHeatWarningDismissed] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoApplying, setPromoApplying] = useState(false);
+  const [promoError, setPromoError] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null); // {id, code, discountAmount}
 
   const days = getDays();
 
@@ -120,6 +124,38 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const isWalker = selectedService === 'walk30';
   const basePrice = service ? service.price + getPriceAdjustment() : 0;
   const totalPrice = isBoarding ? basePrice * nights : basePrice;
+  const finalPrice = Math.max(0, totalPrice - (appliedPromo?.discountAmount || 0));
+
+  const applyPromoCode = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoApplying(true);
+    setPromoError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: promo } = await supabase.from('promo_codes').select('*').eq('code', code).eq('status', 'active').maybeSingle();
+      if (!promo) { setPromoError(tr('bookingFlow_promoErrInvalid')); setPromoApplying(false); return; }
+      if (promo.min_booking_amount && totalPrice < promo.min_booking_amount) {
+        setPromoError(tr('bookingFlow_promoErrMinAmount', { amount: tr('bookingFlow_currencyPrefix') + promo.min_booking_amount }));
+        setPromoApplying(false);
+        return;
+      }
+      if (user) {
+        const { data: usage } = await supabase.from('promo_usage').select('id').eq('promo_code_id', promo.id).eq('user_id', user.id).maybeSingle();
+        if (usage) { setPromoError(tr('bookingFlow_promoErrAlreadyUsed')); setPromoApplying(false); return; }
+      }
+      const pctDiscount = promo.discount_percent ? (totalPrice * promo.discount_percent / 100) : 0;
+      const flatDiscount = promo.discount_amount || 0;
+      let discount = Math.max(pctDiscount, flatDiscount);
+      if (promo.max_discount_amount) discount = Math.min(discount, promo.max_discount_amount);
+      discount = Math.min(discount, totalPrice);
+      setAppliedPromo({ id: promo.id, code: promo.code, discountAmount: discount });
+      setPromoInput('');
+    } catch (e) {
+      setPromoError(tr('bookingFlow_promoErrInvalid'));
+    }
+    setPromoApplying(false);
+  };
 
   useEffect(() => { loadPets(); }, []);
 
@@ -162,14 +198,14 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
       setBookingRef(ref);
       const bookingDate = new Date();
       bookingDate.setDate(bookingDate.getDate() + selectedDay);
-      const { error: bookingError } = await supabase.from('bookings').insert({
+      const { data: bookingData, error: bookingError } = await supabase.from('bookings').insert({
         pet_parent_id: user ? user.id : null,
         sitter_id: sitter?.id || null,
         city_id: cityRow?.id || null,
         service_type: selectedService,
         booking_date: bookingDate.toISOString().split('T')[0],
         time_slot: selectedTime || dropTime || '07:00',
-        gross_amount_paise: totalPrice * 100,
+        gross_amount_paise: Math.round(finalPrice * 100),
         sitter_payout_paise: totalPrice * 100,
         end_date: isBoarding ? (() => { const d=new Date(); d.setDate(d.getDate()+endDayOffset); return d.toISOString().split('T')[0]; })() : null,
         pickup_time: isDaycare ? pickTime : null,
@@ -181,11 +217,21 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         booking_ref: ref,
         start_otp: startOtp,
         pet_id: selectedPet || null,
-      });
+      }).select('id').single();
       if (bookingError) {
         alert(tr('bookingFlow_alertCreateFailedPrefix') + bookingError.message);
         setProcessing(false);
         return;
+      }
+
+      if (appliedPromo && user && bookingData?.id) {
+        const { error: promoUsageError } = await supabase.from('promo_usage').insert({
+          promo_code_id: appliedPromo.id,
+          booking_id: bookingData.id,
+          user_id: user.id,
+          discount_amount: appliedPromo.discountAmount,
+        });
+        if (promoUsageError) console.error('Failed to record promo usage:', promoUsageError);
       }
 
       // TIER 3: Send heat advisory notification if booking is during hot months
@@ -543,18 +589,41 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 { label:service.name, val:tr('bookingFlow_currencyPrefix')+service.price },
                 getPriceAdjustment()>0?{ label:tr('bookingFlow_sizeNeedsAdjustment'), val:'+'+tr('bookingFlow_currencyPrefix')+getPriceAdjustment() }:null,
                 { label:tr('bookingFlow_platformFee'), val:tr('bookingFlow_currencyPrefix')+'0' },
+                appliedPromo?{ label:tr('bookingFlow_promoDiscountLine')+' ('+appliedPromo.code+')', val:'-'+tr('bookingFlow_currencyPrefix')+appliedPromo.discountAmount, highlight:true }:null,
                               ].filter(Boolean).map((item,i,arr) => (
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:i<arr.length-1?'1px solid #F5F5F5':'none' }}>
                   <div>
-                    <span style={{ fontSize:13, color:'#555' }}>{item.label}</span>
+                    <span style={{ fontSize:13, color:item.highlight?'#2E7D32':'#555' }}>{item.label}</span>
                     {item.note && <span style={{ fontSize:11, color:'#2E7D32', marginLeft:6 }}>{item.note}</span>}
                   </div>
-                  <span style={{ fontSize:13, fontWeight:500, color:'#1a1a1a' }}>{item.val}</span>
+                  <span style={{ fontSize:13, fontWeight:500, color:item.highlight?'#2E7D32':'#1a1a1a' }}>{item.val}</span>
                 </div>
               ))}
+
+              <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #F5F5F5' }}>
+                {appliedPromo ? (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12, color:'#2E7D32', fontWeight:600 }}>✓ {tr('bookingFlow_promoAppliedLabel', { code: appliedPromo.code })}</span>
+                    <button onClick={() => setAppliedPromo(null)} style={{ background:'none', border:'none', color:'#C62828', fontSize:12, fontWeight:600, cursor:'pointer' }}>{tr('bookingFlow_promoRemove')}</button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <input value={promoInput} onChange={e => { setPromoInput(e.target.value); setPromoError(''); }} placeholder={tr('bookingFlow_promoCodePlaceholder')}
+                        style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E8E8E8', fontSize:13, outline:'none', textTransform:'uppercase' }} />
+                      <button onClick={applyPromoCode} disabled={promoApplying || !promoInput.trim()}
+                        style={{ padding:'0 18px', borderRadius:10, border:'none', background:promoInput.trim()?ORANGE:'#F0F0F0', color:promoInput.trim()?'white':'#AAA', fontSize:13, fontWeight:700, cursor:promoInput.trim()?'pointer':'default' }}>
+                        {promoApplying ? tr('bookingFlow_promoApplying') : tr('bookingFlow_promoApplyButton')}
+                      </button>
+                    </div>
+                    {promoError && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{promoError}</div>}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, paddingTop:10, borderTop:'2px solid #F0F0F0' }}>
                 <span style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{tr('bookingFlow_totalLabel')}</span>
-                <span style={{ fontSize:18, fontWeight:800, color:ORANGE }}>{tr('bookingFlow_currencyPrefix')}{totalPrice}</span>
+                <span style={{ fontSize:18, fontWeight:800, color:ORANGE }}>{tr('bookingFlow_currencyPrefix')}{finalPrice}</span>
               </div>
             </div>
             <div style={{ background:'#E8F5E9', borderRadius:14, padding:'10px 14px', display:'flex', gap:8, marginBottom:12 }}>
