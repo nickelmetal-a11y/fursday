@@ -17,6 +17,25 @@ A `SessionStart` hook in `.claude/settings.json` re-injects this rule automatica
 
 ---
 
+## 📱 IF YOU ARE A MAC SESSION — DO THIS FIRST (added 2026-11-25)
+
+The Windows session just fixed 4 real bugs found by testing in Xcode on a real iPhone (zoom/viewport, safe-area overlap, the bottom-nav-drifts-while-scrolling WKWebView bug, and a stale bundled web build) — all committed locally (not pushed to GitHub — see the sync note below). It cannot run `pod install` or Xcode itself (Mac-only). **Your job: get those fixes onto a real device.**
+
+1. **Open this exact folder on the Mac** (it's the same project, synced — do not `git clone` a fresh copy, and no `git pull` is needed either; if for some reason this Mac's copy isn't the synced one, see the note below).
+2. Confirm you're on the right commit: `git log -1 --oneline` should show `fb1db95` or later (iOS viewport/safe-area fixes + sitter onboarding redesign). If it shows something older, the sync hasn't caught up yet — wait for Synology Drive, or ask the user.
+3. `npm run build` (rebuilds the web bundle — do this before syncing, not just before `pod install`).
+4. `npx cap sync ios` (copies the fresh build into `ios/App/App/public/` — this step was already run once from Windows, but do it again on the Mac since you're about to run `pod install` right after and want both in sync).
+5. `cd ios/App && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` (the `LANG`/`LC_ALL` are required — CocoaPods' Ruby throws an encoding error without them; see Session 8 below).
+6. Open `ios/App/App.xcworkspace` in Xcode (**not** `.xcodeproj`) and Run on a real device or simulator.
+7. Test specifically: pinch-zoom should no longer get stuck, the bottom nav bars should stay pinned while scrolling any list, the language toggle shouldn't overlap the status bar/notch, and all the Hindi translation strings (Explore filters, Bookings, Chat, Settings, etc.) should render as real text, not raw keys like `explore_filterAll`.
+8. Report back in this file (new dated entry below, same pattern as every other session) — what worked, what didn't, any new bugs found on-device.
+
+**Note on sync:** local git history on the Windows machine was 22 commits ahead of `origin/master` (GitHub) as of `fb1db95` — the two machines have been collaborating via Synology Drive file-sync of this whole folder, not via git push/pull, per the SHARED-INSTANCE RULE above. If anything about that changes (e.g. someone starts pushing), reconcile carefully rather than force-pushing.
+
+Android: the Windows session is installing Android Studio + a JDK locally (user approved) to attempt an Android build from Windows directly — that's a separate track from this iOS one, not something this Mac session needs to do.
+
+---
+
 ## 📋 PROJECT OVERVIEW
 
 **Fursday** is a pet care marketplace connecting pet parents with vetted sitters for walks, boarding, daycare, etc.
