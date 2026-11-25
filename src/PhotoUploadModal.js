@@ -1,50 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Check } from 'lucide-react';
 import { supabase } from './supabase';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    photoUpload_maxPhotosError: 'Maximum 3 photos allowed',
-    photoUpload_minPhotosError: 'Please upload at least 1 photo',
-    photoUpload_uploadFailedFallback: 'Upload failed',
-    photoUpload_saveFailedFallback: 'Failed to save photos',
-    photoUpload_successTitle: 'Photos uploaded!',
-    photoUpload_successBody: 'Pet parent will receive your walk proof',
-    photoUpload_title: 'Walk photos',
-    photoUpload_proofHeading: '📸 Proof of service',
-    photoUpload_proofBody: 'Upload 1-3 photos showing your walk with {pet}. Parents love seeing proof!',
-    photoUpload_thePetFallback: 'the pet',
-    photoUpload_addLabel: 'Add',
-    photoUpload_moreLabel: 'More',
-    photoUpload_countLabel: '{count}/3 photos • Max 2MB each',
-    photoUpload_skipForNow: 'Skip for now',
-    photoUpload_uploadingButton: 'Uploading...',
-    photoUpload_uploadPhotosButton: 'Upload photos',
-    photoUpload_selectPhotosButton: 'Select photos',
-    photoUpload_photoAlt: 'Photo {num}',
-  },
-  hi: {
-    photoUpload_maxPhotosError: 'अधिकतम 3 फ़ोटो की अनुमति है',
-    photoUpload_minPhotosError: 'कृपया कम से कम 1 फ़ोटो अपलोड करें',
-    photoUpload_uploadFailedFallback: 'अपलोड विफल रहा',
-    photoUpload_saveFailedFallback: 'फ़ोटो सहेजने में विफल',
-    photoUpload_successTitle: 'फ़ोटो अपलोड हो गईं!',
-    photoUpload_successBody: 'पालतू जानवर के मालिक को आपकी वॉक का प्रमाण मिलेगा',
-    photoUpload_title: 'वॉक फ़ोटो',
-    photoUpload_proofHeading: '📸 सेवा का प्रमाण',
-    photoUpload_proofBody: '{pet} के साथ अपनी वॉक दिखाने वाली 1-3 फ़ोटो अपलोड करें। मालिकों को प्रमाण देखना अच्छा लगता है!',
-    photoUpload_thePetFallback: 'पालतू जानवर',
-    photoUpload_addLabel: 'जोड़ें',
-    photoUpload_moreLabel: 'और',
-    photoUpload_countLabel: '{count}/3 फ़ोटो • प्रत्येक अधिकतम 2MB',
-    photoUpload_skipForNow: 'अभी के लिए छोड़ें',
-    photoUpload_uploadingButton: 'अपलोड हो रहा है...',
-    photoUpload_uploadPhotosButton: 'फ़ोटो अपलोड करें',
-    photoUpload_selectPhotosButton: 'फ़ोटो चुनें',
-    photoUpload_photoAlt: 'फ़ोटो {num}',
-  },
-});
 
 const compressImage = (file, maxSizeMB = 2) => new Promise((resolve) => {
   const reader = new FileReader();

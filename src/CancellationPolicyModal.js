@@ -1,70 +1,8 @@
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { supabase } from './supabase';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    cancelPolicy_title: 'Cancellation Policy',
-    cancelPolicy_advisory: 'Cancelling within 24 hours of your booking may result in no refund.',
-    cancelPolicy_refundRulesHeading: 'REFUND RULES',
-    cancelPolicy_tier72Label: 'Cancel 72+ hours before',
-    cancelPolicy_tier72Refund: '100% refund',
-    cancelPolicy_tier2472Label: 'Cancel 24-72 hours before',
-    cancelPolicy_tier2472Refund: '75% refund',
-    cancelPolicy_tier024Label: 'Cancel 0-24 hours before',
-    cancelPolicy_tier024Refund: 'No refund',
-    cancelPolicy_yourRefund: 'Your refund',
-    cancelPolicy_refundFull100: 'Full refund (100%)',
-    cancelPolicy_keepBooking: 'Keep booking',
-    cancelPolicy_cancelBooking: 'Cancel booking',
-    cancelPolicy_whyCancelling: 'Why are you cancelling?',
-    cancelPolicy_helpsImprove: 'This helps us improve our service.',
-    cancelPolicy_reasonEmergency: 'Emergency or urgent conflict',
-    cancelPolicy_reasonSitterCancellation: 'Sitter cancellation',
-    cancelPolicy_reasonPetSick: 'Pet is sick',
-    cancelPolicy_reasonWeather: 'Weather concern',
-    cancelPolicy_reasonChangeOfPlans: 'Change of plans',
-    cancelPolicy_reasonOther: 'Other',
-    cancelPolicy_confirmTitle: 'Confirm cancellation',
-    cancelPolicy_refundEta: 'You will receive {amount} refund within 3-5 business days.',
-    cancelPolicy_yourReasonLabel: 'Your reason:',
-    cancelPolicy_cancelling: 'Cancelling...',
-    cancelPolicy_confirmButton: 'Yes, cancel this booking',
-    cancelPolicy_cancelFailedAlert: 'Could not cancel booking: ',
-    cancelPolicy_cancelErrorAlert: 'Error cancelling booking: ',
-  },
-  hi: {
-    cancelPolicy_title: 'रद्दीकरण नीति',
-    cancelPolicy_advisory: 'बुकिंग के 24 घंटे के भीतर रद्द करने पर रिफंड नहीं मिल सकता है।',
-    cancelPolicy_refundRulesHeading: 'रिफंड नियम',
-    cancelPolicy_tier72Label: '72+ घंटे पहले रद्द करें',
-    cancelPolicy_tier72Refund: '100% रिफंड',
-    cancelPolicy_tier2472Label: '24-72 घंटे पहले रद्द करें',
-    cancelPolicy_tier2472Refund: '75% रिफंड',
-    cancelPolicy_tier024Label: '0-24 घंटे पहले रद्द करें',
-    cancelPolicy_tier024Refund: 'कोई रिफंड नहीं',
-    cancelPolicy_yourRefund: 'आपका रिफंड',
-    cancelPolicy_refundFull100: 'पूरा रिफंड (100%)',
-    cancelPolicy_keepBooking: 'बुकिंग रखें',
-    cancelPolicy_cancelBooking: 'बुकिंग रद्द करें',
-    cancelPolicy_whyCancelling: 'आप क्यों रद्द कर रहे हैं?',
-    cancelPolicy_helpsImprove: 'इससे हमें अपनी सेवा सुधारने में मदद मिलती है।',
-    cancelPolicy_reasonEmergency: 'आपातकाल या जरूरी टकराव',
-    cancelPolicy_reasonSitterCancellation: 'सिटर ने रद्द किया',
-    cancelPolicy_reasonPetSick: 'पालतू जानवर बीमार है',
-    cancelPolicy_reasonWeather: 'मौसम की चिंता',
-    cancelPolicy_reasonChangeOfPlans: 'योजना बदल गई',
-    cancelPolicy_reasonOther: 'अन्य',
-    cancelPolicy_confirmTitle: 'रद्दीकरण की पुष्टि करें',
-    cancelPolicy_refundEta: 'आपको 3-5 कार्य दिवसों के भीतर {amount} रिफंड मिलेगा।',
-    cancelPolicy_yourReasonLabel: 'आपका कारण:',
-    cancelPolicy_cancelling: 'रद्द किया जा रहा है...',
-    cancelPolicy_confirmButton: 'हां, यह बुकिंग रद्द करें',
-    cancelPolicy_cancelFailedAlert: 'बुकिंग रद्द नहीं हो सकी: ',
-    cancelPolicy_cancelErrorAlert: 'बुकिंग रद्द करने में त्रुटि: ',
-  },
-});
 
 const calculateRefund = (bookingDate) => {
   const now = new Date();

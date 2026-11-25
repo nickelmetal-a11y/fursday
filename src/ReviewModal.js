@@ -1,44 +1,8 @@
 import React, { useState } from 'react';
 import { Star, X } from 'lucide-react';
 import { supabase } from './supabase';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    review_selectRatingError: 'Please select a rating',
-    review_minLengthError: 'Review must be at least 10 characters',
-    review_submitFailedFallback: 'Failed to submit review',
-    review_title: 'Rate your experience',
-    review_howWasExperience: 'How was your experience with {name}?',
-    review_ratingPoor: 'Poor',
-    review_ratingNeedsImprovement: 'Needs improvement',
-    review_ratingGood: 'Good',
-    review_ratingVeryGood: 'Very good',
-    review_ratingExcellent: 'Excellent',
-    review_textareaPlaceholder: 'Tell other pet parents about your experience... (min. 10 characters)',
-    review_charCount: '{count}/500',
-    review_skip: 'Skip',
-    review_submitButton: 'Submit review',
-    review_submittingButton: 'Submitting...',
-  },
-  hi: {
-    review_selectRatingError: 'कृपया एक रेटिंग चुनें',
-    review_minLengthError: 'समीक्षा कम से कम 10 अक्षरों की होनी चाहिए',
-    review_submitFailedFallback: 'समीक्षा सबमिट करने में विफल',
-    review_title: 'अपना अनुभव रेट करें',
-    review_howWasExperience: '{name} के साथ आपका अनुभव कैसा रहा?',
-    review_ratingPoor: 'खराब',
-    review_ratingNeedsImprovement: 'सुधार की ज़रूरत है',
-    review_ratingGood: 'अच्छा',
-    review_ratingVeryGood: 'बहुत अच्छा',
-    review_ratingExcellent: 'उत्कृष्ट',
-    review_textareaPlaceholder: 'अन्य पालतू जानवरों के मालिकों को अपने अनुभव के बारे में बताएं... (न्यूनतम 10 अक्षर)',
-    review_charCount: '{count}/500',
-    review_skip: 'छोड़ें',
-    review_submitButton: 'समीक्षा सबमिट करें',
-    review_submittingButton: 'सबमिट हो रहा है...',
-  },
-});
 
 export default function ReviewModal({ booking, onClose, onSubmitted }) {
   const { t: tr } = useLanguage();

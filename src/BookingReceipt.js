@@ -1,59 +1,7 @@
 import React from 'react';
 import { CheckCircle, Phone, MessageCircle, Calendar, Clock, MapPin } from 'lucide-react';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    receipt_confirmedHeading: 'Booking Confirmed!',
-    receipt_confirmedBody: 'Payment received. Your sitter has been notified.',
-    receipt_bookingDetails: 'Booking details',
-    receipt_labelBookingRef: 'Booking ref',
-    receipt_labelService: 'Service',
-    receipt_labelAmountPaid: 'Amount paid',
-    receipt_labelDate: 'Date',
-    receipt_labelTime: 'Time',
-    receipt_labelStatus: 'Status',
-    receipt_dateFallbackConfirmed: 'Confirmed',
-    receipt_timeFallbackAsBooked: 'As booked',
-    receipt_statusPaidConfirmed: '✓ Paid & Confirmed',
-    receipt_yourSitter: 'Your sitter',
-    receipt_sitterFallbackName: 'Your sitter',
-    receipt_sitterOnTime: 'Will be there on time 🐾',
-    receipt_callSitter: 'Call sitter',
-    receipt_message: 'Message',
-    receipt_whatsNextHeading: 'What happens next?',
-    receipt_bullet1: 'Your sitter will confirm the booking within 1 hour',
-    receipt_bullet2: 'Share your flat/tower details if not already done',
-    receipt_bullet3: 'Relax — your dog is in safe hands',
-    receipt_viewBookings: 'View my bookings',
-    receipt_backToHome: 'Back to home',
-  },
-  hi: {
-    receipt_confirmedHeading: 'बुकिंग पक्की हो गई!',
-    receipt_confirmedBody: 'भुगतान प्राप्त हो गया है। आपके सिटर को सूचित कर दिया गया है।',
-    receipt_bookingDetails: 'बुकिंग विवरण',
-    receipt_labelBookingRef: 'बुकिंग रेफ',
-    receipt_labelService: 'सेवा',
-    receipt_labelAmountPaid: 'भुगतान राशि',
-    receipt_labelDate: 'तारीख',
-    receipt_labelTime: 'समय',
-    receipt_labelStatus: 'स्थिति',
-    receipt_dateFallbackConfirmed: 'पुष्ट',
-    receipt_timeFallbackAsBooked: 'बुक किए अनुसार',
-    receipt_statusPaidConfirmed: '✓ भुगतान हुआ और पक्का',
-    receipt_yourSitter: 'आपका सिटर',
-    receipt_sitterFallbackName: 'आपका सिटर',
-    receipt_sitterOnTime: 'समय पर पहुंचेंगे 🐾',
-    receipt_callSitter: 'सिटर को कॉल करें',
-    receipt_message: 'संदेश',
-    receipt_whatsNextHeading: 'आगे क्या होगा?',
-    receipt_bullet1: 'आपका सिटर 1 घंटे के भीतर बुकिंग की पुष्टि करेगा',
-    receipt_bullet2: 'यदि अभी तक नहीं किया है तो अपने फ्लैट/टावर की जानकारी साझा करें',
-    receipt_bullet3: 'निश्चिंत रहें — आपका कुत्ता सुरक्षित हाथों में है',
-    receipt_viewBookings: 'मेरी बुकिंग देखें',
-    receipt_backToHome: 'होम पर वापस जाएं',
-  },
-});
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },

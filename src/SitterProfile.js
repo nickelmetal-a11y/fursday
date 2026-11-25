@@ -1,49 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Star, Shield, ArrowLeft, Heart, Share2, CheckCircle } from 'lucide-react';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    sitterProfile_nameFallback: 'Care pro',
-    sitterProfile_topProBadge: 'Top pro',
-    sitterProfile_areaFallback: 'Your area',
-    sitterProfile_ratingValue: '{rating} star',
-    sitterProfile_statRatingLabel: 'Rating',
-    sitterProfile_statWalksDoneLabel: 'Walks done',
-    sitterProfile_statFromLabel: 'From',
-    sitterProfile_verifiedTitle: 'Verified and trusted',
-    sitterProfile_aadhaarVerifiedText: 'Aadhaar identity verified',
-    sitterProfile_backgroundCheckedText: 'Background checked',
-    sitterProfile_servicesTitle: 'Services offered',
-    sitterProfile_tagWalk30: 'Dog walking',
-    sitterProfile_tagBoarding: 'Home boarding',
-    sitterProfile_tagDaycare: 'Doggy daycare',
-    sitterProfile_reviewsTitle: 'Reviews',
-    sitterProfile_noReviewsTitle: 'No reviews yet',
-    sitterProfile_noReviewsSub: 'Be the first to book {name} and leave a review.',
-    sitterProfile_bookNowButton: 'Book now',
-  },
-  hi: {
-    sitterProfile_nameFallback: 'केयर प्रो',
-    sitterProfile_topProBadge: 'टॉप प्रो',
-    sitterProfile_areaFallback: 'आपका क्षेत्र',
-    sitterProfile_ratingValue: '{rating} स्टार',
-    sitterProfile_statRatingLabel: 'रेटिंग',
-    sitterProfile_statWalksDoneLabel: 'वॉक पूरी हुईं',
-    sitterProfile_statFromLabel: 'शुरुआती कीमत',
-    sitterProfile_verifiedTitle: 'सत्यापित और भरोसेमंद',
-    sitterProfile_aadhaarVerifiedText: 'आधार पहचान सत्यापित',
-    sitterProfile_backgroundCheckedText: 'बैकग्राउंड चेक हुआ',
-    sitterProfile_servicesTitle: 'उपलब्ध सेवाएं',
-    sitterProfile_tagWalk30: 'डॉग वॉकिंग',
-    sitterProfile_tagBoarding: 'होम बोर्डिंग',
-    sitterProfile_tagDaycare: 'डॉगी डेकेयर',
-    sitterProfile_reviewsTitle: 'रिव्यू',
-    sitterProfile_noReviewsTitle: 'अभी तक कोई रिव्यू नहीं',
-    sitterProfile_noReviewsSub: '{name} को बुक करने वाले और रिव्यू देने वाले पहले व्यक्ति बनें।',
-    sitterProfile_bookNowButton: 'अभी बुक करें',
-  },
-});
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB' },

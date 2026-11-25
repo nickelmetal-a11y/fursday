@@ -1,30 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, CheckCircle, MessageCircle, AlertCircle, Gift } from 'lucide-react';
 import { supabase } from './supabase';
-import { useLanguage, registerTranslations } from './i18n';
+import { useLanguage } from './i18n';
 
-registerTranslations({
-  en: {
-    notifications_title: 'Notifications',
-    notifications_allCaughtUp: 'All caught up!',
-    notifications_noNewNotifications: 'No new notifications',
-    notifications_justNow: 'just now',
-    notifications_minutesAgo: '{n}m ago',
-    notifications_hoursAgo: '{n}h ago',
-    notifications_daysAgo: '{n}d ago',
-    notifications_markAllRead: 'Mark all as read',
-  },
-  hi: {
-    notifications_title: 'सूचनाएं',
-    notifications_allCaughtUp: 'सब कुछ देख लिया!',
-    notifications_noNewNotifications: 'कोई नई सूचना नहीं',
-    notifications_justNow: 'अभी-अभी',
-    notifications_minutesAgo: '{n} मिनट पहले',
-    notifications_hoursAgo: '{n} घंटे पहले',
-    notifications_daysAgo: '{n} दिन पहले',
-    notifications_markAllRead: 'सभी को पढ़ा हुआ चिह्नित करें',
-  },
-});
 
 const NOTIFICATION_TYPES = {
   booking_confirmed: { icon: '✓', label: 'Booking confirmed', color: '#2E7D32' },
