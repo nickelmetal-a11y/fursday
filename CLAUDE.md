@@ -251,6 +251,14 @@ vercel --prod
 | 🟡 MED | Receipts/Invoices (Phase 3 P3) | 1 day | Next |
 | 🟢 LOW | Push notifications | 2 days | Optional |
 | 🟢 LOW | Referral program | 2 days | Optional |
+| 🅿️ PARKED | Admin website + domain setup (see below) | 1 day | Parked by user 2026-11-25 — do not start until asked |
+
+**Parked: admin website + domain setup** (user: "add that to our develop… but you can park it, as it will be admin side"):
+1. Move `fursday.in` DNS from GoDaddy to Vercel nameservers (`ns1/ns2.vercel-dns.com`), after first recreating every existing record in Vercel (apex A, `www` CNAME, Resend/SES `send` MX + SPF, `resend._domainkey`, `_dmarc`), so the site and email sending don't break. The user does the nameserver switch in GoDaddy; Claude prepares the records.
+2. Split AdminPanel into its own Vercel project at `admin.fursday.in` (same repo + Supabase, admin-only build). Remove `#admin` from the consumer app and the native bundles.
+3. Optionally move the consumer app to `app.fursday.in`.
+4. Receiving email at `@fursday.in`: Zoho Mail free plan (MX records), not paid GoDaddy email, per [[feedback_defer_cost_until_demand]].
+5. User-only actions, outside Claude's reach: turn on GoDaddy auto-renew (currently OFF); delete the unused `REACT_APP_ADMIN_PASSWORD` in Vercel.
 
 ---
 
