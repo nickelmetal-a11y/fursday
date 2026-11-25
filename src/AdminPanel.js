@@ -6,7 +6,6 @@ import AdminDisputes from './AdminDisputes';
 import AdminPromotions from './AdminPromotions';
 import { logSitterApproved, logSitterRejected, logSitterSuspended, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
-const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || '';
 const ORANGE = '#FF6B35';
 
 const STATUS_COLORS = {
@@ -27,9 +26,6 @@ const BOOKING_COLORS = {
 };
 
 export default function AdminPanel({ onBack }) {
-  const [authed, setAuthed] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [adminChecked, setAdminChecked] = useState(false);
   const [isRealAdmin, setIsRealAdmin] = useState(false);
   const [tab, setTab] = useState('pending');
@@ -44,11 +40,6 @@ export default function AdminPanel({ onBack }) {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  const login = () => {
-    if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) setAuthed(true);
-    else setError(ADMIN_PASSWORD ? 'Wrong password' : 'Admin password not configured (REACT_APP_ADMIN_PASSWORD missing)');
-  };
 
   const showMsg = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), 2500); };
 
@@ -73,14 +64,10 @@ export default function AdminPanel({ onBack }) {
     setLoading(false);
   };
 
-  // The password above is a client-side speed bump, not real auth (it's the
-  // same shared anon key as the rest of the app). The actual security
-  // boundary is RLS, which checks is_admin on whichever Supabase account is
-  // really logged into this browser (see migration 021) — so an admin also
-  // needs to be logged into the main app as an is_admin account, not just
-  // past this password screen, before any of these tables are readable.
+  // Access is decided only by RLS on the logged-in Supabase account's
+  // users.is_admin (migration 021). A client-side password was removed: any
+  // REACT_APP_* value is baked into the public JS bundle, so it protected nothing.
   useEffect(() => {
-    if (!authed) return;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsRealAdmin(false); setAdminChecked(true); return; }
@@ -88,9 +75,9 @@ export default function AdminPanel({ onBack }) {
       setIsRealAdmin(!!data?.is_admin);
       setAdminChecked(true);
     })();
-  }, [authed]);
+  }, []);
 
-  useEffect(() => { if (authed && isRealAdmin) loadData(); }, [authed, isRealAdmin]);
+  useEffect(() => { if (isRealAdmin) loadData(); }, [isRealAdmin]);
 
   const notifyAdminAction = async (sitterId, actionType, details) => {
     try {
@@ -372,22 +359,6 @@ export default function AdminPanel({ onBack }) {
   const totalGMV = completedBookings.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
   const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * sitterRate(b.sitter_id), 0);
 
-  if (!authed) return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', fontFamily: 'sans-serif' }}>
-      <div style={{ fontSize: 40, marginBottom: 16 }}>🐾</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 8 }}>Fursday Admin</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 32 }}>Enter password to continue</div>
-      {error && <div style={{ background: '#FCEBEB', borderRadius: 10, padding: '8px 14px', marginBottom: 12, fontSize: 13, color: '#A32D2D', width: '100%' }}>{error}</div>}
-      <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Admin password"
-        onKeyDown={e => e.key === 'Enter' && login()}
-        style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 15, color: 'white', outline: 'none', marginBottom: 12, boxSizing: 'border-box' }} />
-      <button onClick={login}
-        style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-        Sign in
-      </button>
-    </div>
-  );
-
   if (!adminChecked) return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', fontFamily: 'sans-serif' }}>
       Checking admin access...
@@ -399,7 +370,7 @@ export default function AdminPanel({ onBack }) {
       <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Not signed in as an admin</div>
       <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24, lineHeight: 1.6 }}>
-        The password got you past the gate, but the database only trusts a real Fursday login marked as admin. Log into the main app with an admin account in this browser, then reload this page.
+        Sign into Fursday with an admin account in this browser, then reload this page.
       </div>
       <button onClick={() => window.location.reload()}
         style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -458,7 +429,7 @@ export default function AdminPanel({ onBack }) {
           {onBack && (
             <button onClick={onBack} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back to app</button>
           )}
-          <button onClick={() => setAuthed(false)} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
+          <button onClick={async () => { await supabase.auth.signOut(); if (onBack) onBack(); else window.location.reload(); }} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
         </div>
       </div>
 

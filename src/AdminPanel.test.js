@@ -1,6 +1,6 @@
 /**
- * Unit tests for AdminPanel.js. Covers the three-stage access gate added
- * this session (password -> real Supabase admin check -> dashboard) and the
+ * Unit tests for AdminPanel.js. Covers the access gate (real Supabase
+ * is_admin check -> dashboard; no client-side password) and the
  * sitter_profiles.id vs users.id notification-routing fixes in
  * approveSitter/markPayoutPaid. See CLAUDE.md Session 10.
  */
@@ -92,12 +92,6 @@ jest.mock('./supabase', () => {
   };
 });
 
-// AdminPanel.js reads REACT_APP_ADMIN_PASSWORD into a module-level const at
-// import time, so it must be set before AdminPanel is required — and only
-// once: jest.resetModules() (to re-read a different env value later) would
-// force a second, separate copy of React alongside the one already bound to
-// @testing-library/react's static import above, breaking every hook.
-process.env.REACT_APP_ADMIN_PASSWORD = 'secret123';
 const AdminPanel = require('./AdminPanel').default;
 
 function renderAdminPanel() {
@@ -118,40 +112,25 @@ beforeEach(() => {
 
 describe('AdminPanel access gate', () => {
 
-  test('wrong password shows an error and does not get past the gate', () => {
+  test('there is no password screen', () => {
     renderAdminPanel();
-    fireEvent.change(screen.getByPlaceholderText('Admin password'), { target: { value: 'nope' } });
-    fireEvent.click(screen.getByText('Sign in'));
-    expect(screen.getByText('Wrong password')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Admin password')).not.toBeInTheDocument();
   });
 
-  // The "REACT_APP_ADMIN_PASSWORD not configured" message (login() in
-  // AdminPanel.js, for when env var is empty) isn't covered by a render
-  // test here — ADMIN_PASSWORD is captured into a module-level const at
-  // import time, and varying it per-test would require jest.resetModules(),
-  // which breaks React's hook dispatcher across the forced re-import (see
-  // the note above). It's a one-line ternary; low risk to leave unverified.
-
-  test('correct password but not a real is_admin account blocks the dashboard', async () => {
+  test('a logged-in account without is_admin is blocked', async () => {
     global.__isAdmin = false;
     renderAdminPanel();
-    fireEvent.change(screen.getByPlaceholderText('Admin password'), { target: { value: 'secret123' } });
-    fireEvent.click(screen.getByText('Sign in'));
     expect(await screen.findByText('Not signed in as an admin')).toBeInTheDocument();
   });
 
-  test('no logged-in Supabase session also blocks the dashboard, even with the right password', async () => {
+  test('no logged-in Supabase session is blocked', async () => {
     global.__mockUser = null;
     renderAdminPanel();
-    fireEvent.change(screen.getByPlaceholderText('Admin password'), { target: { value: 'secret123' } });
-    fireEvent.click(screen.getByText('Sign in'));
     expect(await screen.findByText('Not signed in as an admin')).toBeInTheDocument();
   });
 
-  test('correct password + a real is_admin account shows the dashboard', async () => {
+  test('a real is_admin account goes straight to the dashboard', async () => {
     renderAdminPanel();
-    fireEvent.change(screen.getByPlaceholderText('Admin password'), { target: { value: 'secret123' } });
-    fireEvent.click(screen.getByText('Sign in'));
     expect(await screen.findByText('Fursday Admin')).toBeInTheDocument();
     expect(screen.getByText('No pending applications')).toBeInTheDocument();
   });
@@ -160,8 +139,6 @@ describe('AdminPanel access gate', () => {
 describe('AdminPanel sitter actions', () => {
   const signIn = async () => {
     renderAdminPanel();
-    fireEvent.change(screen.getByPlaceholderText('Admin password'), { target: { value: 'secret123' } });
-    fireEvent.click(screen.getByText('Sign in'));
     await screen.findByText('Fursday Admin');
   };
 
