@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Star, X } from 'lucide-react';
 import { supabase } from './supabase';
 import { useLanguage } from './i18n';
-
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 export default function ReviewModal({ booking, onClose, onSubmitted }) {
   const { t: tr } = useLanguage();
@@ -78,54 +78,57 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
     setSubmitting(false);
   };
 
+  // Markup order matters to the scenario tests: close button first, then the
+  // five star buttons, and the textarea sits directly inside the sheet.
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', zIndex:1000 }}>
-      <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('review_title')}</div>
-          <button onClick={onClose} aria-label={tr('common_close')} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
-            <X size={20} />
+    <div style={{ position:'fixed', inset:0, background:'rgba(21,25,42,0.5)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000, fontFamily:font.family }}>
+      <div role="dialog" aria-modal="true" style={{ width:'100%', maxWidth:480, background:color.surface, borderRadius:'20px 20px 0 0', padding:'20px 20px calc(20px + env(safe-area-inset-bottom))', boxSizing:'border-box', maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ fontSize:font.lg + 2, fontWeight:700, color:color.ink }}>{tr('review_title')}</div>
+          <button type="button" onClick={onClose} aria-label={tr('common_close')}
+            style={{ width:36, height:36, borderRadius:radius.pill, border:'none', background:color.tile, color:color.text, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0, flexShrink:0 }}>
+            <Icon name="plus" size={20} style={{ transform:'rotate(45deg)' }} />
           </button>
         </div>
 
         {/* Sitter info */}
-        <div style={{ background:'#F5F5F5', borderRadius:14, padding:14, marginBottom:20 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a' }}>{tr('review_howWasExperience', { name: booking.sitter_name })}</div>
+        <div style={{ fontSize:font.md, color:color.text, marginBottom:16, textAlign:'center' }}>
+          {tr('review_howWasExperience', { name: booking.sitter_name })}
         </div>
 
         {/* Rating stars */}
-        <div style={{ display:'flex', gap:12, marginBottom:20, justifyContent:'center' }}>
+        <div style={{ display:'flex', gap:6, marginBottom:8, justifyContent:'center' }}>
           {[1, 2, 3, 4, 5].map(r => (
-            <button type="button" key={r} onClick={() => setRating(r)} aria-label={tr('review_rateStarsAria', { n: r })} aria-pressed={r === rating} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
-              <Star size={40} fill={r <= rating ? '#FFC107' : 'transparent'} color={r <= rating ? '#FFC107' : '#DDD'} />
+            <button type="button" key={r} onClick={() => setRating(r)} aria-label={tr('review_rateStarsAria', { n: r })} aria-pressed={r === rating}
+              style={{ width:52, height:52, background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center', justifyContent:'center', color:r <= rating ? color.saffron : color.line }}>
+              <Icon name={r <= rating ? 'starFilled' : 'star'} size={38} strokeWidth={1.5} />
             </button>
           ))}
         </div>
 
-        {rating > 0 && (
-          <div style={{ textAlign:'center', fontSize:13, color:'#888', marginBottom:14 }}>
-            {ratingLabels[rating - 1]}
-          </div>
-        )}
+        <div style={{ textAlign:'center', fontSize:13, fontWeight:600, color:color.text, minHeight:20, marginBottom:14 }}>
+          {rating > 0 ? ratingLabels[rating - 1] : ''}
+        </div>
 
         {/* Review text */}
         <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder={tr('review_textareaPlaceholder')} aria-label={tr('review_textareaAria')}
-          style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, resize:'none', minHeight:80, fontFamily:'inherit', boxSizing:'border-box', marginBottom:12, outline:'none' }} />
-        <div style={{ fontSize:11, color:'#AAA', marginBottom:16 }}>{tr('review_charCount', { count: reviewText.length })}</div>
+          style={{ ...ui.input, fontSize:14, resize:'none', minHeight:96, lineHeight:1.5, marginBottom:6 }} />
+        <div style={{ fontSize:font.xs, color:color.faint, marginBottom:14, textAlign:'right', fontVariantNumeric:'tabular-nums' }}>{tr('review_charCount', { count: reviewText.length })}</div>
 
         {/* Error */}
         {error && (
-          <div style={{ background:'#FCEBEB', borderRadius:10, padding:'10px 12px', marginBottom:14, fontSize:12, color:'#A32D2D' }}>
+          <div role="alert" style={{ background:color.dangerSoft, borderRadius:radius.md, padding:'10px 12px', marginBottom:14, fontSize:13, color:color.danger }}>
             {error}
           </div>
         )}
 
         {/* Buttons */}
         <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', fontSize:14, fontWeight:600, cursor:'pointer', color:'#555' }}>
+          <button type="button" onClick={onClose} style={{ ...ui.secondaryButton, flex:1, color:color.muted }}>
             {tr('review_skip')}
           </button>
-          <button onClick={submitReview} disabled={submitting || rating === 0} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:rating === 0 ? '#E0E0E0' : '#FFC107', fontSize:14, fontWeight:600, cursor:rating === 0 ? 'not-allowed' : 'pointer', color:rating === 0 ? '#AAA' : '#1a1a1a' }}>
+          <button type="button" onClick={submitReview} disabled={submitting || rating === 0}
+            style={{ ...ui.primaryButton, flex:2, background:rating === 0 ? color.line : color.navy, color:rating === 0 ? color.faint : 'white', cursor:rating === 0 ? 'not-allowed' : 'pointer' }}>
             {submitting ? tr('review_submittingButton') : tr('review_submitButton')}
           </button>
         </div>

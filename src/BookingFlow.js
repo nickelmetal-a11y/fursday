@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
-import { ArrowLeft, CheckCircle, Shield, Copy, Plus } from 'lucide-react';
 import { useLanguage } from './i18n';
-
-
-const ORANGE = '#FF6B35';
-const ORANGE_LIGHT = '#FFF0EB';
-const DARK = '#0f0f1a';
+import { color, font, radius, shadow, ui } from './theme';
+import Icon from './ui/Icon';
 
 const SERVICES = [
-  { id: 'walk30', icon: '🦮', price: 349 },
-  { id: 'boarding', icon: '🏠', price: 849 },
-  { id: 'daycare', icon: '☀️', price: 649 },
+  { id: 'walk30', icon: 'walk', price: 349 },
+  { id: 'boarding', icon: 'boarding', price: 849 },
+  { id: 'daycare', icon: 'sun', price: 649 },
 ];
 
 const SERVICE_I18N_KEYS = {
@@ -43,17 +39,14 @@ function StepBar({ step }) {
   const { t: tr } = useLanguage();
   const steps = [tr('bookingFlow_stepService'), tr('bookingFlow_stepSchedule'), tr('bookingFlow_stepPet'), tr('bookingFlow_stepReview')];
   return (
-    <div style={{ display:'flex', alignItems:'center', padding:'12px 20px', background:'white', borderBottom:'1px solid #F5F5F5' }}>
+    <div style={{ display:'grid', gridTemplateColumns:`repeat(${steps.length}, 1fr)`, gap:6, padding:'12px 16px 14px', background:color.surface, borderBottom:`1px solid ${color.line}` }}>
       {steps.map((s, i) => (
-        <React.Fragment key={i}>
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-            <div style={{ width:26, height:26, borderRadius:8, background:i<step?'#2E7D32':i===step?ORANGE:'#F0F0F0', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {i < step ? <CheckCircle size={14} color="white" /> : <span style={{ fontSize:11, fontWeight:600, color:i===step?'white':'#BBB' }}>{i+1}</span>}
-            </div>
-            <span style={{ fontSize:9, color:i===step?ORANGE:i<step?'#2E7D32':'#CCC', fontWeight:i===step?600:400 }}>{s}</span>
-          </div>
-          {i < steps.length-1 && <div style={{ flex:1, height:2, background:i<step?'#2E7D32':'#F0F0F0', margin:'0 4px 12px' }} />}
-        </React.Fragment>
+        <div key={i} aria-current={i===step ? 'step' : undefined} style={{ display:'flex', flexDirection:'column', gap:6, minWidth:0 }}>
+          <div style={{ height:4, borderRadius:radius.pill, background:i<=step?color.navy:color.line }} />
+          <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:font.xs, color:i===step?color.ink:i<step?color.text:color.faint, fontWeight:i===step?700:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {i < step && <Icon name="check" size={12} color={color.success} strokeWidth={2.4} />}{s}
+          </span>
+        </div>
       ))}
     </div>
   );
@@ -331,17 +324,41 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const sitterName = sitter?.name || tr('bookingFlow_defaultSitterName');
   const sitterArea = sitter?.area || city || 'Gurgaon';
 
+  const choiceCard = (on) => ({ ...BUTTON_RESET, width:'100%', textAlign:'left', background:color.surface, borderRadius:radius.lg, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:`1px solid ${on ? color.navy : color.line}`, boxShadow:on ? `inset 0 0 0 1px ${color.navy}` : 'none', fontFamily:font.family });
+  const timeSlot = (on) => ({ ...BUTTON_RESET, width:'100%', minHeight:44, padding:'0 8px', borderRadius:radius.md, textAlign:'center', cursor:'pointer', background:on ? color.navy : color.surface, border:`1px solid ${on ? color.navy : color.line}`, fontSize:13, fontWeight:600, color:on ? 'white' : color.text, fontVariantNumeric:'tabular-nums', fontFamily:font.family });
+  const dateTile = (on) => ({ flexShrink:0, width:54, borderRadius:radius.md, padding:'10px 6px', textAlign:'center', cursor:'pointer', background:on ? color.navy : color.surface, border:`1px solid ${on ? color.navy : color.line}`, boxSizing:'border-box' });
+  const stepTitle = { fontSize:font.xl, fontWeight:700, color:color.ink, margin:'0 0 4px', letterSpacing:-0.2 };
+  const stepHint = { fontSize:font.md, color:color.muted, marginBottom:16 };
+  const subHeading = { fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:10 };
+  const slotGrid = { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:20 };
+  const dateStrip = { display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:20, scrollbarWidth:'none' };
+  const renderDateTile = (d, i, on, onPick) => (
+    <div key={i} onClick={onPick} role="button" tabIndex={0} aria-pressed={on} onKeyDown={onKeyActivate(onPick)} style={dateTile(on)}>
+      <div style={{ fontSize:font.xs, color:on ? 'rgba(255,255,255,0.75)' : color.muted, marginBottom:4, fontWeight:500 }}>{dayName(d)}</div>
+      <div style={{ fontSize:font.lg + 1, fontWeight:700, color:on ? 'white' : color.ink, fontVariantNumeric:'tabular-nums' }}>{d.getDate()}</div>
+      <div style={{ fontSize:font.xs, color:on ? 'rgba(255,255,255,0.7)' : color.faint, marginTop:2 }}>{monthName(d)}</div>
+    </div>
+  );
+  const summaryRow = (label, val, i) => (
+    <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'10px 0', borderTop:i ? `1px solid ${color.line}` : 'none' }}>
+      <span style={{ fontSize:font.sm, color:color.muted, width:64, flexShrink:0 }}>{label}</span>
+      <span style={{ fontSize:font.md, color:color.ink, fontWeight:500, flex:1, minWidth:0 }}>{val}</span>
+    </div>
+  );
+
   if (confirmed) return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:DARK, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 24px', fontFamily:'-apple-system,sans-serif', textAlign:'center' }}>
-      <div style={{ fontSize:72, marginBottom:16 }}>🎉</div>
-      <div style={{ fontSize:26, fontWeight:700, color:'white', marginBottom:6 }}>{tr('bookingFlow_confirmedTitle')}</div>
-      <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:32, lineHeight:1.6 }}>
+    <div style={{ ...ui.page, background:color.surface, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'calc(40px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))', textAlign:'center', boxSizing:'border-box' }}>
+      <div style={{ width:64, height:64, borderRadius:radius.pill, background:color.successSoft, color:color.success, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
+        <Icon name="check" size={32} strokeWidth={2.4} />
+      </div>
+      <div style={{ fontSize:font.xxl, fontWeight:700, color:color.ink, marginBottom:6, letterSpacing:-0.3 }}>{tr('bookingFlow_confirmedTitle')}</div>
+      <div style={{ fontSize:font.md, color:color.muted, marginBottom:24, lineHeight:1.6 }}>
         {tr('bookingFlow_confirmedNotified', { name: sitterName })}<br/>{tr('bookingFlow_confirmedHearBack')}
       </div>
-      <div style={{ background:'#1a1a2e', borderRadius:24, padding:20, width:'100%', marginBottom:16, border:'1px solid rgba(255,107,53,0.2)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12, paddingBottom:12, borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>{tr('bookingFlow_labelBookingRef')}</span>
-          <span style={{ fontSize:12, color:'white', fontWeight:600 }}>{bookingRef}</span>
+      <div style={{ ...ui.card, width:'100%', marginBottom:12, textAlign:'left', boxSizing:'border-box' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', paddingBottom:10, borderBottom:`1px solid ${color.line}` }}>
+          <span style={{ fontSize:font.sm, color:color.muted }}>{tr('bookingFlow_labelBookingRef')}</span>
+          <span style={{ fontSize:font.sm, color:color.ink, fontWeight:700, letterSpacing:0.4 }}>{bookingRef}</span>
         </div>
         {[
           { label:tr('bookingFlow_labelService'), val:service?.name },
@@ -351,102 +368,92 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
           { label:tr('bookingFlow_labelPet'), val:pet?pet.name+(pet.breed?' ('+pet.breed+')':''):''},
           { label:tr('bookingFlow_labelAmount'), val:tr('bookingFlow_currencyPrefix')+(promoFailed ? totalPrice : finalPrice) },
         ].filter(x => x.val).map((item,i) => (
-          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
-            <span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>{item.label}</span>
-            <span style={{ fontSize:12, color:'white', fontWeight:500 }}>{item.val}</span>
+          <div key={i} style={{ display:'flex', justifyContent:'space-between', gap:12, padding:'8px 0', borderTop:i ? `1px solid ${color.line}` : 'none' }}>
+            <span style={{ fontSize:font.sm, color:color.muted }}>{item.label}</span>
+            <span style={{ fontSize:font.sm, color:color.ink, fontWeight:600, textAlign:'right', fontVariantNumeric:'tabular-nums' }}>{item.val}</span>
           </div>
         ))}
       </div>
       {promoFailed && (
-        <div style={{ background:'rgba(255,183,77,0.12)', border:'1px solid rgba(255,183,77,0.4)', borderRadius:14, padding:'10px 14px', width:'100%', marginBottom:16, fontSize:12, color:'#FFB74D', lineHeight:1.5, boxSizing:'border-box' }}>
+        <div style={{ background:color.warningSoft, borderRadius:radius.md, padding:'10px 14px', width:'100%', marginBottom:12, fontSize:font.sm, color:color.warning, lineHeight:1.5, boxSizing:'border-box', textAlign:'left' }}>
           {tr('bookingFlow_promoNotApplied')}
         </div>
       )}
-      <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:16, padding:'12px 16px', width:'100%', marginBottom:24, fontSize:13, color:'rgba(255,255,255,0.5)', lineHeight:1.6 }}>
+      <div style={{ background:color.tile, borderRadius:radius.md, padding:'12px 14px', width:'100%', marginBottom:24, fontSize:13, color:color.text, lineHeight:1.6, boxSizing:'border-box', textAlign:'left' }}>
         {tr('bookingFlow_paymentAfterAcceptNote', { name: sitterName })}
       </div>
-      <button onClick={onBack}
-        style={{ width:'100%', padding:14, borderRadius:14, border:'none', background:ORANGE, color:'white', fontSize:15, fontWeight:600, cursor:'pointer' }}>
+      <button type="button" onClick={onBack} style={{ ...ui.primaryButton, width:'100%' }}>
         {tr('bookingFlow_backToHomeButton')}
       </button>
     </div>
   );
 
+  const continueReady = canContinue() || step === 3;
+
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ background:ORANGE, padding:'48px 20px 16px', display:'flex', alignItems:'center', gap:12 }}>
-        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-          <ArrowLeft size={18} color="white" />
+    <div style={{ ...ui.page, paddingBottom:'calc(96px + env(safe-area-inset-bottom))' }}>
+      <div style={ui.header}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
         </button>
-        <div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('bookingFlow_headerTitle')}</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{sitterName} · {sitterArea}</div>
+        <div style={{ minWidth:0 }}>
+          <h1 style={ui.headerTitle}>{tr('bookingFlow_headerTitle')}</h1>
+          <div style={{ color:color.muted, fontSize:font.sm, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sitterName} · {sitterArea}</div>
         </div>
       </div>
 
       <StepBar step={step} />
 
-      <div style={{ padding:'20px 20px 0' }}>
+      <div style={{ padding:'20px 16px 0' }}>
 
         {step === 0 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_whatDoYouNeed')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('bookingFlow_selectServiceHint')}</div>
-            {services.map(s => (
-              <button type="button" key={s.id} onClick={() => setSelectedService(s.id)} aria-pressed={selectedService===s.id}
-                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedService===s.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ width:48, height:48, borderRadius:14, background:selectedService===s.id?ORANGE_LIGHT:'#F8F8F8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>{s.icon}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>{s.name}</div>
-                  <div style={{ fontSize:12, color:'#888' }}>{s.sub} · {s.desc}</div>
-                </div>
-                <div style={{ textAlign:'right', flexShrink:0 }}>
-                  <div style={{ fontSize:15, fontWeight:700, color:ORANGE }}>{tr('bookingFlow_currencyPrefix')}{s.price}</div>
-                  {selectedService===s.id && <CheckCircle size={16} color={ORANGE} style={{ marginTop:4 }} />}
-                </div>
-              </button>
-            ))}
+            <h2 style={stepTitle}>{tr('bookingFlow_whatDoYouNeed')}</h2>
+            <div style={stepHint}>{tr('bookingFlow_selectServiceHint')}</div>
+            {services.map(s => {
+              const on = selectedService === s.id;
+              return (
+                <button type="button" key={s.id} onClick={() => setSelectedService(s.id)} aria-pressed={on} style={choiceCard(on)}>
+                  <div style={{ ...ui.iconTile, background:on ? color.navySoft : color.tile }}><Icon name={s.icon} size={24} /></div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:font.md + 1, fontWeight:600, color:color.ink, marginBottom:2 }}>{s.name}</div>
+                    <div style={{ fontSize:font.sm, color:color.muted, lineHeight:1.4 }}>{s.sub} · {s.desc}</div>
+                  </div>
+                  <div style={{ textAlign:'right', flexShrink:0, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:color.ink, fontVariantNumeric:'tabular-nums' }}>{tr('bookingFlow_currencyPrefix')}{s.price}</div>
+                    <span style={{ width:20, height:20, borderRadius:radius.pill, border:`1.5px solid ${on ? color.navy : color.line}`, background:on ? color.navy : 'transparent', color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      {on && <Icon name="check" size={13} strokeWidth={2.6} />}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </>
         )}
 
         {step === 1 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{isBoarding ? tr('bookingFlow_checkInDate') : tr('bookingFlow_pickDateTime')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>{tr('bookingFlow_next14Days')}</div>
-            <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:20, scrollbarWidth:'none' }}>
-              {days.map((d,i) => (
-                <div key={i} onClick={() => setSelectedDay(i)} role="button" tabIndex={0} aria-pressed={selectedDay===i} onKeyDown={onKeyActivate(() => setSelectedDay(i))}
-                  style={{ flexShrink:0, width:54, borderRadius:14, padding:'10px 6px', textAlign:'center', cursor:'pointer', background:selectedDay===i?ORANGE:'white', border:selectedDay===i?'none':'1px solid #F0F0F0', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4, fontWeight:500 }}>{dayName(d)}</div>
-                  <div style={{ fontSize:17, fontWeight:700, color:selectedDay===i?'white':'#1a1a1a' }}>{d.getDate()}</div>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{monthName(d)}</div>
-                </div>
-              ))}
+            <h2 style={stepTitle}>{isBoarding ? tr('bookingFlow_checkInDate') : tr('bookingFlow_pickDateTime')}</h2>
+            <div style={stepHint}>{tr('bookingFlow_next14Days')}</div>
+            <div style={dateStrip}>
+              {days.map((d,i) => renderDateTile(d, i, selectedDay===i, () => setSelectedDay(i)))}
             </div>
             {/* Boarding: end date picker */}
             {isBoarding && (
               <>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>{tr('bookingFlow_checkOutDate')}</div>
-                <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:16, scrollbarWidth:'none' }}>
+                <div style={subHeading}>{tr('bookingFlow_checkOutDate')}</div>
+                <div style={{ ...dateStrip, marginBottom:12 }}>
                   {days.map((d,i) => (
-                    i > selectedDay ? (
-                    <div key={i} onClick={() => setEndDayOffset(i)} role="button" tabIndex={0} aria-pressed={endDayOffset===i} onKeyDown={onKeyActivate(() => setEndDayOffset(i))}
-                      style={{ flexShrink:0, width:54, borderRadius:14, padding:'10px 6px', textAlign:'center', cursor:'pointer', background:endDayOffset===i?'#2E7D32':'white', border:endDayOffset===i?'none':'1px solid #F0F0F0', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4 }}>{dayName(d)}</div>
-                      <div style={{ fontSize:17, fontWeight:700, color:endDayOffset===i?'white':'#1a1a1a' }}>{d.getDate()}</div>
-                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{monthName(d)}</div>
-                    </div>
-                    ) : null
+                    i > selectedDay ? renderDateTile(d, i, endDayOffset===i, () => setEndDayOffset(i)) : null
                   ))}
                 </div>
-                <div style={{ background:'#E8F5E9', borderRadius:12, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#2E7D32', fontWeight:600, textAlign:'center' }}>
+                <div style={{ background:color.navySoft, borderRadius:radius.md, padding:'10px 14px', marginBottom:20, fontSize:13, color:color.navy, fontWeight:600, textAlign:'center', fontVariantNumeric:'tabular-nums' }}>
                   {tr('bookingFlow_nightsCount', { n: nights, word: nights>1?tr('bookingFlow_nightsWord'):tr('bookingFlow_nightWord') })} · {tr('bookingFlow_currencyPrefix')}{basePrice} × {nights} = {tr('bookingFlow_currencyPrefix')}{basePrice*nights}
                 </div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_dropOffTime')}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+                <div style={subHeading}>{tr('bookingFlow_dropOffTime')}</div>
+                <div style={slotGrid}>
                   {TIME_SLOTS.map(tt => (
-                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt}
-                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555' }}>{tt}</button>
+                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt} style={timeSlot(selectedTime===tt)}>{tt}</button>
                   ))}
                 </div>
               </>
@@ -455,18 +462,16 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             {/* Daycare: drop-off + pick-up times */}
             {isDaycare && (
               <>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_dropOffTime')}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+                <div style={subHeading}>{tr('bookingFlow_dropOffTime')}</div>
+                <div style={slotGrid}>
                   {TIME_SLOTS.map(tt => (
-                    <button type="button" key={tt} onClick={() => { setDropTime(tt); setSelectedTime(tt); }} aria-pressed={dropTime===tt}
-                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:dropTime===tt?ORANGE:'white', border:dropTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:dropTime===tt?600:400, color:dropTime===tt?'white':'#555' }}>{tt}</button>
+                    <button type="button" key={tt} onClick={() => { setDropTime(tt); setSelectedTime(tt); }} aria-pressed={dropTime===tt} style={timeSlot(dropTime===tt)}>{tt}</button>
                   ))}
                 </div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_pickUpTime')}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+                <div style={subHeading}>{tr('bookingFlow_pickUpTime')}</div>
+                <div style={slotGrid}>
                   {TIME_SLOTS.map(tt => (
-                    <button type="button" key={tt} onClick={() => setPickTime(tt)} aria-pressed={pickTime===tt}
-                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:pickTime===tt?'#2E7D32':'white', border:pickTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:pickTime===tt?600:400, color:pickTime===tt?'white':'#555' }}>{tt}</button>
+                    <button type="button" key={tt} onClick={() => setPickTime(tt)} aria-pressed={pickTime===tt} style={timeSlot(pickTime===tt)}>{tt}</button>
                   ))}
                 </div>
               </>
@@ -475,36 +480,39 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             {/* Walker: single time */}
             {isWalker && (
               <>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_pickATime')}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+                <div style={subHeading}>{tr('bookingFlow_pickATime')}</div>
+                <div style={slotGrid}>
                   {TIME_SLOTS.map(tt => (
-                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt}
-                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555', boxShadow:'0 1px 6px rgba(0,0,0,0.04)' }}>{tt}</button>
+                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt} style={timeSlot(selectedTime===tt)}>{tt}</button>
                   ))}
                 </div>
               </>
             )}
-            <div style={{ background:'white', borderRadius:18, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_dogSizeHeading')}</div>
+            <div style={{ ...ui.card, marginBottom:14 }}>
+              <div style={subHeading}>{tr('bookingFlow_dogSizeHeading')}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {[
                   { id:'small', label:tr('bookingFlow_sizeSmallLabel'), sub:tr('bookingFlow_sizeSmallSub'), extra:'' },
                   { id:'medium', label:tr('bookingFlow_sizeMediumLabel'), sub:tr('bookingFlow_sizeMediumSub'), extra:'' },
                   { id:'large', label:tr('bookingFlow_sizeLargeLabel'), sub:tr('bookingFlow_sizeLargeSub'), extra:'+'+tr('bookingFlow_currencyPrefix')+'50' },
                   { id:'xlarge', label:tr('bookingFlow_sizeXlargeLabel'), sub:tr('bookingFlow_sizeXlargeSub'), extra:'+'+tr('bookingFlow_currencyPrefix')+'100' },
-                ].map(s => (
-                  <button type="button" key={s.id} onClick={() => setDogSize(s.id)} aria-pressed={dogSize===s.id}
-                    style={{ ...BUTTON_RESET, width:'100%', padding:'12px', borderRadius:14, border:dogSize===s.id?'2px solid '+ORANGE:'1.5px solid #E0E0E0', background:dogSize===s.id?ORANGE_LIGHT:'white', cursor:'pointer', textAlign:'center' }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{s.label}</div>
-                    <div style={{ fontSize:11, color:'#888' }}>{s.sub}</div>
-                    {s.extra && <div style={{ fontSize:11, color:ORANGE, fontWeight:600, marginTop:2 }}>{s.extra}</div>}
-                  </button>
-                ))}
+                ].map(s => {
+                  const on = dogSize === s.id;
+                  return (
+                    <button type="button" key={s.id} onClick={() => setDogSize(s.id)} aria-pressed={on}
+                      style={{ ...BUTTON_RESET, width:'100%', minHeight:60, padding:'10px 8px', borderRadius:radius.md, border:`1px solid ${on ? color.navy : color.line}`, boxShadow:on ? `inset 0 0 0 1px ${color.navy}` : 'none', background:on ? color.navySoft : color.surface, cursor:'pointer', textAlign:'center', fontFamily:font.family }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:color.ink }}>{s.label}</div>
+                      <div style={{ fontSize:font.xs, color:color.muted, marginTop:2 }}>{s.sub}</div>
+                      {s.extra && <div style={{ fontSize:font.xs, color:color.text, fontWeight:600, marginTop:2 }}>{s.extra}</div>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {selectedTime && (
-              <div style={{ background:ORANGE_LIGHT, borderRadius:14, padding:'10px 14px', fontSize:13, color:ORANGE, fontWeight:500 }}>
-                📅 {dayName(days[selectedDay])}, {days[selectedDay].getDate()} {monthName(days[selectedDay])} {tr('bookingFlow_atWord')} {selectedTime}
+              <div style={{ background:color.navySoft, borderRadius:radius.md, padding:'10px 14px', fontSize:13, color:color.navy, fontWeight:600, display:'flex', alignItems:'center', gap:8 }}>
+                <Icon name="calendar" size={16} />
+                <span>{dayName(days[selectedDay])}, {days[selectedDay].getDate()} {monthName(days[selectedDay])} {tr('bookingFlow_atWord')} {selectedTime}</span>
               </div>
             )}
           </>
@@ -512,165 +520,168 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
 
         {step === 2 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_whichPet')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('bookingFlow_selectPetHint')}</div>
-            {petsLoading && <div style={{ textAlign:'center', padding:20, color:'#888' }}>{tr('bookingFlow_loadingPets')}</div>}
-            {!petsLoading && pets.map(p => (
-              <button type="button" key={p.id} onClick={() => setSelectedPet(p.id)} aria-pressed={selectedPet===p.id}
-                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedPet===p.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ width:52, height:52, borderRadius:16, background:'#FFE0B2', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>🐕</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a', marginBottom:2 }}>{p.name}</div>
-                  <div style={{ fontSize:13, color:'#888' }}>{p.breed || tr('bookingFlow_mixedBreed')}{p.age_years?' · '+p.age_years+' '+tr('bookingFlow_yearsUnit'):''}</div>
-                </div>
-                {selectedPet===p.id && <CheckCircle size={20} color={ORANGE} />}
-              </button>
-            ))}
+            <h2 style={stepTitle}>{tr('bookingFlow_whichPet')}</h2>
+            <div style={stepHint}>{tr('bookingFlow_selectPetHint')}</div>
+            {petsLoading && [0, 1].map(i => <div key={i} aria-hidden="true" style={{ height:80, borderRadius:radius.lg, background:color.tile, marginBottom:10 }} />)}
+            {!petsLoading && pets.map(p => {
+              const on = selectedPet === p.id;
+              return (
+                <button type="button" key={p.id} onClick={() => setSelectedPet(p.id)} aria-pressed={on} style={choiceCard(on)}>
+                  <div style={{ ...ui.iconTile, width:52, height:52, background:on ? color.navySoft : color.tile, overflow:'hidden' }}>
+                    {p.photo_url ? <img src={p.photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <Icon name="paw" size={24} />}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:color.ink, marginBottom:2 }}>{p.name}</div>
+                    <div style={{ fontSize:13, color:color.muted }}>{p.breed || tr('bookingFlow_mixedBreed')}{p.age_years?' · '+p.age_years+' '+tr('bookingFlow_yearsUnit'):''}</div>
+                  </div>
+                  <span style={{ width:22, height:22, borderRadius:radius.pill, border:`1.5px solid ${on ? color.navy : color.line}`, background:on ? color.navy : 'transparent', color:'white', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {on && <Icon name="check" size={14} strokeWidth={2.6} />}
+                  </span>
+                </button>
+              );
+            })}
             {!addingPet ? (
               <button type="button" onClick={() => setAddingPet(true)}
-                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px dashed #E0E0E0', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
-                <div style={{ width:52, height:52, borderRadius:16, background:'#F5F5F5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
-                  <Plus size={22} color="#CCC" />
+                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:color.surface, borderRadius:radius.lg, padding:'14px 16px', marginBottom:14, border:`1px dashed ${color.faint}`, display:'flex', alignItems:'center', gap:14, cursor:'pointer', fontFamily:font.family }}>
+                <div style={{ ...ui.iconTile, width:52, height:52 }}>
+                  <Icon name="plus" size={22} />
                 </div>
-                <div style={{ fontSize:14, color:'#888' }}>{tr('bookingFlow_addNewPet')}</div>
+                <div style={{ fontSize:font.md, fontWeight:600, color:color.navy }}>{tr('bookingFlow_addNewPet')}</div>
               </button>
             ) : (
-              <div style={{ background:'white', borderRadius:18, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px solid '+ORANGE }}>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_addYourPetHeading')}</div>
+              <div style={{ ...ui.card, marginBottom:14, border:`1px solid ${color.navy}` }}>
+                <div style={subHeading}>{tr('bookingFlow_addYourPetHeading')}</div>
                 <input value={newPetName} onChange={e => setNewPetName(e.target.value)} placeholder={tr('bookingFlow_petNamePlaceholder')}
-                  style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:14, color:'#1a1a1a', outline:'none', marginBottom:8, boxSizing:'border-box' }} />
+                  style={{ ...ui.input, marginBottom:8 }} />
                 <input value={newPetBreed} onChange={e => setNewPetBreed(e.target.value)} placeholder={tr('bookingFlow_petBreedPlaceholder')}
-                  style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:14, color:'#1a1a1a', outline:'none', marginBottom:12, boxSizing:'border-box' }} />
+                  style={{ ...ui.input, marginBottom:12 }} />
                 <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={saveNewPet} disabled={!newPetName.trim() || savingPet}
-                    style={{ flex:2, padding:'10px 0', minHeight:44, borderRadius:12, border:'none', background:newPetName.trim()?ORANGE:'#E0E0E0', color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  <button type="button" onClick={saveNewPet} disabled={!newPetName.trim() || savingPet}
+                    style={{ ...ui.primaryButton, flex:2, minHeight:44, background:newPetName.trim() ? color.navy : color.line, color:newPetName.trim() ? 'white' : color.faint, cursor:newPetName.trim() ? 'pointer' : 'not-allowed' }}>
                     {savingPet?tr('common_saving'):tr('bookingFlow_savePetButton')}
                   </button>
-                  <button onClick={() => setAddingPet(false)}
-                    style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#888', fontSize:13, cursor:'pointer' }}>
+                  <button type="button" onClick={() => setAddingPet(false)} style={{ ...ui.secondaryButton, flex:1, minHeight:44, color:color.muted }}>
                     {tr('common_cancel')}
                   </button>
                 </div>
               </div>
             )}
-            <div style={{ background:'#FFF3E0', borderRadius:18, padding:16, marginBottom:14, border:'1.5px solid '+ORANGE }}>
+            <label style={{ display:'block', background:color.warningSoft, borderRadius:radius.lg, padding:16, marginBottom:14, border:`1px solid ${color.saffron}`, cursor:'pointer' }}>
               <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
                 <input type="checkbox" checked={aggressionConfirmed} onChange={e => setAggressionConfirmed(e.target.checked)} aria-label={tr('bookingFlow_aggressionTitle')}
-                  style={{ width:20, height:20, marginTop:2, cursor:'pointer' }} />
+                  style={{ width:20, height:20, marginTop:1, cursor:'pointer', accentColor:color.navy, flexShrink:0 }} />
                 <div>
-                  <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_aggressionTitle')}</div>
-                  <div style={{ fontSize:12, color:'#E65100', lineHeight:1.5 }}>{tr('bookingFlow_aggressionText')}</div>
+                  <div style={{ fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:4 }}>{tr('bookingFlow_aggressionTitle')}</div>
+                  <div style={{ fontSize:font.sm, color:color.warning, lineHeight:1.5 }}>{tr('bookingFlow_aggressionText')}</div>
                 </div>
               </div>
-            </div>
-            <div style={{ background:'white', borderRadius:18, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_addressHeading')}</div>
-              <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>{tr('bookingFlow_addressHint')}</div>
-              <div style={{ display:'flex', gap:8, marginBottom:8 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_flatLabel')}</div>
+            </label>
+            <div style={{ ...ui.card, marginBottom:14 }}>
+              <div style={{ ...subHeading, marginBottom:4 }}>{tr('bookingFlow_addressHeading')}</div>
+              <div style={{ fontSize:font.sm, color:color.muted, marginBottom:12 }}>{tr('bookingFlow_addressHint')}</div>
+              <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={ui.label}>{tr('bookingFlow_flatLabel')}</div>
                   <input value={flat} onChange={e => setFlat(e.target.value)} aria-label={tr('bookingFlow_flatLabel')} placeholder={tr('bookingFlow_flatPlaceholder')}
-                    style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+                    style={ui.input} />
                 </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_towerLabel')}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={ui.label}>{tr('bookingFlow_towerLabel')}</div>
                   <input value={tower} onChange={e => setTower(e.target.value)} aria-label={tr('bookingFlow_towerLabel')} placeholder={tr('bookingFlow_towerPlaceholder')}
-                    style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+                    style={ui.input} />
                 </div>
               </div>
               <div>
-                <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_societyLabel')}</div>
+                <div style={ui.label}>{tr('bookingFlow_societyLabel')}</div>
                 <input value={floor} onChange={e => setFloor(e.target.value)} aria-label={tr('bookingFlow_societyLabel')} placeholder={tr('bookingFlow_societyPlaceholder')}
-                  style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+                  style={ui.input} />
               </div>
             </div>
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>{tr('bookingFlow_notesHeading')}</div>
+            <div style={subHeading}>{tr('bookingFlow_notesHeading')}</div>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} aria-label={tr('bookingFlow_notesHeading')}
               placeholder={tr('bookingFlow_notesPlaceholder')}
-              style={{ width:'100%', padding:'12px 14px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:13, color:'#1a1a1a', outline:'none', resize:'none', minHeight:90, lineHeight:1.6, fontFamily:'inherit', boxSizing:'border-box' }} />
+              style={{ ...ui.input, resize:'none', minHeight:96, lineHeight:1.6, fontSize:14 }} />
           </>
         )}
 
         {step === 3 && service && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_reviewBookingHeading')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('bookingFlow_doubleCheckHint')}</div>
+            <h2 style={stepTitle}>{tr('bookingFlow_reviewBookingHeading')}</h2>
+            <div style={stepHint}>{tr('bookingFlow_doubleCheckHint')}</div>
             {!heatWarningDismissed && checkHeatAdvisory() && (
-              <div style={{ background:'#FFF3E0', borderRadius:14, padding:'12px 14px', marginBottom:14, display:'flex', gap:10, alignItems:'flex-start', border:'1.5px solid #FFB74D' }}>
-                <span style={{ fontSize:18, flexShrink:0 }}>⚠️</span>
+              <div style={{ background:color.warningSoft, borderRadius:radius.lg, padding:'12px 14px', marginBottom:14, display:'flex', gap:10, alignItems:'flex-start' }}>
+                <Icon name="thermometer" size={20} color={color.warning} style={{ marginTop:1 }} />
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'#E65100', marginBottom:2 }}>{tr('bookingFlow_heatAdvisoryTitle')}</div>
-                  <div style={{ fontSize:12, color:'#E65100', lineHeight:1.4 }}>{tr('bookingFlow_heatAdvisoryBody')}</div>
-                  <button onClick={() => setHeatWarningDismissed(true)} style={{ marginTop:6, background:'none', border:'none', color:'#E65100', fontSize:11, fontWeight:600, cursor:'pointer', textDecoration:'underline' }}>{tr('bookingFlow_dismissButton')}</button>
+                  <div style={{ fontSize:13, fontWeight:600, color:color.warning, marginBottom:2 }}>{tr('bookingFlow_heatAdvisoryTitle')}</div>
+                  <div style={{ fontSize:font.sm, color:color.text, lineHeight:1.5 }}>{tr('bookingFlow_heatAdvisoryBody')}</div>
+                  <button type="button" onClick={() => setHeatWarningDismissed(true)} style={{ marginTop:4, minHeight:32, padding:0, background:'none', border:'none', color:color.warning, fontSize:font.sm, fontWeight:600, cursor:'pointer', fontFamily:font.family }}>{tr('bookingFlow_dismissButton')}</button>
                 </div>
               </div>
             )}
-            <div style={{ background:'white', borderRadius:20, padding:16, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+            <div style={{ ...ui.card, padding:'6px 16px', marginBottom:12 }}>
               {[
                 { label:tr('bookingFlow_labelSitter'), val:sitterName },
                 { label:tr('bookingFlow_labelService'), val:service.name+' · '+service.sub },
                 { label:tr('bookingFlow_labelDate'), val:day?dayName(day)+', '+day.getDate()+' '+monthName(day):tr('bookingFlow_dateTbd') },
                 { label:tr('bookingFlow_labelTime'), val:selectedTime||tr('bookingFlow_dateTbd') },
                 { label:tr('bookingFlow_labelPet'), val:pet?pet.name+(pet.breed?' ('+pet.breed+')':''):tr('bookingFlow_petNotSelected') },
-              ].map((item,i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:i<4?'1px solid #F8F8F8':'none' }}>
-                  <span style={{ fontSize:12, color:'#888', width:56, flexShrink:0 }}>{item.label}</span>
-                  <span style={{ fontSize:13, color:'#1a1a1a', fontWeight:500, flex:1 }}>{item.val}</span>
-                </div>
-              ))}
+              ].map((item,i) => summaryRow(item.label, item.val, i))}
               {notes.length > 0 && (
-                <div style={{ marginTop:10, padding:'8px 10px', background:'#F8F8F8', borderRadius:10 }}>
-                  <div style={{ fontSize:11, color:'#888', marginBottom:3 }}>{tr('bookingFlow_notesToSitterLabel')}</div>
-                  <div style={{ fontSize:13, color:'#555', lineHeight:1.5 }}>{notes}</div>
+                <div style={{ margin:'4px 0 10px', padding:'10px 12px', background:color.tile, borderRadius:radius.md }}>
+                  <div style={{ fontSize:font.xs, color:color.muted, marginBottom:3, fontWeight:600 }}>{tr('bookingFlow_notesToSitterLabel')}</div>
+                  <div style={{ fontSize:13, color:color.text, lineHeight:1.5 }}>{notes}</div>
                 </div>
               )}
             </div>
-            <div style={{ background:'white', borderRadius:20, padding:16, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize:14, fontWeight:700, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_priceBreakdownHeading')}</div>
+            <div style={{ ...ui.card, marginBottom:12 }}>
+              <div style={ui.sectionTitle}>{tr('bookingFlow_priceBreakdownHeading')}</div>
               {[
                 { label:service.name, val:tr('bookingFlow_currencyPrefix')+service.price },
                 getPriceAdjustment()>0?{ label:tr('bookingFlow_sizeNeedsAdjustment'), val:'+'+tr('bookingFlow_currencyPrefix')+getPriceAdjustment() }:null,
                 { label:tr('bookingFlow_platformFee'), val:tr('bookingFlow_currencyPrefix')+'0' },
                 appliedPromo?{ label:tr('bookingFlow_promoDiscountLine')+' ('+appliedPromo.code+')', val:'-'+tr('bookingFlow_currencyPrefix')+appliedPromo.discountAmount, highlight:true }:null,
-                              ].filter(Boolean).map((item,i,arr) => (
-                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:i<arr.length-1?'1px solid #F5F5F5':'none' }}>
+              ].filter(Boolean).map((item,i) => (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'6px 0' }}>
                   <div>
-                    <span style={{ fontSize:13, color:item.highlight?'#2E7D32':'#555' }}>{item.label}</span>
-                    {item.note && <span style={{ fontSize:11, color:'#2E7D32', marginLeft:6 }}>{item.note}</span>}
+                    <span style={{ fontSize:13, color:item.highlight ? color.success : color.text }}>{item.label}</span>
+                    {item.note && <span style={{ fontSize:font.xs, color:color.success, marginLeft:6 }}>{item.note}</span>}
                   </div>
-                  <span style={{ fontSize:13, fontWeight:500, color:item.highlight?'#2E7D32':'#1a1a1a' }}>{item.val}</span>
+                  <span style={{ fontSize:13, fontWeight:500, color:item.highlight ? color.success : color.ink, fontVariantNumeric:'tabular-nums' }}>{item.val}</span>
                 </div>
               ))}
 
-              <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #F5F5F5' }}>
+              <div style={{ marginTop:10, paddingTop:12, borderTop:`1px solid ${color.line}` }}>
                 {appliedPromo ? (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:'#2E7D32', fontWeight:600 }}>✓ {tr('bookingFlow_promoAppliedLabel', { code: appliedPromo.code })}</span>
-                    <button onClick={() => setAppliedPromo(null)} style={{ background:'none', border:'none', color:'#C62828', fontSize:12, fontWeight:600, cursor:'pointer' }}>{tr('bookingFlow_promoRemove')}</button>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                    <span style={{ ...ui.badge('success'), fontSize:font.sm, padding:'5px 10px' }}><Icon name="check" size={14} strokeWidth={2.4} />{tr('bookingFlow_promoAppliedLabel', { code: appliedPromo.code })}</span>
+                    <button type="button" onClick={() => setAppliedPromo(null)} style={{ minHeight:36, padding:'0 4px', background:'none', border:'none', color:color.danger, fontSize:font.sm, fontWeight:600, cursor:'pointer', fontFamily:font.family }}>{tr('bookingFlow_promoRemove')}</button>
                   </div>
                 ) : (
                   <div>
                     <div style={{ display:'flex', gap:8 }}>
-                      <input value={promoInput} onChange={e => { setPromoInput(e.target.value); setPromoError(''); }} placeholder={tr('bookingFlow_promoCodePlaceholder')}
-                        style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E8E8E8', fontSize:13, outline:'none', textTransform:'uppercase' }} />
-                      <button onClick={applyPromoCode} disabled={promoApplying || !promoInput.trim()}
-                        style={{ padding:'0 18px', borderRadius:10, border:'none', background:promoInput.trim()?ORANGE:'#F0F0F0', color:promoInput.trim()?'white':'#AAA', fontSize:13, fontWeight:700, cursor:promoInput.trim()?'pointer':'default' }}>
+                      <div style={{ flex:1, minWidth:0, position:'relative' }}>
+                        <Icon name="tag" size={16} color={color.muted} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
+                        <input value={promoInput} onChange={e => { setPromoInput(e.target.value); setPromoError(''); }} placeholder={tr('bookingFlow_promoCodePlaceholder')}
+                          style={{ ...ui.input, minHeight:44, padding:'0 12px 0 36px', fontSize:14, textTransform:'uppercase', letterSpacing:0.4, borderColor:promoError ? color.danger : color.line }} />
+                      </div>
+                      <button type="button" onClick={applyPromoCode} disabled={promoApplying || !promoInput.trim()}
+                        style={{ ...ui.secondaryButton, minHeight:44, padding:'0 16px', fontSize:14, color:promoInput.trim() ? color.navy : color.faint, borderColor:promoInput.trim() ? color.navy : color.line, cursor:promoInput.trim() ? 'pointer' : 'default', flexShrink:0 }}>
                         {promoApplying ? tr('bookingFlow_promoApplying') : tr('bookingFlow_promoApplyButton')}
                       </button>
                     </div>
-                    {promoError && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{promoError}</div>}
+                    {promoError && <div style={{ fontSize:font.sm, color:color.danger, marginTop:6 }}>{promoError}</div>}
                   </div>
                 )}
               </div>
 
-              <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, paddingTop:10, borderTop:'2px solid #F0F0F0' }}>
-                <span style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{tr('bookingFlow_totalLabel')}</span>
-                <span style={{ fontSize:18, fontWeight:800, color:ORANGE }}>{tr('bookingFlow_currencyPrefix')}{finalPrice}</span>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginTop:12, paddingTop:12, borderTop:`1px solid ${color.line}` }}>
+                <span style={{ fontSize:15, fontWeight:700, color:color.ink }}>{tr('bookingFlow_totalLabel')}</span>
+                <span style={{ fontSize:font.xl, fontWeight:700, color:color.ink, fontVariantNumeric:'tabular-nums' }}>{tr('bookingFlow_currencyPrefix')}{finalPrice}</span>
               </div>
             </div>
-            <div style={{ background:'#E8F5E9', borderRadius:14, padding:'10px 14px', display:'flex', gap:8, marginBottom:12 }}>
-              <Shield size={16} color="#2E7D32" style={{ flexShrink:0, marginTop:1 }} />
-              <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.55 }}>
+            <div style={{ background:color.successSoft, borderRadius:radius.md, padding:'12px 14px', display:'flex', gap:10, marginBottom:12 }}>
+              <Icon name="shield" size={18} color={color.success} style={{ marginTop:1 }} />
+              <div style={{ fontSize:font.sm, color:color.success, lineHeight:1.55 }}>
                 <strong>{tr('bookingFlow_paymentAfterAcceptBold')}</strong> {tr('bookingFlow_paymentAfterAcceptBody', { name: sitterName })}
               </div>
             </div>
@@ -679,32 +690,33 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
       </div>
 
       {validationError && (
-        <div style={{ position:'fixed', bottom:80, left:'50%', transform:'translateX(-50%)', width:'calc(100% - 40px)', maxWidth:350, background:'#FFEBEE', borderRadius:12, padding:'12px 14px', fontSize:13, color:'#C62828', display:'flex', alignItems:'center', gap:8, boxShadow:'0 2px 8px rgba(0,0,0,0.1)' }}>
-          <span>⚠️</span>
+        <div role="alert" style={{ position:'fixed', bottom:'calc(84px + env(safe-area-inset-bottom))', left:16, right:16, maxWidth:448, margin:'0 auto', background:color.dangerSoft, borderRadius:radius.md, padding:'12px 14px', fontSize:13, color:color.danger, fontWeight:500, display:'flex', alignItems:'center', gap:8, boxShadow:shadow.card, zIndex:101 }}>
+          <Icon name="alert" size={18} />
           <span>{validationError}</span>
         </div>
       )}
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))', display:'flex', gap:10 }}>
-        {step > 0 && (
-          <button onClick={() => setStep(s => s-1)}
-            style={{ flex:1, padding:'14px 0', borderRadius:14, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:14, fontWeight:600, cursor:'pointer' }}>
-            {tr('bookingFlow_backButton')}
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, background:color.surface, borderTop:`1px solid ${color.line}`, zIndex:100 }}>
+        <div style={{ maxWidth:480, margin:'0 auto', padding:'12px 16px calc(12px + env(safe-area-inset-bottom))', display:'flex', gap:10, boxSizing:'border-box' }}>
+          {step > 0 && (
+            <button type="button" onClick={() => setStep(s => s-1)} style={{ ...ui.secondaryButton, flex:1 }}>
+              {tr('bookingFlow_backButton')}
+            </button>
+          )}
+          <button type="button" onClick={() => {
+              if (step === 3) { saveBooking(); return; }
+              if (!canContinue()) {
+                setValidationError(getValidationError());
+                return;
+              }
+              setValidationError('');
+              setStep(s => s+1);
+            }}
+            disabled={processing}
+            style={{ ...ui.primaryButton, flex:2, background:continueReady ? color.navy : color.line, color:continueReady ? 'white' : color.faint, cursor:continueReady ? 'pointer' : 'not-allowed' }}>
+            {processing?tr('common_saving') : step===3?tr('bookingFlow_requestBookingButton') : tr('bookingFlow_continueButton')}
           </button>
-        )}
-        <button onClick={() => {
-            if (step === 3) { saveBooking(); return; }
-            if (!canContinue()) {
-              setValidationError(getValidationError());
-              return;
-            }
-            setValidationError('');
-            setStep(s => s+1);
-          }}
-          disabled={processing}
-          style={{ flex:2, padding:'14px 0', borderRadius:14, border:'none', background:canContinue()||step===3?ORANGE:'#E0E0E0', color:canContinue()||step===3?'white':'#AAA', fontSize:14, fontWeight:700, cursor:canContinue()||step===3?'pointer':'not-allowed' }}>
-          {processing?tr('common_saving') : step===3?tr('bookingFlow_requestBookingButton') : tr('bookingFlow_continueButton')}
-        </button>
+        </div>
       </div>
     </div>
   );

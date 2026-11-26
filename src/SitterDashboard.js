@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, MapPin, Phone, Star, Calendar, Home, User, Search } from 'lucide-react';
 import { supabase } from './supabase';
 import PhotoUploadModal from './PhotoUploadModal';
-import SitterEarningsDashboard from './SitterEarningsDashboard';
 import { useSupportContact, openWhatsAppSupport } from './supportContact';
 import { useLanguage } from './i18n';
 import SosSheet from './SosSheet';
 import DisputeForm from './DisputeForm';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui, statusTone, navPadding } from './theme';
+import Icon from './ui/Icon';
+import { messagePreview } from './InboxScreen';
+import LanguageToggle from './LanguageToggle';
 
 const SERVICE_NAME_KEYS = {
   walk30: 'service_walk',
@@ -22,23 +19,24 @@ const SERVICE_NAME_KEYS = {
 };
 
 const SERVICE_ICONS = {
-  walk30: '🦮',
-  boarding: '🏠',
-  daycare: '☀️',
-  dropin: '🔔',
-  housesit: '🏡',
+  walk30: 'walk',
+  boarding: 'boarding',
+  daycare: 'sun',
+  dropin: 'bell',
+  housesit: 'home',
 };
 
-const STATUS_COLORS = {
-  pending: { bg: '#FFF3E0', color: '#E65100', labelKey: 'sitter_statusNew' },
-  confirmed: { bg: '#E3F2FD', color: '#1565C0', labelKey: 'bookings_statusConfirmed' },
-  active: { bg: '#E8F5E9', color: '#2E7D32', labelKey: 'bookings_statusActive' },
-  completed: { bg: '#F3E5F5', color: '#6A1B9A', labelKey: 'bookings_statusCompleted' },
-  cancelled: { bg: '#FCEBEB', color: '#A32D2D', labelKey: 'bookings_statusCancelled' },
+const STATUS_LABEL_KEYS = {
+  pending: 'sitter_statusNew',
+  confirmed: 'bookings_statusConfirmed',
+  active: 'bookings_statusActive',
+  completed: 'bookings_statusCompleted',
+  cancelled: 'bookings_statusCancelled',
 };
 
-export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
+const money = { fontVariantNumeric: 'tabular-nums' };
+
+export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile, onOpenNotifications }) {
   const { whatsapp: supportWa, phone: supportPhone } = useSupportContact();
   const { t: tr, lang } = useLanguage();
   const [tab, setTab] = useState('new');
@@ -46,7 +44,6 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const [loading, setLoading] = useState(true);
   const [sitterProfile, setSitterProfile] = useState(null);
   const [expanded, setExpanded] = useState(null);
-  const [activeNav, setActiveNav] = useState('jobs');
   const [unreadMessages, setUnreadMessages] = useState([]);
   const [broadcastRequests, setBroadcastRequests] = useState([]);
   const [otpEntry, setOtpEntry] = useState({});
@@ -162,12 +159,6 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     loadData();
   };
 
-  const completeBooking = async (id) => {
-    const { error } = await supabase.from('bookings').update({ status: 'completed', end_verified_at: new Date().toISOString() }).eq('id', id);
-    if (error) { alert(tr('sitter_errComplete') + error.message); return; }
-    loadData();
-  };
-
   const newBookings = bookings.filter(b => b.status === 'pending');
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
   const activeBookings = bookings.filter(b => b.status === 'active');
@@ -261,163 +252,171 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     alert(tr('sitter_responseSent'));
   };
 
-  const BookingCard = ({ b }) => {
-    const sc = STATUS_COLORS[b.status] || STATUS_COLORS.pending;
+  const serviceName = (type) => SERVICE_NAME_KEYS[type] ? tr(SERVICE_NAME_KEYS[type]) : type;
+  const isDropOff = (b) => ['boarding','daycare'].includes(b.service_type);
+  const fullWidth = { width: '100%', marginTop: 10 };
+  const metaRow = { display: 'flex', alignItems: 'center', gap: 6, fontSize: font.sm, color: color.text };
+  const notice = (tone) => ({ marginTop: 12, background: color[tone + 'Soft'], color: color[tone], borderRadius: radius.md, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: font.sm, fontWeight: 600, lineHeight: 1.4 });
+
+  // Called as a plain function (not <BookingCard/>) so typing in the OTP box
+  // doesn't remount the card and drop keyboard focus on every keystroke.
+  const renderBookingCard = (b) => {
     const isOpen = expanded === b.id;
+    const toggle = () => setExpanded(isOpen ? null : b.id);
+    const borderColor = b.status === 'pending' ? color.navy : b.status === 'active' ? color.success : color.line;
+    const arrival = arrivalStatus[b.id];
+    const otpLabel = isDropOff(b) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk');
     return (
-      <div style={{ background: 'white', borderRadius: 20, marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', border: b.status === 'pending' ? '2px solid ' + t.primary : b.status === 'active' ? '2px solid #2E7D32' : '2px solid transparent' }}>
+      <div key={b.id} style={{ background: color.surface, borderRadius: 20, marginBottom: 12, border: `1px solid ${borderColor}`, overflow: 'hidden' }}>
         <div role="button" tabIndex={0} aria-expanded={isOpen} aria-label={tr('sitter_toggleDetails')}
-          onClick={() => setExpanded(isOpen ? null : b.id)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(isOpen ? null : b.id); } }}
-          style={{ padding: '14px 16px', cursor: 'pointer' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: 24 }}>{SERVICE_ICONS[b.service_type] || '🐾'}</span>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{SERVICE_NAME_KEYS[b.service_type] ? tr(SERVICE_NAME_KEYS[b.service_type]) : b.service_type}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>{b.users?.name || tr('sitter_petParent')}</div>
-              </div>
+          onClick={toggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+          style={{ padding: 16, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ ...ui.iconTile, width: 44, height: 44 }}><Icon name={SERVICE_ICONS[b.service_type] || 'paw'} size={22} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: font.md, fontWeight: 700, color: color.ink, lineHeight: 1.3 }}>{serviceName(b.service_type)}</div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.users?.name || tr('sitter_petParent')}</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: t.primary }}>Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
-              <div style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, fontWeight: 600 }}>{tr(sc.labelKey)}</div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ ...money, fontSize: font.lg, fontWeight: 700, color: color.ink }}>Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
+              <span style={{ ...ui.badge(statusTone[b.status] || 'warning'), marginTop: 4 }}>{tr(STATUS_LABEL_KEYS[b.status] || STATUS_LABEL_KEYS.pending)}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Calendar size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.booking_date || tr('sitter_tbd')}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 12, paddingLeft: 56 }}>
+            <div style={metaRow}>
+              <Icon name="calendar" size={15} color={color.muted} />
+              <span>{b.booking_date || tr('sitter_tbd')}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Clock size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.time_slot || tr('sitter_tbd')}</span>
+            <div style={metaRow}>
+              <Icon name="clock" size={15} color={color.muted} />
+              <span>{b.time_slot || tr('sitter_tbd')}</span>
             </div>
           </div>
           {b.status === 'pending' && (
-            <div style={{ marginTop: 8, background: t.light, borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 4, background: t.primary }} />
-              <span style={{ fontSize: 12, color: t.primary, fontWeight: 600 }}>{tr('newBookingBanner')}</span>
+            <div style={notice('warning')}>
+              <Icon name="clock" size={16} />
+              <span>{tr('newBookingBanner')}</span>
             </div>
           )}
           {b.status === 'active' && (
-            <div style={{ marginTop: 8, background: '#E8F5E9', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 4, background: '#2E7D32' }} />
-              <span style={{ fontSize: 12, color: '#2E7D32', fontWeight: 600 }}>{tr('walkInProgress')}</span>
+            <div style={notice('success')}>
+              <Icon name="walk" size={16} />
+              <span>{tr('walkInProgress')}</span>
             </div>
           )}
         </div>
         <div style={{ padding: '0 16px 16px' }}>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b); }}
-                style={{ flex: 1, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: 'none', background: t.light, color: t.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                <span>💬</span> {tr('message')}
+                style={{ ...ui.secondaryButton, flex: 1, minHeight: 44, fontSize: font.md }}>
+                <Icon name="message" size={18} /> {tr('message')}
               </button>
               {b.users?.phone && (
                 <a onClick={(e) => e.stopPropagation()} href={'tel:' + b.users.phone}
-                  style={{ flex: 1, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                  <Phone size={14} /> {tr('call')}
+                  style={{ ...ui.secondaryButton, flex: 1, minHeight: 44, fontSize: font.md, textDecoration: 'none', boxSizing: 'border-box' }}>
+                  <Icon name="phone" size={18} /> {tr('call')}
                 </a>
               )}
             </div>
             {b.status === 'pending' && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button onClick={() => acceptBooking(b)}
-                  style={{ flex: 2, minHeight: 44, padding: '12px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ ...ui.primaryButton, flex: 2, minHeight: 44 }}>
                   {tr('accept')} ✓
                 </button>
                 <button onClick={() => declineBooking(b)}
-                  style={{ flex: 1, minHeight: 44, padding: '12px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                  style={{ ...ui.dangerButton, flex: 1 }}>
                   {tr('decline')}
                 </button>
               </div>
             )}
             {b.status === 'confirmed' && (
-              <div style={{ marginTop:10, background:t.light, borderRadius:12, padding:'12px 14px' }}>
-                <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-                  <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrivalStatus[b.id]}
-                    style={{ flex:1, minHeight:44, padding:'8px 0', borderRadius:10, border:'1.5px solid '+t.primary, background:arrivalStatus[b.id]==='on_way'?t.primary:'white', color:arrivalStatus[b.id]==='on_way'?'white':t.primary, fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]?'default':'pointer' }}>
-                    🚶 {tr('onMyWay')}
+              <div style={{ marginTop: 12, background: color.bg, border: `1px solid ${color.line}`, borderRadius: radius.md, padding: 14 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                  <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrival}
+                    style={{ ...ui.secondaryButton, flex: 1, minHeight: 44, padding: '0 8px', fontSize: font.sm, border: `1px solid ${arrival === 'on_way' ? color.navy : color.line}`, background: arrival === 'on_way' ? color.navy : color.surface, color: arrival === 'on_way' ? color.surface : color.navy, cursor: arrival ? 'default' : 'pointer' }}>
+                    <Icon name="walk" size={16} />{tr('onMyWay')}
                   </button>
-                  <button onClick={() => markArrival(b, 'arrived')} disabled={arrivalStatus[b.id]==='arrived'}
-                    style={{ flex:1, minHeight:44, padding:'8px 0', borderRadius:10, border:'1.5px solid #2E7D32', background:arrivalStatus[b.id]==='arrived'?'#2E7D32':'white', color:arrivalStatus[b.id]==='arrived'?'white':'#2E7D32', fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]==='arrived'?'default':'pointer' }}>
-                    📍 {tr('arrived')}
+                  <button onClick={() => markArrival(b, 'arrived')} disabled={arrival === 'arrived'}
+                    style={{ ...ui.secondaryButton, flex: 1, minHeight: 44, padding: '0 8px', fontSize: font.sm, border: `1px solid ${arrival === 'arrived' ? color.success : color.line}`, background: arrival === 'arrived' ? color.success : color.surface, color: arrival === 'arrived' ? color.surface : color.success, cursor: arrival === 'arrived' ? 'default' : 'pointer' }}>
+                    <Icon name="pin" size={16} />{tr('arrived')}
                   </button>
                 </div>
-                <div style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>
-                  {['boarding','daycare'].includes(b.service_type) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk')}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: font.md, fontWeight: 600, color: color.ink, marginBottom: 4 }}>
+                  <Icon name="key" size={16} color={color.navy} />
+                  <span>{otpLabel}</span>
                 </div>
-                <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>{tr('otpHint', { name: b.users?.name || tr('sitter_thePetParent') })}</div>
-                <div style={{ display:'flex', gap:8 }}>
+                <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 10, lineHeight: 1.5 }}>{tr('otpHint', { name: b.users?.name || tr('sitter_thePetParent') })}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
                   <input value={otpEntry[b.id] || ''} onChange={e => setOtpEntry({ ...otpEntry, [b.id]: e.target.value.replace(/\D/g,'').slice(0,4) })}
-                    placeholder="0000" inputMode="numeric" maxLength={4} aria-label={['boarding','daycare'].includes(b.service_type) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk')}
-                    style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:18, letterSpacing:6, textAlign:'center', outline:'none', boxSizing:'border-box' }} />
+                    placeholder="0000" inputMode="numeric" maxLength={4} aria-label={otpLabel}
+                    style={{ ...ui.input, flex: 1, minWidth: 0, fontSize: font.xl, fontWeight: 600, letterSpacing: 8, textAlign: 'center', ...money }} />
                   <button onClick={() => verifyStartOtp(b)}
-                    style={{ padding:'0 20px', minHeight:44, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>{tr('start')}</button>
+                    style={{ ...ui.primaryButton, minHeight: 48, padding: '0 22px', flexShrink: 0 }}>{tr('start')}</button>
                 </div>
-                {otpError[b.id] && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{otpError[b.id]}</div>}
+                {otpError[b.id] && <div role="alert" style={{ fontSize: font.sm, color: color.danger, marginTop: 8 }}>{otpError[b.id]}</div>}
                 <button onClick={(e) => { e.stopPropagation(); sitterCancel(b); }}
-                  style={{ width:'100%', marginTop:12, minHeight:44, borderRadius:10, border:'1.5px solid #FFCDD2', background:'white', color:'#C62828', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  style={{ ...ui.dangerButton, width: '100%', marginTop: 14 }}>
                   {tr('sitter_cancelJob')}
                 </button>
               </div>
             )}
             {b.status === 'active' && (
-              <div style={{ marginTop:10 }}>
+              <div style={{ marginTop: 10 }}>
                 {(supportPhone || supportWa) && (
                   <button onClick={(e) => { e.stopPropagation(); setSosFor(b); }}
-                    style={{ width:'100%', minHeight:44, padding:'10px 0', borderRadius:12, border:'none', background:'#C62828', color:'white', fontSize:13, fontWeight:700, cursor:'pointer', marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    style={{ ...ui.primaryButton, width: '100%', minHeight: 44, background: color.danger, fontSize: font.md, marginBottom: 10 }}>
                     {tr('sos')}
                   </button>
                 )}
-                {['boarding','daycare'].includes(b.service_type) ? (
-                  <div style={{ background:'#E8F5E9', borderRadius:12, padding:'12px 14px' }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'#1B5E20', marginBottom:6 }}>{tr('pickupOtpTitle')}</div>
-                    <div style={{ fontSize:11, color:'#388E3C', marginBottom:8 }}>{tr('pickupOtpHint', { name: b.users?.name || tr('sitter_theParent') })}</div>
-                    <div style={{ background:'white', borderRadius:10, padding:'10px', textAlign:'center', fontSize:26, fontWeight:800, letterSpacing:8, color:'#2E7D32', marginBottom:8 }}>{b.end_otp || '----'}</div>
+                {isDropOff(b) ? (
+                  <div style={{ background: color.successSoft, borderRadius: radius.md, padding: 14 }}>
+                    <div style={{ fontSize: font.md, fontWeight: 600, color: color.success, marginBottom: 4 }}>{tr('pickupOtpTitle')}</div>
+                    <div style={{ fontSize: font.sm, color: color.text, marginBottom: 10, lineHeight: 1.5 }}>{tr('pickupOtpHint', { name: b.users?.name || tr('sitter_theParent') })}</div>
+                    <div style={{ ...money, background: color.surface, borderRadius: radius.md, padding: 10, textAlign: 'center', fontSize: font.xxl, fontWeight: 700, letterSpacing: 8, color: color.success, marginBottom: 10 }}>{b.end_otp || '----'}</div>
                     <button onClick={() => completeWithOtp(b)}
-                      style={{ width:'100%', minHeight:44, padding:'10px 0', borderRadius:10, border:'none', background:'#2E7D32', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                      style={{ ...ui.primaryButton, width: '100%', minHeight: 44 }}>
                       {tr('parentCollected')}
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => completeWithOtp(b)}
-                    style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#2E7D32', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                    style={{ ...ui.primaryButton, width: '100%' }}>
                     {tr('completeWalk')}
                   </button>
                 )}
               </div>
             )}
             {b.status === 'completed' && !b.sitter_uploaded_photos && (
-              <div style={{ marginTop:10 }}>
-                <button onClick={() => setUploadingPhotosFor(b)}
-                  style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#2196F3', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-                  {tr('uploadPhotos')}
-                </button>
-              </div>
+              <button onClick={() => setUploadingPhotosFor(b)}
+                style={{ ...ui.primaryButton, ...fullWidth }}>
+                {tr('uploadPhotos')}
+              </button>
             )}
             {b.status === 'completed' && b.sitter_uploaded_photos && (
-              <div style={{ marginTop:10, background:'#E8F5E9', borderRadius:12, padding:'10px 14px', textAlign:'center' }}>
-                <span style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>{tr('photosUploaded')}</span>
+              <div style={{ ...notice('success'), justifyContent: 'center', marginTop: 10 }}>
+                <span>{tr('photosUploaded')}</span>
               </div>
             )}
             {['confirmed','active','completed'].includes(b.status) && (
               <button onClick={(e) => { e.stopPropagation(); setReportingBooking(b); }}
-                style={{ width:'100%', marginTop:10, minHeight:44, borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#666', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                style={{ ...fullWidth, minHeight: 44, borderRadius: radius.md, border: 'none', background: 'none', color: color.muted, fontSize: font.sm, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {tr('sitter_reportProblem')}
               </button>
             )}
             {isOpen && (
-              <div style={{ marginTop: 12, borderTop: '1px solid #F5F5F5', paddingTop: 10 }}>
-                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>{tr('sitter_details')}</div>
+              <div style={{ marginTop: 8, borderTop: `1px solid ${color.line}`, paddingTop: 10 }}>
+                <div style={{ fontSize: font.xs, color: color.muted, marginBottom: 4, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>{tr('sitter_details')}</div>
                 {[
                   { label: tr('sitter_detailRef'), val: b.booking_ref },
                   { label: tr('sitter_petParent'), val: b.users?.name },
                   { label: tr('sitter_detailNotes'), val: b.parent_notes || tr('sitter_detailNone') },
                   { label: tr('sitter_detailPayment'), val: b.payment_status === 'paid' ? tr('sitter_paid') : tr('sitter_unpaid') },
                 ].filter(x => x.val).map((x, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8F8F8' }}>
-                    <span style={{ fontSize: 12, color: '#888' }}>{x.label}</span>
-                    <span style={{ fontSize: 12, color: '#1a1a1a', fontWeight: 500 }}>{x.val}</span>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+                    <span style={{ fontSize: font.sm, color: color.muted, flexShrink: 0 }}>{x.label}</span>
+                    <span style={{ fontSize: font.sm, color: color.ink, fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{x.val}</span>
                   </div>
                 ))}
               </div>
@@ -427,72 +426,112 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     );
   };
 
-  // Show earnings dashboard when earnings tab is selected
-  if (activeNav === 'earnings') {
-    return <SitterEarningsDashboard city={city} onBack={() => setActiveNav('jobs')} />;
-  }
+  const completedCount = bookings.filter(b => b.status === 'completed').length;
+  const tierLabel = (() => { const w = completedCount; if (w >= 300) return tr('sitter_tierElite'); if (w >= 150) return tr('sitter_tierPlatinum'); if (w >= 75) return tr('sitter_tierGold'); if (w >= 25) return tr('sitter_tierSilver'); return tr('sitter_tierBronze'); })();
+  // Status badges only (Bronze/Silver/Gold/.../Elite Pro) — these are
+  // recognition tiers, not commission tiers. Fursday charges a flat 15%
+  // commission on every booking regardless of tier; see
+  // TermsAndConditions.js #7. A commission reduction promise doesn't belong
+  // here unless it's actually wired to payout math.
+  const tiers = [{ max: 25, next: tr('sitter_nextSilver') }, { max: 75, next: tr('sitter_nextGold') }, { max: 150, next: tr('sitter_nextPlatinum') }, { max: 300, next: tr('sitter_nextElite') }];
+  const tier = tiers.find(x => completedCount < x.max);
+  const prevTier = tiers[tiers.indexOf(tier) - 1];
+  const tierMin = prevTier ? prevTier.max : 0;
+  const tierPct = tier ? Math.min(100, Math.round((completedCount - tierMin) / (tier.max - tierMin) * 100)) : 100;
+  const isLive = sitterProfile?.status === 'active';
+
+  const emptyIcon = tab === 'new' ? 'briefcase' : tab === 'upcoming' ? 'calendar' : tab === 'active' ? 'walk' : 'check';
+  const emptyState = (icon, title, hint) => (
+    <div style={{ ...ui.card, textAlign: 'center', padding: '28px 20px' }}>
+      <div style={{ ...ui.iconTile, margin: '0 auto 12px' }}><Icon name={icon} /></div>
+      <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6 }}>{hint}</div>
+    </div>
+  );
 
   return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
+    <div style={{ ...ui.page, paddingBottom: navPadding }}>
       {sosFor && <SosSheet onClose={() => setSosFor(null)} bookingRef={sosFor.booking_ref} userName={sitterProfile?.users?.name} />}
       {reportingBooking && (
         <DisputeForm booking={reportingBooking} reporterRole="sitter" otherName={reportingBooking.users?.name || tr('sitter_petParent')}
           onClose={() => setReportingBooking(null)} onDisputeFiled={() => setReportingBooking(null)} />
       )}
-      <div style={{ background:'#0f0f1a', padding:'48px 16px 16px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
-          <div>
-            <div style={{ color:'white', fontSize:18, fontWeight:700 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || tr('sitter_there')} 👋</div>
-            <div style={{ color:sitterProfile?.status==='active'?'#4CAF50':'#FFC107', fontSize:11, fontWeight:500, marginTop:2 }}>
-              {sitterProfile?.status==='active'?tr('live'):tr('pendingApproval')}
+
+      <header style={{ background: color.navy, color: color.surface, padding: 'calc(16px + env(safe-area-inset-top)) 16px 18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: font.xs, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: color.faint }}>{tr('jobsNav')}</div>
+            <div style={{ fontSize: font.xl, fontWeight: 700, marginTop: 2, lineHeight: 1.3 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || tr('sitter_there')} 👋</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              <span style={ui.badge(isLive ? 'success' : 'warning')}>{isLive ? tr('live') : tr('pendingApproval')}</span>
+              <span style={{ ...ui.badge('warning'), background: color.saffronSoft }}>{tierLabel}</span>
             </div>
           </div>
-          <div style={{ background:'#FF6B35', borderRadius:20, padding:'4px 12px', fontSize:11, color:'white', fontWeight:700 }}>
-            {(() => { const w=bookings.filter(b=>b.status==='completed').length; if(w>=300)return tr('sitter_tierElite'); if(w>=150)return tr('sitter_tierPlatinum'); if(w>=75)return tr('sitter_tierGold'); if(w>=25)return tr('sitter_tierSilver'); return tr('sitter_tierBronze'); })()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <LanguageToggle inline />
+          {onOpenNotifications && (
+            <button type="button" aria-label={tr('nav_notifications')} onClick={onOpenNotifications}
+              style={{ width: 40, height: 40, borderRadius: radius.pill, border: 'none', background: color.navyHover, color: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <Icon name="bell" size={19} />
+            </button>
+          )}
           </div>
         </div>
-        <div style={{ textAlign:'center', marginBottom:12 }}>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', marginBottom:3 }}>{tr('thisMonth')}</div>
-          <div style={{ fontSize:32, fontWeight:800, color:'#FF6B35' }}>Rs.{totalEarnings.toLocaleString('en-IN')}</div>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2 }}>{tr('payoutNote')}</div>
+
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: font.sm, color: color.faint }}>{tr('thisMonth')}</div>
+          <div style={{ ...money, fontSize: 28, fontWeight: 700, letterSpacing: -0.3, marginTop: 2 }}>Rs.{totalEarnings.toLocaleString('en-IN')}</div>
+          <div style={{ fontSize: font.xs, color: color.faint, marginTop: 2 }}>{tr('payoutNote')}</div>
         </div>
-        {/* Status badges only (Bronze/Silver/Gold/.../Elite Pro) — these are
-            recognition tiers, not commission tiers. Fursday charges a flat
-            15% commission on every booking regardless of tier; see
-            TermsAndConditions.js #7. A commission reduction promise doesn't
-            belong here unless it's actually wired to payout math. */}
-        {(() => { const w=bookings.filter(b=>b.status==='completed').length; const tiers=[{max:25,next:tr('sitter_nextSilver')},{max:75,next:tr('sitter_nextGold')},{max:150,next:tr('sitter_nextPlatinum')},{max:300,next:tr('sitter_nextElite')}]; const tier=tiers.find(t=>w<t.max); const prev=tiers[tiers.indexOf(tier)-1]; const pMin=prev?prev.max:0; const pct=tier?Math.min(100,Math.round((w-pMin)/(tier.max-pMin)*100)):100; return (<div style={{ marginBottom:14 }}><div style={{ background:'rgba(255,255,255,0.1)', borderRadius:4, height:6, marginBottom:5 }}><div style={{ width:pct+'%', background:'#FF6B35', borderRadius:4, height:6 }} /></div>{tier?<div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textAlign:'right' }}>{tr('sitter_moreWalksToNext', { n: tier.max-w, next: tier.next })}</div>:<div style={{ fontSize:10, color:'#FF6B35', textAlign:'center', fontWeight:600 }}>{tr('sitter_topTier')}</div>}</div>); })()}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
-          {[{label:tr('newRequests'),val:newBookings.length},{label:tr('yourRating'),val:(sitterProfile?.rating||5.0).toFixed(1)+' ⭐'},{label:tr('totalWalks'),val:bookings.filter(b=>b.status==='completed').length}].map((s,i) => (
-            <div key={i} style={{ background:'rgba(255,255,255,0.07)', borderRadius:10, padding:'8px 6px', textAlign:'center' }}>
-              <div style={{ fontSize:16, fontWeight:700, color:'white' }}>{s.val}</div>
-              <div style={{ fontSize:9, color:'rgba(255,255,255,0.4)', marginTop:2, lineHeight:1.3 }}>{s.label}</div>
+
+        <div style={{ marginTop: 14 }}>
+          <div style={{ background: color.navyHover, borderRadius: radius.pill, height: 6 }}>
+            <div style={{ width: tierPct + '%', background: color.saffron, borderRadius: radius.pill, height: 6 }} />
+          </div>
+          <div style={{ fontSize: font.xs, color: color.faint, marginTop: 6 }}>
+            {tier ? tr('sitter_moreWalksToNext', { n: tier.max - completedCount, next: tier.next }) : tr('sitter_topTier')}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 14 }}>
+          {[
+            { label: tr('newRequests'), val: newBookings.length },
+            { label: tr('yourRating'), val: (sitterProfile?.rating || 5.0).toFixed(1), star: true },
+            { label: tr('totalWalks'), val: completedCount },
+          ].map((s, i) => (
+            <div key={i} style={{ background: color.navyHover, borderRadius: radius.md, padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
+              <div style={{ ...money, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: font.lg, fontWeight: 700 }}>
+                {s.val}{s.star && <Icon name="star" size={14} color={color.saffron} />}
+              </div>
+              <div style={{ fontSize: font.xs, color: color.faint, marginTop: 2, lineHeight: 1.3 }}>{s.label}</div>
             </div>
           ))}
         </div>
-      </div>
+      </header>
 
       <div style={{ padding: '16px 16px 0' }}>
         {broadcastRequests.length > 0 && (
-          <button type="button" onClick={() => setTab('requests')} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', background:'#FFF3E0', borderRadius:12, padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', cursor:'pointer', border:'1px solid #FFB085' }}>
-            <span style={{ fontSize:18 }}>📢</span>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'#E65100' }}>{tr(broadcastRequests.length > 1 ? 'sitter_openRequestsMany' : 'sitter_openRequestsOne', { n: broadcastRequests.length })}</div>
-              <div style={{ fontSize:11, color:'#BF6000' }}>{tr('sitter_openRequestsHint')}</div>
+          <button type="button" onClick={() => setTab('requests')}
+            style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', background: color.saffronSoft, borderRadius: radius.lg, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', border: `1px solid ${color.line}` }}>
+            <span style={{ ...ui.iconTile, width: 40, height: 40, background: color.surface, color: color.warning }}><Icon name="megaphone" size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr(broadcastRequests.length > 1 ? 'sitter_openRequestsMany' : 'sitter_openRequestsOne', { n: broadcastRequests.length })}</div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('sitter_openRequestsHint')}</div>
             </div>
-            <span style={{ color:'#FF6B35', fontSize:16 }}>›</span>
+            <Icon name="chevronRight" size={18} color={color.muted} />
           </button>
         )}
-        <div style={{ background: 'white', borderRadius: 14, padding: 4, display: 'flex', gap: 4, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -16px 16px', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
           {[
             { id: 'new', label: tr('tabNew') + ' (' + newBookings.length + ')' },
-            { id: 'requests', label: '📢 ' + broadcastRequests.length, aria: tr('sitter_openRequestsTabAria', { n: broadcastRequests.length }) },
+            { id: 'requests', label: <><Icon name="megaphone" size={15} style={{ marginRight: 6, verticalAlign: -3 }} />{broadcastRequests.length}</>, aria: tr('sitter_openRequestsTabAria', { n: broadcastRequests.length }) },
             { id: 'upcoming', label: tr('tabUpcoming') },
             { id: 'active', label: tr('tabActive') },
             { id: 'past', label: tr('tabPast') },
           ].map(tb => (
             <button key={tb.id} onClick={() => setTab(tb.id)} aria-label={tb.aria} aria-pressed={tab === tb.id}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', background: tab === tb.id ? t.primary : 'transparent', color: tab === tb.id ? 'white' : '#888', fontSize: 12, fontWeight: tab === tb.id ? 700 : 400, cursor: 'pointer' }}>
+              style={{ ...ui.chip(tab === tb.id), flexShrink: 0, whiteSpace: 'nowrap', minHeight: 40 }}>
               {tb.label}
             </button>
           ))}
@@ -500,107 +539,84 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
         {unreadMessages.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 4, background: '#E24B4A' }} />
+            <div style={{ ...ui.sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: radius.pill, background: color.danger }} />
               {tr('sitter_newMessagesTitle')}
             </div>
-            {unreadMessages.map((msg, i) => (
-              <div key={i} style={{ background: 'white', borderRadius: 16, padding: '12px 14px', marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1.5px solid #FFCDD2', display: 'flex', gap: 10, alignItems: 'center' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: t.light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{msg.bookings?.booking_ref || tr('sitter_bookingFallback')}</div>
-                  <div style={{ fontSize: 12, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{msg.message}</div>
+            <div style={{ background: color.surface, borderRadius: radius.lg, border: `1px solid ${color.line}`, overflow: 'hidden' }}>
+              {unreadMessages.map((msg, i) => (
+                <div key={i} style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+                  <div style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name="message" size={19} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{msg.bookings?.booking_ref || tr('sitter_bookingFallback')}</div>
+                    <div style={{ fontSize: font.sm, color: color.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{messagePreview(msg.message, tr)}</div>
+                  </div>
+                  <div style={{ fontSize: font.xs, color: color.faint, flexShrink: 0 }}>
+                    {new Date(msg.created_at).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-                <div style={{ fontSize: 10, color: '#AAA', flexShrink: 0 }}>
-                  {new Date(msg.created_at).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 32 }}>🐾</div>
-            <div style={{ fontSize: 14, color: '#888', marginTop: 8 }}>{tr('loadingJobs')}</div>
+              ))}
+            </div>
           </div>
         )}
 
-        {!loading && tabBookings.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>
-              {tab === 'new' ? '📋' : tab === 'upcoming' ? '📅' : tab === 'active' ? '🦮' : '✅'}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#1a1a1a', marginBottom: 6 }}>
-              {tab === 'new' ? tr('noNewRequests') : tab === 'upcoming' ? tr('noUpcomingJobs') : tab === 'active' ? tr('noActiveWalks') : tr('noPastJobs')}
-            </div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6 }}>
-              {tab === 'new' ? tr('newRequestHint') : tr('confirmedHint')}
-            </div>
+        {loading && (
+          <div role="status">
+            {[0, 1].map(i => <div key={i} style={{ height: 120, borderRadius: radius.lg, background: color.tile, marginBottom: 12 }} />)}
+            <div style={{ fontSize: font.sm, color: color.muted, textAlign: 'center' }}>{tr('loadingJobs')}</div>
           </div>
+        )}
+
+        {tab !== 'requests' && !loading && tabBookings.length === 0 && emptyState(
+          emptyIcon,
+          tab === 'new' ? tr('noNewRequests') : tab === 'upcoming' ? tr('noUpcomingJobs') : tab === 'active' ? tr('noActiveWalks') : tr('noPastJobs'),
+          tab === 'new' ? tr('newRequestHint') : tr('confirmedHint'),
         )}
 
         {tab === 'requests' && (
           <div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:12, lineHeight:1.5 }}>
+            <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 12, lineHeight: 1.5 }}>
               {tr('openRequestsHint')}
             </div>
-            {broadcastRequests.length === 0 && (
-              <div style={{ textAlign:'center', padding:'40px 20px' }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>📢</div>
-                <div style={{ fontSize:15, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('noOpenRequests')}</div>
-                <div style={{ fontSize:13, color:'#888' }}>{tr('openRequestsEmptyHint')}</div>
-              </div>
-            )}
+            {broadcastRequests.length === 0 && emptyState('megaphone', tr('noOpenRequests'), tr('openRequestsEmptyHint'))}
             {broadcastRequests.map(req => (
-              <div key={req.id} style={{ background:'white', borderRadius:20, padding:16, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px solid ' + t.primary }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-                  <div>
-                    <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{SERVICE_NAME_KEYS[req.service_type] ? tr(SERVICE_NAME_KEYS[req.service_type]) : req.service_type}</div>
-                    <div style={{ fontSize:12, color:'#888' }}>{req.area || tr('sitter_nearbyArea')}</div>
+              <div key={req.id} style={{ ...ui.card, marginBottom: 12 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ ...ui.iconTile, width: 44, height: 44 }}><Icon name={SERVICE_ICONS[req.service_type] || 'paw'} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: font.md, fontWeight: 700, color: color.ink }}>{serviceName(req.service_type)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: font.sm, color: color.muted, marginTop: 2 }}>
+                      <Icon name="pin" size={14} />{req.area || tr('sitter_nearbyArea')}
+                    </div>
                   </div>
-                  <div style={{ fontSize:11, background:t.light, color:t.primary, borderRadius:10, padding:'3px 10px', fontWeight:600 }}>{tr('sitter_openBadge')}</div>
+                  <span style={ui.badge('info')}>{tr('sitter_openBadge')}</span>
                 </div>
-                <div style={{ display:'flex', gap:12, marginBottom:10 }}>
-                  <div style={{ fontSize:12, color:'#555' }}>📅 {req.scheduled_date}</div>
-                  <div style={{ fontSize:12, color:'#555' }}>🕐 {req.scheduled_time}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginBottom: 12 }}>
+                  <div style={metaRow}><Icon name="calendar" size={15} color={color.muted} /><span>{req.scheduled_date}</span></div>
+                  <div style={metaRow}><Icon name="clock" size={15} color={color.muted} /><span>{req.scheduled_time}</span></div>
                 </div>
-                {req.notes && <div style={{ fontSize:12, color:'#666', background:'#F8F8F8', borderRadius:10, padding:'8px 12px', marginBottom:10 }}>{req.notes}</div>}
+                {req.notes && <div style={{ fontSize: font.sm, color: color.text, background: color.bg, borderRadius: radius.md, padding: '10px 12px', marginBottom: 12, lineHeight: 1.5 }}>{req.notes}</div>}
                 <button onClick={() => acceptBroadcast(req)}
-                  style={{ width:'100%', minHeight:44, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                  style={{ ...ui.primaryButton, width: '100%' }}>
                   {tr('acceptThisRequest')}
                 </button>
               </div>
             ))}
           </div>
         )}
-        {tab !== 'requests' && !loading && tabBookings.map(b => <BookingCard key={b.id} b={b} />)}
+        {tab !== 'requests' && !loading && tabBookings.map(b => renderBookingCard(b))}
       </div>
 
       {supportWa && (
-        <div style={{ padding:'0 16px 16px' }}>
+        <div style={{ padding: '4px 16px 16px' }}>
           <button type="button" onClick={() => openWhatsAppSupport(supportWa, 'Hi Fursday, I am a sitter and need help with')}
-            style={{ width:'100%', font:'inherit', textAlign:'left', border:'none', minHeight:44, background:'#25D366', borderRadius:14, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            <span style={{ fontSize:18 }}>💬</span>
-            <div style={{ fontSize:13, fontWeight:600, color:'white' }}>{tr('needHelp')}</div>
+            style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', border: `1px solid ${color.line}`, minHeight: 44, background: color.surface, borderRadius: radius.lg, padding: 12, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+            <span style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name="message" size={19} /></span>
+            <div style={{ flex: 1, fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr('needHelp')}</div>
+            <Icon name="chevronRight" size={18} color={color.faint} />
           </button>
         </div>
       )}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #E0E0E0', display: 'flex', justifyContent: 'space-around', padding: '10px 0 calc(16px + env(safe-area-inset-bottom))', zIndex: 100 }}>
-        {[
-          { id: 'home', label: tr('homeNav'), emoji: '🏠' },
-          { id: 'jobs', label: tr('jobsNav'), emoji: '📋' },
-          { id: 'earnings', label: tr('earningsNav'), emoji: '💰' },
-          { id: 'profile', label: tr('editProfileNav'), emoji: '\u270F\uFE0F' },
-        ].map(n => (
-          <button type="button" key={n.id} onClick={() => { if(n.id === 'home') onBack(); else if(n.id === 'profile') { if(onEditProfile) onEditProfile(); } else setActiveNav(n.id); }}
-            aria-current={n.id === activeNav ? 'page' : undefined}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'inherit', minHeight: 44 }}>
-            <span style={{ fontSize: 20 }}>{n.emoji}</span>
-            <span style={{ fontSize: 10, fontWeight: n.id === activeNav ? 700 : 400, color: n.id === activeNav ? t.primary : '#BBB' }}>{n.label}</span>
-            {n.id === activeNav && <div style={{ width: 4, height: 4, borderRadius: 2, background: t.primary }} />}
-          </button>
-        ))}
-      </div>
       {uploadingPhotosFor && <PhotoUploadModal booking={uploadingPhotosFor} onClose={() => setUploadingPhotosFor(null)} onSubmitted={() => { setUploadingPhotosFor(null); loadData(); }} />}
     </div>
   );

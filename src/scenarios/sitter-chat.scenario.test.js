@@ -189,8 +189,8 @@ describe('S4: change time in English', () => {
     fireEvent.click(within(chat.container).getByRole('button', { name: 'Send proposal' }));
     await waitFor(() => expect(db.rows('messages', { booking_id: 'bk-far' })).toHaveLength(1));
     await waitFor(() => expect(within(chat.container).getByText('Proposed schedule')).toBeInTheDocument());
-    expect(within(chat.container).getByText('📅 ' + newDate)).toBeInTheDocument();
-    expect(within(chat.container).getByText('🕐 18:30')).toBeInTheDocument();
+    expect(within(chat.container).getByText(newDate)).toBeInTheDocument();
+    expect(within(chat.container).getByText('18:30')).toBeInTheDocument();
     chat.unmount();
     return { far, newDate };
   }
@@ -205,8 +205,8 @@ describe('S4: change time in English', () => {
 
     const sitterChat = await renderChat(IDS.priyaUser, sitterChatProps({ ...far, users: { name: 'Ananya Sharma' } }), 'sitter');
     expect(within(sitterChat.container).getByText('Proposed schedule')).toBeInTheDocument();
-    expect(within(sitterChat.container).getByText('📅 ' + newDate)).toBeInTheDocument();
-    expect(within(sitterChat.container).getByText('🕐 18:30')).toBeInTheDocument();
+    expect(within(sitterChat.container).getByText(newDate)).toBeInTheDocument();
+    expect(within(sitterChat.container).getByText('18:30')).toBeInTheDocument();
     expect(within(sitterChat.container).getByText('30-min walk')).toBeInTheDocument();
     expect(within(sitterChat.container).getByText('Rs.400')).toBeInTheDocument();
     expect(within(sitterChat.container).queryByText(/FURSDAY_SCHEDULE/)).toBeNull();
@@ -313,7 +313,7 @@ test('S6: English proposal and Devanagari reply round-trip byte-perfect between 
   const sitter = await renderChat(IDS.sunitaUser, sitterChatProps({ ...mid, users: { name: 'Ananya Sharma' } }), 'sitter');
   expect(within(sitter.container).getByText(englishText).textContent).toBe(englishText);
   expect(within(sitter.container).getByText('प्रस्तावित समय')).toBeInTheDocument();
-  expect(within(sitter.container).getByText('🕐 18:00')).toBeInTheDocument();
+  expect(within(sitter.container).getByText('18:00')).toBeInTheDocument();
   expect(within(sitter.container).getByPlaceholderText('संदेश लिखें...')).toBeInTheDocument();
   await sendChatText(sitter, hindiReply);
   await waitFor(() => expect(db.rows('messages', { booking_id: 'bk-mid' })).toHaveLength(3));
@@ -524,7 +524,7 @@ describe('S34: Hindi sitter dashboard', () => {
     expect(c.getByText('नमस्ते, सुनीता 👋')).toBeInTheDocument();
     expect(c.getByText('● आप लाइव हैं')).toBeInTheDocument();
     expect(c.getAllByText('नई रिक्वेस्ट').length).toBeGreaterThan(0);
-    ['इस महीने अब तक', 'आपकी रेटिंग', 'कुल वॉक', 'होम', 'मेरे काम', 'कमाई', 'प्रोफ़ाइल बदलें', 'आगामी', 'जारी', 'पुरानी', 'नई बुकिंग रिक्वेस्ट — 1 घंटे के अंदर जवाब दें']
+    ['इस महीने अब तक', 'आपकी रेटिंग', 'कुल वॉक', 'मेरे काम', 'आगामी', 'जारी', 'पुरानी', 'नई बुकिंग रिक्वेस्ट — 1 घंटे के अंदर जवाब दें']
       .forEach(s => expect(c.getByText(s)).toBeInTheDocument());
     expect(c.getByRole('button', { name: 'नई (1)' })).toBeInTheDocument();
     expect(c.getByRole('button', { name: /^स्वीकार करें/ })).toBeInTheDocument();
@@ -570,9 +570,8 @@ describe('S34: Hindi sitter dashboard', () => {
 
   test('S34: earnings tab renders in Hindi', async () => {
     setLanguage('hi');
-    const dash = await renderSitterDashboard(IDS.sunitaUser);
-    fireEvent.click(within(dash.container).getByText('कमाई'));
-    await settle(dash);
+    db.signInAs(IDS.sunitaUser);
+    const dash = await settle(render(<SitterEarningsDashboard city="Gurgaon" onBack={() => {}} />));
     expect(within(dash.container).queryByText('My Earnings')).toBeNull();
     expect(within(dash.container).queryByText('Total Earnings (All Time)')).toBeNull();
   });

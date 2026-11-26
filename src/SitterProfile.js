@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
-import { MapPin, Star, Shield, ArrowLeft, Heart, Share2, CheckCircle } from 'lucide-react';
 import { useLanguage } from './i18n';
-
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 export default function SitterProfile({ onBack, onBook, sitter, city }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr } = useLanguage();
   const TAG_LABELS = { walk30: tr('sitterProfile_tagWalk30'), boarding: tr('sitterProfile_tagBoarding'), daycare: tr('sitterProfile_tagDaycare') };
   const [liked, setLiked] = useState(false);
@@ -22,94 +16,105 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
   const area = s.area || city || tr('sitterProfile_areaFallback');
 
   return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', backgroundColor: '#FAFAFA', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', paddingBottom: 100 }}>
+    <div style={{ ...ui.page, paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
+      <div style={{ ...ui.header, justifyContent: 'space-between' }}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
+        </button>
+        <button type="button" onClick={() => setLiked(!liked)} aria-label={tr('sitterProfile_saveSitter')} aria-pressed={liked}
+          style={{ ...ui.backButton, color: liked ? color.danger : color.ink }}>
+          <Icon name={liked ? 'heartFilled' : 'heart'} size={20} />
+        </button>
+      </div>
 
-      <div style={{ position: 'relative', background: t.primary, height: 260, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 20 }}>
-        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ position: 'absolute', top: 48, left: 20, width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <ArrowLeft size={18} color="white" />
-        </button>
-        <button type="button" onClick={() => setLiked(!liked)} aria-label={tr('sitterProfile_saveSitter')} aria-pressed={liked} style={{ position: 'absolute', top: 48, right: 60, width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: liked ? 'rgba(255,100,100,0.4)' : 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <Heart size={18} color="white" fill={liked ? 'white' : 'transparent'} />
-        </button>
-        <div style={{ position: 'absolute', top: 48, right: 16, width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <Share2 size={18} color="white" />
-        </div>
-        <div style={{ width: 80, height: 80, borderRadius: 24, background: s.bg || '#FFE0B2', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 700, marginBottom: 10, overflow: 'hidden' }}>
+      <div style={{ background: color.surface, padding: '20px 16px', borderBottom: `1px solid ${color.line}`, display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div style={{ width: 80, height: 80, borderRadius: radius.lg, background: color.navySoft, color: color.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: font.xxl, fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
           {s.profilePhoto ? <img src={s.profilePhoto} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (s.emoji || name[0].toUpperCase())}
         </div>
-        <div style={{ color: 'white', fontSize: 22, fontWeight: 700, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-          {name}
-          {s.isTopSitter && <span style={{ fontSize: 11, background: '#FFF9C4', color: '#E65100', borderRadius: 8, padding: '2px 8px', fontWeight: 700 }}>{tr('sitterProfile_topProBadge')}</span>}
-        </div>
-        <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <MapPin size={13} color="rgba(255,255,255,0.85)" />
-          {area}
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ fontSize: font.xl, fontWeight: 700, color: color.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 6, letterSpacing: -0.2 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+            {s.verified && <Icon name="shield" size={18} color={color.success} title={tr('sitterProfile_verifiedTitle')} />}
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: font.sm, color: color.muted, marginTop: 4 }}>
+            <Icon name="pin" size={14} color={color.muted} />{area}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: font.sm, fontWeight: 600, color: color.ink }}>
+              <Icon name="starFilled" size={14} color={color.saffron} />{rating.toFixed(1)}
+            </span>
+            {s.isTopSitter && <span style={{ ...ui.badge('warning'), background: color.saffronSoft }}>{tr('sitterProfile_topProBadge')}</span>}
+          </div>
         </div>
       </div>
 
-      <div style={{ padding: '0 20px' }}>
-
-        <div style={{ background: 'white', borderRadius: 20, padding: '16px 10px', marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-around' }}>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ ...ui.card, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {[
             { val: tr('sitterProfile_ratingValue', { rating: rating.toFixed(1) }), lbl: tr('sitterProfile_statRatingLabel') },
             { val: reviewCount, lbl: tr('sitterProfile_statWalksDoneLabel') },
             { val: price, lbl: tr('sitterProfile_statFromLabel') },
           ].map((st, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{st.val}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>{st.lbl}</div>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '14px 6px', borderLeft: i ? `1px solid ${color.line}` : 'none', textAlign: 'center' }}>
+              <div style={{ fontSize: font.lg, fontWeight: 700, color: color.ink, fontVariantNumeric: 'tabular-nums' }}>{st.val}</div>
+              <div style={{ fontSize: font.xs, color: color.muted }}>{st.lbl}</div>
             </div>
           ))}
         </div>
 
         {s.verified && (
-          <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_verifiedTitle')}</div>
+          <div style={ui.card}>
+            <h2 style={ui.sectionTitle}>{tr('sitterProfile_verifiedTitle')}</h2>
             {[
-              { icon: <CheckCircle size={16} color="#2E7D32" />, text: tr('sitterProfile_aadhaarVerifiedText') },
-              { icon: <Shield size={16} color="#2E7D32" />, text: tr('sitterProfile_backgroundCheckedText') },
+              { icon: 'check', text: tr('sitterProfile_aadhaarVerifiedText') },
+              { icon: 'shield', text: tr('sitterProfile_backgroundCheckedText') },
             ].map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E8F5E9', borderRadius: 12, marginBottom: 8 }}>
-                {item.icon}
-                <span style={{ fontSize: 13, color: '#2E7D32', fontWeight: 500 }}>{item.text}</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+                <span style={{ width: 28, height: 28, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={item.icon} size={16} />
+                </span>
+                <span style={{ fontSize: font.md, color: color.text }}>{item.text}</span>
               </div>
             ))}
           </div>
         )}
 
         {tags.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_servicesTitle')}</div>
-            <div>
+          <div style={ui.card}>
+            <h2 style={ui.sectionTitle}>{tr('sitterProfile_servicesTitle')}</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {tags.map(tag => (
-                <span key={tag} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 20, background: t.light, color: t.primary, fontWeight: 500, display: 'inline-block', marginRight: 6, marginBottom: 6 }}>{TAG_LABELS[tag] || tag}</span>
+                <span key={tag} style={{ fontSize: font.sm, padding: '6px 12px', borderRadius: radius.pill, background: color.tile, color: color.text, fontWeight: 600 }}>{TAG_LABELS[tag] || tag}</span>
               ))}
             </div>
           </div>
         )}
 
-        <div style={{ background: 'white', borderRadius: 20, padding: 16, marginTop: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterProfile_reviewsTitle')}</div>
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>&#128075;</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterProfile_noReviewsTitle')}</div>
-            <div style={{ fontSize: 13, color: '#888' }}>{tr('sitterProfile_noReviewsSub', { name })}</div>
+        <div style={ui.card}>
+          <h2 style={ui.sectionTitle}>{tr('sitterProfile_reviewsTitle')}</h2>
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
+            <div style={{ ...ui.iconTile, margin: '0 auto 10px' }}><Icon name="star" /></div>
+            <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink, marginBottom: 4 }}>{tr('sitterProfile_noReviewsTitle')}</div>
+            <div style={{ fontSize: 13, color: color.muted }}>{tr('sitterProfile_noReviewsSub', { name })}</div>
           </div>
         </div>
-
-        <div style={{ height: 20 }} />
       </div>
 
       {/* Messaging isn't available pre-booking — every row in `messages`
           requires a real booking_id, and there's no booking yet at this
           browse stage. A "Message" button here used to render with no
           onClick at all (dead tap target); removed rather than fake it. */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #F0F0F0', padding: '12px 20px calc(24px + env(safe-area-inset-bottom))', display: 'flex', gap: 12 }}>
-        <button onClick={onBook} style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-          {tr('sitterProfile_bookNowButton')}
-        </button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: color.surface, borderTop: `1px solid ${color.line}`, zIndex: 100 }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: font.xs, color: color.muted }}>{tr('sitterProfile_statFromLabel')}</div>
+            <div style={{ fontSize: font.lg, fontWeight: 700, color: color.ink, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{price}</div>
+          </div>
+          <button type="button" onClick={onBook} style={{ ...ui.primaryButton, flex: 1 }}>
+            {tr('sitterProfile_bookNowButton')}
+          </button>
+        </div>
       </div>
-
     </div>
   );
 }

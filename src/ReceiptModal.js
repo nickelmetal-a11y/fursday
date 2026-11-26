@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, Download, Printer, Share2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useLanguage } from './i18n';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 const SERVICE_NAMES = {
   walk30: 'receiptModal_svcWalk30',
@@ -52,109 +53,114 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
     a.click();
   };
 
+  const row = { display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 };
+  const value = { fontWeight: 600, color: color.ink, textAlign: 'right' };
+  const eyebrow = { color: color.muted, fontSize: font.xs, marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 };
+  const divider = `1px dashed ${color.line}`;
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-      <div style={{ background: 'white', borderRadius: 24, maxWidth: 500, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #F0F0F0', position: 'sticky', top: 0, background: 'white' }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{tr('receiptModal_title')}</div>
-          <button type="button" onClick={onClose} aria-label={tr('common_close')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <X size={20} />
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(21,25,42,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, fontFamily: font.family }}>
+      <div role="dialog" aria-modal="true" style={{ background: color.surface, borderRadius: '20px 20px 0 0', maxWidth: 480, width: '100%', maxHeight: '90vh', overflow: 'auto', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${color.line}`, position: 'sticky', top: 0, background: color.surface, zIndex: 1 }}>
+          <div style={{ fontSize: font.lg + 2, fontWeight: 700, color: color.ink }}>{tr('receiptModal_title')}</div>
+          <button type="button" onClick={onClose} aria-label={tr('common_close')}
+            style={{ width: 36, height: 36, borderRadius: radius.pill, border: 'none', background: color.tile, color: color.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+            <Icon name="plus" size={20} style={{ transform: 'rotate(45deg)' }} />
           </button>
         </div>
 
-        <div id="receipt-content" style={{ padding: '32px 24px', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.8 }}>
+        <div id="receipt-content" style={{ padding: '24px 20px', fontFamily: font.family, fontSize: 13, lineHeight: 1.7, color: color.text, fontVariantNumeric: 'tabular-nums' }}>
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>🐾 Fursday</div>
-            <div style={{ fontSize: 12, color: '#888' }}>{tr('receiptModal_subtitle')}</div>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: font.xl, fontWeight: 700, color: color.navy, marginBottom: 4 }}>
+              <Icon name="paw" size={22} color={color.navy} />Fursday
+            </div>
+            <div style={{ fontSize: font.sm, color: color.muted }}>{tr('receiptModal_subtitle')}</div>
           </div>
 
           {/* Receipt Number */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24, borderBottom: '1px dashed #E0E0E0', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 20, borderBottom: divider, paddingBottom: 16 }}>
             <div>
-              <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{tr('receiptModal_receiptNo')}</div>
-              <div style={{ fontWeight: 600 }}>{booking.booking_ref}</div>
+              <div style={{ color: color.muted, fontSize: font.xs, marginBottom: 2 }}>{tr('receiptModal_receiptNo')}</div>
+              <div style={{ fontWeight: 600, color: color.ink }}>{booking.booking_ref}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{tr('receiptModal_date')}</div>
-              <div style={{ fontWeight: 600 }}>{completedDate.toLocaleDateString(locale)}</div>
+              <div style={{ color: color.muted, fontSize: font.xs, marginBottom: 2 }}>{tr('receiptModal_date')}</div>
+              <div style={{ fontWeight: 600, color: color.ink }}>{completedDate.toLocaleDateString(locale)}</div>
             </div>
           </div>
 
           {/* Service Details */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ color: '#888', fontSize: 11, marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>{tr('receiptModal_serviceDetails')}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={eyebrow}>{tr('receiptModal_serviceDetails')}</div>
+            <div style={row}>
               <span>{tr('receiptModal_serviceType')}</span>
-              <span style={{ fontWeight: 600 }}>{serviceName}</span>
+              <span style={value}>{serviceName}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={row}>
               <span>{tr('receiptModal_serviceDate')}</span>
-              <span style={{ fontWeight: 600 }}>{bookingDate.toLocaleDateString(locale)}</span>
+              <span style={value}>{bookingDate.toLocaleDateString(locale)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={row}>
               <span>{tr('receiptModal_pet')}</span>
-              <span style={{ fontWeight: 600 }}>{pet.name} ({pet.breed || tr('receiptModal_dogFallback')})</span>
+              <span style={value}>{pet.name} ({pet.breed || tr('receiptModal_dogFallback')})</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ ...row, marginBottom: 0 }}>
               <span>{tr('receiptModal_sitter')}</span>
-              <span style={{ fontWeight: 600 }}>{sitterName}</span>
+              <span style={value}>{sitterName}</span>
             </div>
           </div>
 
           {/* Pricing */}
-          <div style={{ marginBottom: 24, borderTop: '1px dashed #E0E0E0', borderBottom: '1px dashed #E0E0E0', padding: '16px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ marginBottom: 20, borderTop: divider, borderBottom: divider, padding: '16px 0' }}>
+            <div style={row}>
               <span>{tr('receiptModal_serviceCharge')}</span>
-              <span>₹{amount}</span>
+              <span style={{ color: color.ink }}>₹{amount}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#888', fontSize: 12 }}>
+            <div style={{ ...row, color: color.muted, fontSize: font.sm }}>
               <span>{tr('receiptModal_taxesFees')}</span>
               <span>₹0</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: font.lg, fontWeight: 700, color: color.ink }}>
               <span>{paid ? tr('receiptModal_totalPaid') : tr('receiptModal_total')}</span>
               <span>₹{amount}</span>
             </div>
           </div>
 
           {/* Payment Status */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ color: '#888' }}>{tr('receiptModal_paymentStatus')}</span>
-              <span style={{ color: paid ? '#2E7D32' : '#E65100', fontWeight: 600 }}>{paid ? tr('receiptModal_paid') : tr('receiptModal_unpaid')}</span>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ ...row, alignItems: 'center' }}>
+              <span style={{ color: color.muted }}>{tr('receiptModal_paymentStatus')}</span>
+              <span style={ui.badge(paid ? 'success' : 'warning')}>{paid ? tr('receiptModal_paid') : tr('receiptModal_unpaid')}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#888' }}>{tr('receiptModal_bookingStatus')}</span>
-              <span style={{ color: '#2E7D32', fontWeight: 600 }}>{tr('receiptModal_completed')}</span>
+            <div style={{ ...row, alignItems: 'center', marginBottom: 0 }}>
+              <span style={{ color: color.muted }}>{tr('receiptModal_bookingStatus')}</span>
+              <span style={ui.badge('success')}>{tr('receiptModal_completed')}</span>
             </div>
           </div>
 
           {/* Footer */}
-          <div style={{ textAlign: 'center', color: '#888', fontSize: 11, borderTop: '1px dashed #E0E0E0', paddingTop: 16 }}>
+          <div style={{ textAlign: 'center', color: color.muted, fontSize: font.xs, borderTop: divider, paddingTop: 16 }}>
             <div>{tr('receiptModal_thanks')}</div>
-            <div style={{ marginTop: 8 }}>{tr('receiptModal_confirmsCompleted')}</div>
-            <div style={{ marginTop: 12, fontSize: 10 }}>support@fursday.in | www.fursday.in</div>
+            <div style={{ marginTop: 6 }}>{tr('receiptModal_confirmsCompleted')}</div>
+            <div style={{ marginTop: 10, color: color.faint }}>support@fursday.in | www.fursday.in</div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: 8, padding: '20px 24px', borderTop: '1px solid #F0F0F0', background: '#F8F8F8', position: 'sticky', bottom: 0 }}>
+        <div style={{ display: 'flex', gap: 8, padding: '12px 20px calc(12px + env(safe-area-inset-bottom))', borderTop: `1px solid ${color.line}`, background: color.surface, position: 'sticky', bottom: 0 }}>
           {isNative ? (
-            <button type="button" onClick={handleShare}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Share2 size={16} />
+            <button type="button" onClick={handleShare} style={{ ...ui.primaryButton, flex: 1 }}>
+              <Icon name="share" size={18} />
               {tr('receiptModal_share')}
             </button>
           ) : (<>
-            <button type="button" onClick={handlePrint}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Printer size={16} />
+            <button type="button" onClick={handlePrint} style={{ ...ui.secondaryButton, flex: 1 }}>
+              <Icon name="printer" size={18} />
               {tr('receiptModal_print')}
             </button>
-            <button type="button" onClick={handleDownload}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Download size={16} />
+            <button type="button" onClick={handleDownload} style={{ ...ui.primaryButton, flex: 1 }}>
+              <Icon name="download" size={18} />
               {tr('receiptModal_download')}
             </button>
           </>)}

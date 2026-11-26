@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Clock, MapPin } from 'lucide-react';
 import { supabase } from './supabase';
 import { useLanguage } from './i18n';
-
-
-const ORANGE = '#FF6B35';
-const ORANGE_LIGHT = '#FFF0EB';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 const SERVICES = [
-  { id:'walk30', nameKey:'broadcast_svcWalkName', icon:'🦮', subKey:'broadcast_svcWalkSub' },
-  { id:'boarding', nameKey:'broadcast_svcBoardingName', icon:'🏠', subKey:'broadcast_svcBoardingSub' },
-  { id:'daycare', nameKey:'broadcast_svcDaycareName', icon:'☀️', subKey:'broadcast_svcDaycareSub' },
-  { id:'dropin', nameKey:'broadcast_svcDropinName', icon:'🔔', subKey:'broadcast_svcDropinSub' },
-  { id:'housesit', nameKey:'broadcast_svcHousesitName', icon:'🏡', subKey:'broadcast_svcHousesitSub' },
+  { id:'walk30', nameKey:'broadcast_svcWalkName', icon:'walk', subKey:'broadcast_svcWalkSub' },
+  { id:'boarding', nameKey:'broadcast_svcBoardingName', icon:'boarding', subKey:'broadcast_svcBoardingSub' },
+  { id:'daycare', nameKey:'broadcast_svcDaycareName', icon:'sun', subKey:'broadcast_svcDaycareSub' },
+  { id:'dropin', nameKey:'broadcast_svcDropinName', icon:'bell', subKey:'broadcast_svcDropinSub' },
+  { id:'housesit', nameKey:'broadcast_svcHousesitName', icon:'home', subKey:'broadcast_svcHousesitSub' },
 ];
 
 const TIME_SLOTS = ['6:00 AM','7:00 AM','8:00 AM','10:00 AM','11:00 AM','4:00 PM','5:00 PM','6:00 PM','7:00 PM'];
@@ -47,9 +44,6 @@ export default function BroadcastRequest({ onBack, city, onSitterAccepted }) {
   const days = getDays();
   const dayName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { weekday: 'short' }) : DAY_NAMES[d.getDay()];
   const monthName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { month: 'short' }) : MONTH_NAMES[d.getMonth()];
-  const t = city === 'Pune'
-    ? { primary:'#6C5CE7', light:'#F0EEFF', grad:'linear-gradient(135deg,#6C5CE7,#8E7CF3)' }
-    : { primary:ORANGE, light:ORANGE_LIGHT, grad:'linear-gradient(135deg,#FF6B35,#FF8C5A)' };
 
   const AREAS = city === 'Pune'
     ? ['Koregaon Park','Baner','Viman Nagar','Kharadi','Aundh','Wakad','Kalyani Nagar', 'Other']
@@ -118,172 +112,191 @@ export default function BroadcastRequest({ onBack, city, onSitterAccepted }) {
     onBack();
   };
 
-  if (submitted) return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ background:t.grad, padding:'48px 20px 24px' }}>
-        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', marginBottom:20 }}>
-          <ArrowLeft size={18} color="white" />
-        </button>
-        <div style={{ fontSize:32, marginBottom:12 }}>📢</div>
-        <div style={{ color:'white', fontSize:20, fontWeight:700, marginBottom:4 }}>{tr('broadcast_requestSentTitle')}</div>
-        <div style={{ color:'rgba(255,255,255,0.75)', fontSize:13 }}>{tr('broadcast_requestSentSub')}</div>
+  const stepTitle = { fontSize:font.xl, fontWeight:700, color:color.ink, margin:'0 0 4px', letterSpacing:-0.2 };
+  const stepHint = { fontSize:font.md, color:color.muted, marginBottom:16 };
+  const header = (title, sub) => (
+    <div style={ui.header}>
+      <button type="button" onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}>
+        <Icon name="arrowLeft" size={20} />
+      </button>
+      <div style={{ minWidth:0 }}>
+        <h1 style={ui.headerTitle}>{title}</h1>
+        {sub && <div style={{ color:color.muted, fontSize:font.sm }}>{sub}</div>}
       </div>
+    </div>
+  );
 
-      <div style={{ padding:'20px 20px 0' }}>
-        <div style={{ background:'white', borderRadius:16, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('broadcast_yourRequestLabel')}</div>
+  if (submitted) return (
+    <div style={{ ...ui.page, paddingBottom:'calc(32px + env(safe-area-inset-bottom))' }}>
+      {header(tr('broadcast_headerTitle'))}
+
+      <div style={{ padding:16 }}>
+        <div style={{ ...ui.card, display:'flex', gap:14, alignItems:'center', marginBottom:12 }}>
+          <span style={{ ...ui.iconTile, background:color.saffronSoft, color:color.saffron }}><Icon name="megaphone" /></span>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:font.lg, fontWeight:700, color:color.ink, marginBottom:2 }}>{tr('broadcast_requestSentTitle')}</div>
+            <div style={{ fontSize:13, color:color.muted, lineHeight:1.5 }}>{tr('broadcast_requestSentSub')}</div>
+          </div>
+        </div>
+
+        <div style={{ ...ui.card, marginBottom:20 }}>
+          <div style={{ ...ui.sectionTitle, marginBottom:4 }}>{tr('broadcast_yourRequestLabel')}</div>
           {[
             { label:tr('broadcast_labelService'), val: serviceLabel(service) },
             { label:tr('broadcast_labelDate'), val: days[selectedDay] ? dayName(days[selectedDay])+', '+days[selectedDay].getDate()+' '+monthName(days[selectedDay]) : '' },
             { label:tr('broadcast_labelTime'), val: selectedTime },
             { label:tr('broadcast_labelArea'), val: area ? areaLabel(area) : '' },
           ].filter(x=>x.val).map((x,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #F8F8F8' }}>
-              <span style={{ fontSize:12, color:'#888' }}>{x.label}</span>
-              <span style={{ fontSize:12, color:'#1a1a1a', fontWeight:500 }}>{x.val}</span>
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', gap:12, padding:'8px 0', borderTop:i ? `1px solid ${color.line}` : 'none' }}>
+              <span style={{ fontSize:13, color:color.muted }}>{x.label}</span>
+              <span style={{ fontSize:13, color:color.ink, fontWeight:500, textAlign:'right' }}>{x.val}</span>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:10 }}>
+        <h2 style={ui.sectionTitle}>
           {tr('broadcast_sittersWhoCanHelp')} {loadingResponses ? '...' : '(' + responses.length + ')'}
-        </div>
+        </h2>
 
         {responses.length === 0 && (
-          <div style={{ textAlign:'center', padding:'30px 20px', background:'white', borderRadius:16, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize:32, marginBottom:8 }}>⏳</div>
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('broadcast_waitingTitle')}</div>
-            <div style={{ fontSize:13, color:'#888' }}>{tr('broadcast_waitingHint')}</div>
+          <div style={{ ...ui.card, textAlign:'center', padding:28 }}>
+            <div style={{ ...ui.iconTile, margin:'0 auto 12px' }}><Icon name="clock" /></div>
+            <div style={{ fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:4 }}>{tr('broadcast_waitingTitle')}</div>
+            <div style={{ fontSize:13, color:color.muted }}>{tr('broadcast_waitingHint')}</div>
           </div>
         )}
 
         {responses.map(r => (
-          <div key={r.id} style={{ background:'white', borderRadius:16, padding:16, marginBottom:10, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div key={r.id} style={{ ...ui.card, marginBottom:10 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-              <div style={{ width:48, height:48, borderRadius:14, background:t.light, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:t.primary, flexShrink:0 }}>
+              <div style={{ width:48, height:48, borderRadius:radius.md, background:color.navySoft, display:'flex', alignItems:'center', justifyContent:'center', fontSize:font.xl, fontWeight:700, color:color.navy, flexShrink:0 }}>
                 {(r.sitter_profiles?.users?.name||'S')[0].toUpperCase()}
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a' }}>{r.sitter_profiles?.users?.name || tr('broadcast_sitterFallback')}</div>
-                <div style={{ fontSize:12, color:'#888' }}>{tr('broadcast_availableCheck')}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:color.ink }}>{r.sitter_profiles?.users?.name || tr('broadcast_sitterFallback')}</div>
+                <div style={{ fontSize:font.sm, color:color.success, fontWeight:500 }}>{tr('broadcast_availableCheck')}</div>
               </div>
-              <div style={{ fontSize:14, fontWeight:700, color:t.primary }}>Rs.{r.offered_price ? Math.round(r.offered_price / 100) : '—'}</div>
+              <div style={{ fontSize:15, fontWeight:700, color:color.ink, fontVariantNumeric:'tabular-nums' }}>Rs.{r.offered_price ? Math.round(r.offered_price / 100) : '—'}</div>
             </div>
-            <button onClick={() => acceptSitter(r)}
-              style={{ width:'100%', minHeight:44, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+            <button type="button" onClick={() => acceptSitter(r)} style={{ ...ui.primaryButton, width:'100%' }}>
               {tr('broadcast_bookThisSitter')}
             </button>
           </div>
         ))}
 
-        <div style={{ background:'#E8F5E9', borderRadius:14, padding:'12px 16px', marginTop:8, fontSize:13, color:'#2E7D32' }}>
-          {tr('broadcast_chargeNotice')}
+        <div style={{ background:color.successSoft, borderRadius:radius.md, padding:'12px 14px', marginTop:8, fontSize:13, color:color.success, lineHeight:1.5, display:'flex', gap:10 }}>
+          <Icon name="shield" size={18} style={{ marginTop:1 }} />
+          <span>{tr('broadcast_chargeNotice')}</span>
         </div>
       </div>
     </div>
   );
 
+  const ready = (step===0&&service)||(step===1&&selectedTime)||(step===2&&area);
+
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ background:t.grad, padding:'48px 20px 24px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-          <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-            <ArrowLeft size={18} color="white" />
-          </button>
-          <div>
-            <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('broadcast_headerTitle')}</div>
-            <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{tr('broadcast_headerSub', { city })}</div>
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:6 }}>
-          {[0,1,2].map(i => (
-            <div key={i} style={{ flex:1, height:4, borderRadius:2, background:i<=step?'white':'rgba(255,255,255,0.3)' }} />
-          ))}
-        </div>
+    <div style={{ ...ui.page, paddingBottom:'calc(96px + env(safe-area-inset-bottom))' }}>
+      {header(tr('broadcast_headerTitle'), tr('broadcast_headerSub', { city }))}
+      <div style={{ display:'flex', gap:6, padding:'12px 16px 14px', background:color.surface, borderBottom:`1px solid ${color.line}` }}>
+        {[0,1,2].map(i => (
+          <div key={i} style={{ flex:1, height:4, borderRadius:radius.pill, background:i<=step ? color.navy : color.line }} />
+        ))}
       </div>
 
-      <div style={{ padding:'20px 20px 0' }}>
+      <div style={{ padding:'20px 16px 0' }}>
         {step === 0 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('broadcast_step0Title')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('broadcast_step0Sub')}</div>
-            {SERVICES.map(s => (
-              <button type="button" key={s.id} onClick={() => setService(s.id)} aria-pressed={service===s.id}
-                style={{ width:'100%', textAlign:'left', font:'inherit', color:'inherit', background:'white', borderRadius:16, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:service===s.id?'2px solid '+t.primary:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-                <span style={{ fontSize:24 }}>{s.icon}</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a' }}>{tr(s.nameKey)}</div>
-                  <div style={{ fontSize:12, color:'#888' }}>{tr(s.subKey)}</div>
-                </div>
-                {service===s.id && <CheckCircle size={18} color={t.primary} />}
-              </button>
-            ))}
+            <h2 style={stepTitle}>{tr('broadcast_step0Title')}</h2>
+            <div style={stepHint}>{tr('broadcast_step0Sub')}</div>
+            {SERVICES.map(s => {
+              const on = service === s.id;
+              return (
+                <button type="button" key={s.id} onClick={() => setService(s.id)} aria-pressed={on}
+                  style={{ width:'100%', textAlign:'left', font:'inherit', color:'inherit', background:color.surface, borderRadius:radius.lg, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:`1px solid ${on ? color.navy : color.line}`, boxShadow:on ? `inset 0 0 0 1px ${color.navy}` : 'none' }}>
+                  <span style={{ ...ui.iconTile, background:on ? color.navySoft : color.tile }}><Icon name={s.icon} size={24} /></span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:15, fontWeight:600, color:color.ink }}>{tr(s.nameKey)}</div>
+                    <div style={{ fontSize:font.sm, color:color.muted }}>{tr(s.subKey)}</div>
+                  </div>
+                  <span style={{ width:20, height:20, borderRadius:radius.pill, border:`1.5px solid ${on ? color.navy : color.line}`, background:on ? color.navy : 'transparent', color:'white', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {on && <Icon name="check" size={13} strokeWidth={2.6} />}
+                  </span>
+                </button>
+              );
+            })}
           </>
         )}
 
         {step === 1 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('broadcast_step1Title')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>{tr('broadcast_step1Sub')}</div>
-            <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:16, scrollbarWidth:'none' }}>
-              {days.map((d,i) => (
-                <button type="button" key={i} onClick={() => setSelectedDay(i)} aria-pressed={selectedDay===i}
-                  style={{ flexShrink:0, width:54, borderRadius:14, padding:'10px 6px', textAlign:'center', cursor:'pointer', border:'none', font:'inherit', color:'inherit', background:selectedDay===i?t.primary:'white', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4 }}>{dayName(d)}</div>
-                  <div style={{ fontSize:17, fontWeight:700, color:selectedDay===i?'white':'#1a1a1a' }}>{d.getDate()}</div>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{monthName(d)}</div>
-                </button>
-              ))}
+            <h2 style={stepTitle}>{tr('broadcast_step1Title')}</h2>
+            <div style={stepHint}>{tr('broadcast_step1Sub')}</div>
+            <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:20, scrollbarWidth:'none' }}>
+              {days.map((d,i) => {
+                const on = selectedDay === i;
+                return (
+                  <button type="button" key={i} onClick={() => setSelectedDay(i)} aria-pressed={on}
+                    style={{ flexShrink:0, width:54, borderRadius:radius.md, padding:'10px 6px', textAlign:'center', cursor:'pointer', font:'inherit', color:'inherit', background:on ? color.navy : color.surface, border:`1px solid ${on ? color.navy : color.line}` }}>
+                    <div style={{ fontSize:font.xs, color:on ? 'rgba(255,255,255,0.75)' : color.muted, marginBottom:4 }}>{dayName(d)}</div>
+                    <div style={{ fontSize:17, fontWeight:700, color:on ? 'white' : color.ink, fontVariantNumeric:'tabular-nums' }}>{d.getDate()}</div>
+                    <div style={{ fontSize:font.xs, color:on ? 'rgba(255,255,255,0.7)' : color.faint, marginTop:2 }}>{monthName(d)}</div>
+                  </button>
+                );
+              })}
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
-              {TIME_SLOTS.map(ts => (
-                <button type="button" key={ts} onClick={() => setSelectedTime(ts)} aria-pressed={selectedTime===ts}
-                  style={{ padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', border:'none', fontFamily:'inherit', background:selectedTime===ts?t.primary:'white', fontSize:13, fontWeight:selectedTime===ts?600:400, color:selectedTime===ts?'white':'#555', boxShadow:'0 1px 6px rgba(0,0,0,0.04)' }}>
-                  {ts}
-                </button>
-              ))}
+              {TIME_SLOTS.map(ts => {
+                const on = selectedTime === ts;
+                return (
+                  <button type="button" key={ts} onClick={() => setSelectedTime(ts)} aria-pressed={on}
+                    style={{ minHeight:44, padding:'0 8px', borderRadius:radius.md, textAlign:'center', cursor:'pointer', fontFamily:'inherit', background:on ? color.navy : color.surface, border:`1px solid ${on ? color.navy : color.line}`, fontSize:13, fontWeight:600, color:on ? 'white' : color.text, fontVariantNumeric:'tabular-nums' }}>
+                    {ts}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
 
         {step === 2 && (
           <>
-            <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('broadcast_step2Title')}</div>
-            <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('broadcast_step2Sub')}</div>
+            <h2 style={stepTitle}>{tr('broadcast_step2Title')}</h2>
+            <div style={stepHint}>{tr('broadcast_step2Sub')}</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
               {AREAS.map(a => (
-                <button key={a} onClick={() => setArea(a)}
-                  style={{ padding:'8px 14px', borderRadius:20, border:area===a?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:area===a?t.light:'white', color:area===a?t.primary:'#555', fontSize:13, fontWeight:area===a?600:400, cursor:'pointer' }}>
+                <button type="button" key={a} onClick={() => setArea(a)} aria-pressed={area===a} style={{ ...ui.chip(area===a), minHeight:40 }}>
                   {areaLabel(a)}
                 </button>
               ))}
             </div>
-            <div style={{ background:'white', borderRadius:16, padding:16, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', marginBottom:14 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>{tr('broadcast_notesLabel')}</div>
+            <div style={{ ...ui.card, marginBottom:14 }}>
+              <div style={ui.label}>{tr('broadcast_notesLabel')}</div>
               <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder={tr('broadcast_notesPlaceholder')}
-                style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, color:'#1a1a1a', outline:'none', resize:'none', minHeight:80, lineHeight:1.6, fontFamily:'inherit', boxSizing:'border-box' }} />
+                placeholder={tr('broadcast_notesPlaceholder')} aria-label={tr('broadcast_notesLabel')}
+                style={{ ...ui.input, fontSize:14, resize:'none', minHeight:88, lineHeight:1.6 }} />
             </div>
-            <div style={{ background:'#E8F5E9', borderRadius:14, padding:'12px 16px', fontSize:13, color:'#2E7D32', lineHeight:1.6 }}>
-              {tr('broadcast_privacyNotice')}
+            <div style={{ background:color.tile, borderRadius:radius.md, padding:'12px 14px', fontSize:13, color:color.text, lineHeight:1.6, display:'flex', gap:10 }}>
+              <Icon name="lock" size={18} color={color.navy} style={{ marginTop:1 }} />
+              <span>{tr('broadcast_privacyNotice')}</span>
             </div>
           </>
         )}
       </div>
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))', display:'flex', gap:10 }}>
-        {step > 0 && (
-          <button onClick={() => setStep(s=>s-1)}
-            style={{ flex:1, padding:'14px 0', borderRadius:14, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:14, fontWeight:600, cursor:'pointer' }}>
-            {tr('broadcast_backButton')}
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, background:color.surface, borderTop:`1px solid ${color.line}`, zIndex:100 }}>
+        <div style={{ maxWidth:480, margin:'0 auto', padding:'12px 16px calc(12px + env(safe-area-inset-bottom))', display:'flex', gap:10, boxSizing:'border-box' }}>
+          {step > 0 && (
+            <button type="button" onClick={() => setStep(s=>s-1)} style={{ ...ui.secondaryButton, flex:1 }}>
+              {tr('broadcast_backButton')}
+            </button>
+          )}
+          <button type="button"
+            onClick={() => { if(step<2) setStep(s=>s+1); else submitRequest(); }}
+            disabled={saving || (step===0&&!service) || (step===1&&!selectedTime) || (step===2&&!area)}
+            style={{ ...ui.primaryButton, flex:2, background:ready ? color.navy : color.line, color:ready ? 'white' : color.faint, cursor:ready ? 'pointer' : 'not-allowed' }}>
+            {saving ? tr('common_sending') : step===2 ? tr('broadcast_sendToAllButton') : tr('broadcast_continueButton')}
           </button>
-        )}
-        <button
-          onClick={() => { if(step<2) setStep(s=>s+1); else submitRequest(); }}
-          disabled={saving || (step===0&&!service) || (step===1&&!selectedTime) || (step===2&&!area)}
-          style={{ flex:2, padding:'14px 0', borderRadius:14, border:'none', background:(step===0&&service)||(step===1&&selectedTime)||(step===2&&area)?t.primary:'#E0E0E0', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-          {saving ? tr('common_sending') : step===2 ? tr('broadcast_sendToAllButton') : tr('broadcast_continueButton')}
-        </button>
+        </div>
       </div>
     </div>
   );

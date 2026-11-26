@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
 import { useLanguage } from './i18n';
-
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 // reporterRole 'parent' files against the booking's sitter; 'sitter' files
 // against the pet parent. reported_user_id is always a real users.id.
@@ -71,35 +72,43 @@ export default function DisputeForm({ booking, sitterName, otherName, reporterRo
   };
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1001, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
-      <div style={{ background:'white', borderRadius:'24px 24px 0 0', padding:'24px 20px 40px', width:'100%', maxWidth:390 }}>
-        <div style={{ fontSize:16, fontWeight:700, color:'#1a1a1a', marginBottom:6 }}>{tr('disputeForm_titleWithSitter', { name: otherName || sitterName })}</div>
-        <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('disputeForm_subIntro')}</div>
+    <div style={{ position:'fixed', inset:0, background:'rgba(21,25,42,0.5)', zIndex:1001, display:'flex', alignItems:'flex-end', justifyContent:'center', fontFamily:font.family }}>
+      <div role="dialog" aria-modal="true" style={{ background:color.surface, borderRadius:'20px 20px 0 0', padding:'20px 20px calc(20px + env(safe-area-inset-bottom))', width:'100%', maxWidth:480, boxSizing:'border-box', maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:4 }}>
+          <div style={{ fontSize:font.lg, fontWeight:700, color:color.ink, paddingTop:6 }}>{tr('disputeForm_titleWithSitter', { name: otherName || sitterName })}</div>
+          <button type="button" onClick={onClose} aria-label={tr('common_close')}
+            style={{ width:36, height:36, borderRadius:radius.pill, border:'none', background:color.tile, color:color.text, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0, flexShrink:0 }}>
+            <Icon name="plus" size={20} style={{ transform:'rotate(45deg)' }} />
+          </button>
+        </div>
+        <div style={{ fontSize:13, color:color.muted, marginBottom:16 }}>{tr('disputeForm_subIntro')}</div>
 
         <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>{tr('disputeForm_typeLabel')}</div>
-          {disputeTypes.map(dt => (
-            <button type="button" key={dt.id} onClick={() => setDisputeType(dt.id)} aria-pressed={disputeType===dt.id}
-              style={{ display:'block', width:'100%', textAlign:'left', fontFamily:'inherit', padding:'12px 14px', borderRadius:12, border:disputeType===dt.id?'2px solid #FF6B35':'1.5px solid #E0E0E0', background:disputeType===dt.id?'#FFF0EB':'white', marginBottom:8, fontSize:13, cursor:'pointer', fontWeight:disputeType===dt.id?600:400, color:disputeType===dt.id?'#FF6B35':'#1a1a1a' }}>
-              {dt.label}
-              <span style={{ display:'block', fontSize:11, color:'#888', fontWeight:400, marginTop:2 }}>{dt.desc}</span>
-            </button>
-          ))}
+          <div style={ui.label}>{tr('disputeForm_typeLabel')}</div>
+          {disputeTypes.map(dt => {
+            const on = disputeType === dt.id;
+            return (
+              <button type="button" key={dt.id} onClick={() => setDisputeType(dt.id)} aria-pressed={on}
+                style={{ display:'block', width:'100%', minHeight:48, textAlign:'left', fontFamily:'inherit', padding:'10px 14px', borderRadius:radius.md, border:`1px solid ${on ? color.navy : color.line}`, boxShadow:on ? `inset 0 0 0 1px ${color.navy}` : 'none', background:on ? color.navySoft : color.surface, marginBottom:8, fontSize:14, cursor:'pointer', fontWeight:600, color:on ? color.navy : color.ink }}>
+                {dt.label}
+                <span style={{ display:'block', fontSize:font.sm, color:color.muted, fontWeight:400, marginTop:2 }}>{dt.desc}</span>
+              </button>
+            );
+          })}
         </div>
 
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder={tr('disputeForm_titlePlaceholder')} aria-label={tr('disputeForm_titlePlaceholder')}
-          style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, marginBottom:12, boxSizing:'border-box', outline:'none', fontFamily:'inherit' }} />
+          style={{ ...ui.input, fontSize:14, marginBottom:10 }} />
 
         <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('disputeForm_descriptionPlaceholder')} aria-label={tr('disputeForm_descriptionPlaceholder')}
-          style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, marginBottom:12, minHeight:80, boxSizing:'border-box', outline:'none', fontFamily:'inherit', resize:'none' }} />
+          style={{ ...ui.input, fontSize:14, marginBottom:14, minHeight:96, lineHeight:1.5, resize:'none' }} />
 
         <div style={{ display:'flex', gap:8 }}>
-          <button onClick={onClose}
-            style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#888', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          <button type="button" onClick={onClose} style={{ ...ui.secondaryButton, flex:1, color:color.muted }}>
             {tr('common_cancel')}
           </button>
-          <button onClick={fileDispute} disabled={filing}
-            style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:'#FF6B35', color:'white', fontSize:13, fontWeight:600, cursor:filing?'not-allowed':'pointer', opacity:filing?0.7:1 }}>
+          <button type="button" onClick={fileDispute} disabled={filing}
+            style={{ ...ui.primaryButton, flex:2, cursor:filing?'not-allowed':'pointer', opacity:filing?0.7:1 }}>
             {filing ? tr('disputeForm_filing') : tr('disputeForm_fileDisputeButton')}
           </button>
         </div>

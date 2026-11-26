@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from './i18n';
+import { color, font, radius } from './theme';
+import Icon from './ui/Icon';
 
 export default function PromoBanner({ promo, onUse }) {
   const { t: tr } = useLanguage();
@@ -16,23 +18,21 @@ export default function PromoBanner({ promo, onUse }) {
   };
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, background: 'linear-gradient(135deg, #6A3DE8, #FF6B35)', padding: 16, boxShadow: '0 6px 20px rgba(106,61,232,0.25)' }}>
-      <div style={{ position: 'absolute', top: -20, right: -20, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.12)' }} />
-      <div style={{ position: 'absolute', bottom: -30, right: 30, width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
-      <div style={{ position: 'relative' }}>
-        <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 800, color: 'white', letterSpacing: 0.5, marginBottom: 8 }}>{tr('home_promoBadge')}</div>
-        <div style={{ color: 'white', fontSize: 17, fontWeight: 800, marginBottom: 2 }}>{title}</div>
-        {promo.description && <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>{promo.description}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-          <button onClick={copy} aria-label={tr('home_promoCopyButton') + ' ' + promo.code}
-            style={{ flex: 1, textAlign: 'left', background: 'rgba(255,255,255,0.15)', border: '1px dashed rgba(255,255,255,0.6)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, fontWeight: 800, letterSpacing: 1, cursor: 'pointer' }}>
-            {promo.code || '—'} <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, letterSpacing: 0 }}>· {copied ? tr('home_promoCopied') : tr('home_promoCopyButton')}</span>
-          </button>
-          <button onClick={onUse}
-            style={{ background: 'white', border: 'none', borderRadius: 8, padding: '9px 16px', color: '#FF6B35', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>
-            {tr('home_promoUseNow')}
-          </button>
-        </div>
+    <div style={{ borderRadius: radius.lg, background: color.navy, padding: 16, color: '#fff', fontFamily: font.family }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: '#F3B77A', textTransform: 'uppercase' }}>
+        <Icon name="gift" size={14} color="#F3B77A" />{tr('home_promoBadge')}
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 700, marginTop: 6, letterSpacing: -0.2 }}>{title}</div>
+      {promo.description && <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 2 }}>{promo.description}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+        <button onClick={copy} aria-label={tr('home_promoCopyButton') + ' ' + promo.code}
+          style={{ flex: 1, textAlign: 'left', background: 'rgba(255,255,255,0.08)', border: '1px dashed rgba(255,255,255,0.45)', borderRadius: radius.sm, padding: '0 12px', minHeight: 40, color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', fontFamily: font.family }}>
+          {promo.code || '—'} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75, letterSpacing: 0 }}>· {copied ? tr('home_promoCopied') : tr('home_promoCopyButton')}</span>
+        </button>
+        <button onClick={onUse}
+          style={{ background: color.saffron, border: 'none', borderRadius: radius.sm, padding: '0 16px', minHeight: 40, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, fontFamily: font.family }}>
+          {tr('home_promoUseNow')}
+        </button>
       </div>
     </div>
   );

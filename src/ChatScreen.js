@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Phone, Image as ImageIcon, Calendar } from 'lucide-react';
 import { supabase } from './supabase';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 // Maps a schedule-card service code to its i18n key (the map itself can't
 // call the translation hook — it's module scope, not component scope).
@@ -57,7 +53,6 @@ const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
 });
 
 export default function ChatScreen({ onBack, city, booking, userType }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr, lang } = useLanguage();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -230,77 +225,87 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
     }
   };
 
+  const iconBtn = { width:44, height:44, borderRadius:radius.pill, border:`1px solid ${color.line}`, background:color.surface, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, padding:0 };
+  const timeLabel = (iso) => new Date(iso).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour:'2-digit', minute:'2-digit' });
+
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', height:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', display:'flex', flexDirection:'column' }}>
-      <div style={{ background:t.grad, padding:'48px 20px 16px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+    <div style={{ ...ui.page, height:'100vh', minHeight:0, display:'flex', flexDirection:'column' }}>
+      <div style={{ ...ui.header, flexShrink:0 }}>
         <div onClick={onBack} role="button" tabIndex={0} aria-label={tr('common_back')}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBack && onBack(); } }}
-          style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-          <ArrowLeft size={18} color="white" />
+          style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
         </div>
-        <div style={{ width:38, height:38, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'white' }}>
+        <div style={{ width:40, height:40, borderRadius:radius.pill, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontSize:font.lg, fontWeight:700, flexShrink:0 }}>
           {otherPartyName[0]}
         </div>
-        <div style={{ flex:1 }}>
-          <div style={{ color:'white', fontSize:15, fontWeight:700 }}>{otherPartyName}</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>{booking?.service || tr('chat_defaultServiceLabel')}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:color.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{otherPartyName}</div>
+          <div style={{ fontSize:font.sm, color:color.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{booking?.service || tr('chat_defaultServiceLabel')}</div>
         </div>
         {otherPartyPhone && (
-          <a href={'tel:'+otherPartyPhone} aria-label={tr('chat_callAria', { name: otherPartyName })} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-            <Phone size={16} color="white" />
+          <a href={'tel:'+otherPartyPhone} aria-label={tr('chat_callAria', { name: otherPartyName })} style={{ ...iconBtn, width:40, height:40, borderRadius:radius.md, border:'none', background:color.tile }}>
+            <Icon name="phone" size={19} />
           </a>
         )}
       </div>
 
       <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 8px' }}>
         {loading && (
-          <div style={{ textAlign:'center', padding:40, color:'#888', fontSize:13 }}>{tr('chat_loadingMessages')}</div>
+          <div style={{ padding:'8px 0' }}>
+            {[['flex-start', 180], ['flex-end', 140], ['flex-start', 220]].map(([side, w], i) => (
+              <div key={i} style={{ display:'flex', justifyContent:side, marginBottom:10 }}><div style={{ width:w, height:40, borderRadius:radius.lg, background:color.tile }} /></div>
+            ))}
+            <div style={{ textAlign:'center', color:color.muted, fontSize:13, marginTop:8 }}>{tr('chat_loadingMessages')}</div>
+          </div>
         )}
         {!loading && messages.length === 0 && (
-          <div style={{ textAlign:'center', padding:'40px 20px' }}>
-            <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('chat_noMessages')}</div>
-            <div style={{ fontSize:12, color:'#888' }}>{tr('chat_sayHello', { name: otherPartyName })}</div>
+          <div style={{ ...ui.card, textAlign:'center', padding:'28px 20px', marginTop:24 }}>
+            <div style={{ ...ui.iconTile, margin:'0 auto 12px' }}><Icon name="message" /></div>
+            <div style={{ fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:4 }}>{tr('chat_noMessages')}</div>
+            <div style={{ fontSize:13, color:color.muted }}>{tr('chat_sayHello', { name: otherPartyName })}</div>
           </div>
         )}
         {!loading && messages.map((m, i) => {
           const isMine = m.sender_id === currentUserId;
           const schedule = parseScheduleMessage(m.message);
           const accepted = parseAcceptMessage(m.message);
+          const isImage = isImageMessage(m.message);
           if (accepted) return (
-            <div key={m.id || i} style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
-              <div style={{ background:'#E8F5E9', color:'#2E7D32', fontSize:12, fontWeight:600, borderRadius:12, padding:'6px 12px' }}>
-                ✅ {tr('chat_scheduleAccepted', { date: accepted.date, time: accepted.time })}
+            <div key={m.id || i} style={{ display:'flex', justifyContent:'center', margin:'4px 0 12px' }}>
+              <div style={{ ...ui.badge('success'), fontSize:font.sm, padding:'6px 12px' }}>
+                <Icon name="check" size={14} strokeWidth={2.25} />{tr('chat_scheduleAccepted', { date: accepted.date, time: accepted.time })}
               </div>
             </div>
           );
+          const ink = isMine ? color.surface : color.ink;
           return (
-            <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:10 }}>
-              <div style={{ maxWidth:'75%', background:isMine?t.primary:'white', borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImageMessage(m.message)?6:schedule?0:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)', overflow:'hidden' }}>
+            <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:8 }}>
+              <div style={{ maxWidth:'78%', background:isMine ? color.navy : color.surface, border:isMine ? 'none' : `1px solid ${color.line}`, borderRadius:isMine?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:isImage ? 4 : schedule ? 0 : '9px 13px', overflow:'hidden' }}>
                 {schedule ? (
-                  <div style={{ minWidth:200 }}>
-                    <div style={{ background:isMine?'rgba(255,255,255,0.15)':t.light, padding:'10px 14px', display:'flex', alignItems:'center', gap:6 }}>
-                      <Calendar size={14} color={isMine?'white':t.primary} />
-                      <span style={{ fontSize:12, fontWeight:700, color:isMine?'white':t.primary }}>{tr('chat_proposedSchedule')}</span>
+                  <div style={{ minWidth:220 }}>
+                    <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:6, borderBottom:`1px solid ${isMine ? 'rgba(255,255,255,0.14)' : color.line}`, background:isMine ? 'transparent' : color.navySoft, color:isMine ? color.surface : color.navy }}>
+                      <Icon name="calendar" size={15} />
+                      <span style={{ fontSize:font.sm, fontWeight:700 }}>{tr('chat_proposedSchedule')}</span>
                     </div>
-                    <div style={{ padding:'10px 14px' }}>
-                      {schedule.service && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>{SERVICE_NAME_KEYS[schedule.service] ? tr(SERVICE_NAME_KEYS[schedule.service]) : schedule.service}</div>}
-                      {schedule.date && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>📅 {schedule.date}</div>}
-                      {schedule.time && <div style={{ fontSize:13, color:isMine?'white':'#1a1a1a', marginBottom:4 }}>🕐 {schedule.time}</div>}
-                      {schedule.price != null && <div style={{ fontSize:13, fontWeight:700, color:isMine?'white':t.primary }}>{tr('chat_priceLabel', { amount: Math.round(schedule.price/100) })}</div>}
+                    <div style={{ padding:'10px 14px', display:'flex', flexDirection:'column', gap:6, fontSize:13, color:ink }}>
+                      {schedule.service && <div style={{ fontWeight:600 }}>{SERVICE_NAME_KEYS[schedule.service] ? tr(SERVICE_NAME_KEYS[schedule.service]) : schedule.service}</div>}
+                      {schedule.date && <div style={{ display:'flex', alignItems:'center', gap:6 }}><Icon name="calendar" size={14} style={{ opacity:0.7 }} />{schedule.date}</div>}
+                      {schedule.time && <div style={{ display:'flex', alignItems:'center', gap:6 }}><Icon name="clock" size={14} style={{ opacity:0.7 }} />{schedule.time}</div>}
+                      {schedule.price != null && <div style={{ fontWeight:700, fontVariantNumeric:'tabular-nums', color:isMine ? color.surface : color.navy }}>{tr('chat_priceLabel', { amount: Math.round(schedule.price/100) })}</div>}
                       {!isMine && m.id && (acceptedProposalIds.has(m.id)
-                        ? <div style={{ marginTop:8, fontSize:12, fontWeight:600, color:'#2E7D32' }}>✅ {tr('chat_scheduleAcceptedShort')}</div>
+                        ? <div style={{ marginTop:4, display:'flex', alignItems:'center', gap:6, fontSize:font.sm, fontWeight:600, color:color.success }}><Icon name="check" size={14} strokeWidth={2.25} />{tr('chat_scheduleAcceptedShort')}</div>
                         : <button onClick={() => acceptSchedule(m, schedule)}
-                            style={{ marginTop:8, width:'100%', minHeight:44, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                            style={{ ...ui.primaryButton, marginTop:4, width:'100%', minHeight:44, fontSize:font.md }}>
                             {tr('chat_acceptNewTime')}
                           </button>)}
                     </div>
                   </div>
-                ) : isImageMessage(m.message)
-                  ? <img src={m.message} alt={tr('chat_sharedPhotoAlt')} style={{ width:180, height:180, objectFit:'cover', borderRadius:14, display:'block' }} />
-                  : <div style={{ fontSize:14, color:isMine?'white':'#1a1a1a', lineHeight:1.4 }}>{m.message}</div>}
-                <div style={{ fontSize:10, color:isMine?'rgba(255,255,255,0.7)':'#AAA', marginTop:schedule?0:4, padding:schedule?'0 14px 8px':0, textAlign:'right' }}>
-                  {new Date(m.created_at).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour:'2-digit', minute:'2-digit' })}
+                ) : isImage
+                  ? <img src={m.message} alt={tr('chat_sharedPhotoAlt')} style={{ width:200, height:200, maxWidth:'100%', objectFit:'cover', borderRadius:14, display:'block' }} />
+                  : <div style={{ fontSize:font.md, color:ink, lineHeight:1.45, whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{m.message}</div>}
+                <div style={{ fontSize:10, color:isMine ? 'rgba(255,255,255,0.65)' : color.faint, marginTop:schedule ? 0 : 3, padding:schedule ? '0 14px 8px' : isImage ? '4px 6px 2px' : 0, textAlign:'right' }}>
+                  {timeLabel(m.created_at)}
                 </div>
               </div>
             </div>
@@ -310,55 +315,53 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
       </div>
 
       {showScheduleForm && (
-        <div style={{ padding:'12px 16px', background:t.light, borderTop:'1px solid #F0F0F0', flexShrink:0 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:t.primary, marginBottom:8 }}>{tr('chat_proposeSchedule')}</div>
+        <div style={{ padding:'14px 16px', background:color.surface, borderTop:`1px solid ${color.line}`, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:color.ink, marginBottom:10 }}>
+            <Icon name="calendar" size={16} color={color.navy} />{tr('chat_proposeSchedule')}
+          </div>
           <div style={{ display:'flex', gap:8, marginBottom:10 }}>
             <input type="date" value={proposedDate} onChange={e => setProposedDate(e.target.value)}
-              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', fontFamily:'inherit' }} />
+              style={{ ...ui.input, flex:1, minWidth:0, fontSize:14, padding:'10px 12px' }} />
             <input type="time" value={proposedTime} onChange={e => setProposedTime(e.target.value)}
-              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', fontFamily:'inherit' }} />
+              style={{ ...ui.input, flex:1, minWidth:0, fontSize:14, padding:'10px 12px' }} />
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => setShowScheduleForm(false)}
-              style={{ flex:1, minHeight:44, padding:'10px 0', borderRadius:10, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            <button onClick={() => setShowScheduleForm(false)} style={{ ...ui.secondaryButton, flex:1, minHeight:44, fontSize:14 }}>
               {tr('common_cancel')}
             </button>
-            <button onClick={sendSchedule} disabled={!proposedDate || !proposedTime}
-              style={{ flex:1, minHeight:44, padding:'10px 0', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            <button onClick={sendSchedule} disabled={!proposedDate || !proposedTime} style={{ ...ui.primaryButton, flex:1, minHeight:44, fontSize:14 }}>
               {tr('chat_sendProposal')}
             </button>
           </div>
         </div>
       )}
 
-      <div style={{ padding:'8px 16px', display:'flex', gap:6, overflowX:'auto', flexShrink:0 }}>
+      <div style={{ padding:'8px 16px', display:'flex', gap:8, overflowX:'auto', flexShrink:0, background:color.bg }}>
         {quickReplies.map((q, i) => (
-          <button key={i} onClick={() => setText(q)}
-            style={{ flexShrink:0, padding:'6px 12px', borderRadius:20, border:'1.5px solid '+t.light, background:t.light, color:t.primary, fontSize:12, fontWeight:500, cursor:'pointer', whiteSpace:'nowrap' }}>
+          <button key={i} onClick={() => setText(q)} style={{ ...ui.chip(false), flexShrink:0, whiteSpace:'nowrap', fontWeight:500 }}>
             {q}
           </button>
         ))}
       </div>
 
-      <div style={{ padding:'10px 16px 20px', display:'flex', gap:8, background:'white', borderTop:'1px solid #F0F0F0', flexShrink:0 }}>
+      <div style={{ padding:'10px 12px calc(10px + env(safe-area-inset-bottom))', display:'flex', alignItems:'center', gap:8, background:color.surface, borderTop:`1px solid ${color.line}`, flexShrink:0 }}>
         <input value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
           placeholder={tr('chat_typePlaceholder')}
-          style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
+          style={{ ...ui.input, flex:1, minWidth:0, minHeight:44, borderRadius:radius.pill, background:color.bg, padding:'10px 16px', fontSize:15 }} />
         {(booking?.date || booking?.time || booking?.price != null) && (
-          <button onClick={openScheduleForm} title={tr('chat_proposeSchedule')} aria-label={tr('chat_proposeSchedule')}
-            style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-            <Calendar size={18} />
+          <button onClick={openScheduleForm} title={tr('chat_proposeSchedule')} aria-label={tr('chat_proposeSchedule')} style={iconBtn}>
+            <Icon name="calendar" size={19} />
           </button>
         )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={sendPhoto} />
         <button onClick={() => choosePhoto(photoInputRef, sendPhoto)} disabled={uploadingPhoto} aria-label={tr('chat_attachPhoto')}
-          style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:uploadingPhoto?'not-allowed':'pointer', flexShrink:0, opacity:uploadingPhoto?0.6:1 }}>
-          <ImageIcon size={18} />
+          style={{ ...iconBtn, cursor:uploadingPhoto?'not-allowed':'pointer', opacity:uploadingPhoto?0.5:1 }}>
+          <Icon name="image" size={19} />
         </button>
         <button onClick={sendMessage} aria-label={tr('chat_send')}
-          style={{ width:44, height:44, borderRadius:22, border:'none', background:t.primary, color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-          <Send size={18} />
+          style={{ ...iconBtn, border:'none', background:color.navy, color:color.surface }}>
+          <Icon name="send" size={18} />
         </button>
       </div>
     </div>

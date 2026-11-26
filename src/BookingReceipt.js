@@ -1,34 +1,30 @@
 import React from 'react';
-import { CheckCircle, Phone, MessageCircle, Calendar, Clock, MapPin } from 'lucide-react';
 import { useLanguage } from './i18n';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+const eyebrow = { fontSize: font.xs, color: color.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 };
 
 export default function BookingReceipt({ onBack, onViewBookings, city, booking }) {
   const { t: tr } = useLanguage();
-  const t = THEMES[city] || THEMES.Gurgaon;
   const b = booking || {};
   const sitterName = b.sitterName || tr('receipt_sitterFallbackName');
 
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ padding:'60px 24px 32px', textAlign:'center' }}>
-        <div style={{ width:80, height:80, borderRadius:24, background:'rgba(76,175,80,0.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', border:'2px solid #4CAF50' }}>
-          <CheckCircle size={40} color="#4CAF50" />
+    <div style={{ ...ui.page, paddingBottom: 'calc(32px + env(safe-area-inset-bottom))' }}>
+      <div style={{ background: color.surface, borderBottom: `1px solid ${color.line}`, padding: 'calc(40px + env(safe-area-inset-top)) 16px 24px', textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Icon name="check" size={32} strokeWidth={2.4} />
         </div>
-        <div style={{ fontSize:26, fontWeight:700, color:'white', marginBottom:8 }}>{tr('receipt_confirmedHeading')}</div>
-        <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', lineHeight:1.6 }}>
+        <div style={{ fontSize: font.xxl, fontWeight: 700, color: color.ink, marginBottom: 6, letterSpacing: -0.3 }}>{tr('receipt_confirmedHeading')}</div>
+        <div style={{ fontSize: font.md, color: color.muted, lineHeight: 1.6 }}>
           {tr('receipt_confirmedBody')}
         </div>
       </div>
 
-      <div style={{ padding:'0 20px' }}>
-        <div style={{ background:'#1a1a2e', borderRadius:20, padding:20, marginBottom:14, border:'1px solid rgba(255,107,53,0.2)' }}>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>{tr('receipt_bookingDetails')}</div>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={ui.card}>
+          <div style={eyebrow}>{tr('receipt_bookingDetails')}</div>
           {[
             { key:'ref', label:tr('receipt_labelBookingRef'), val:b.ref || b.booking_ref },
             { key:'service', label:tr('receipt_labelService'), val:b.service || b.service_type },
@@ -36,63 +32,63 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
             { key:'date', label:tr('receipt_labelDate'), val:b.booking_date || tr('receipt_dateFallbackConfirmed') },
             { key:'time', label:tr('receipt_labelTime'), val:b.time_slot || tr('receipt_timeFallbackAsBooked') },
             { key:'status', label:tr('receipt_labelStatus'), val:tr('receipt_statusPaidConfirmed') },
-          ].filter(x => x.val).map((x,i,arr) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.06)':'none' }}>
-              <span style={{ fontSize:13, color:'rgba(255,255,255,0.4)' }}>{x.label}</span>
-              <span style={{ fontSize:13, color:x.key==='status'?'#4CAF50':'white', fontWeight:x.key==='status'?700:500 }}>{x.val}</span>
+          ].filter(x => x.val).map((x,i) => (
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'9px 0', borderTop:i ? `1px solid ${color.line}` : 'none' }}>
+              <span style={{ fontSize:13, color:color.muted }}>{x.label}</span>
+              {x.key === 'status'
+                ? <span style={ui.badge('success')}>{x.val}</span>
+                : <span style={{ fontSize:13, color:color.ink, fontWeight:600, textAlign:'right', fontVariantNumeric:'tabular-nums' }}>{x.val}</span>}
             </div>
           ))}
         </div>
 
         {(b.sitterName || b.sitterPhone) && (
-          <div style={{ background:'#1a1a2e', borderRadius:20, padding:20, marginBottom:14, border:'1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>{tr('receipt_yourSitter')}</div>
+          <div style={ui.card}>
+            <div style={eyebrow}>{tr('receipt_yourSitter')}</div>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
-              <div style={{ width:48, height:48, borderRadius:14, background:t.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'white', flexShrink:0 }}>
+              <div style={{ width:48, height:48, borderRadius:radius.md, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontSize:font.xl, fontWeight:700, flexShrink:0 }}>
                 {(b.sitterName||'S')[0].toUpperCase()}
               </div>
-              <div>
-                <div style={{ color:'white', fontSize:16, fontWeight:700 }}>{sitterName}</div>
-                <div style={{ color:'rgba(255,255,255,0.5)', fontSize:12 }}>{tr('receipt_sitterOnTime')}</div>
+              <div style={{ minWidth:0 }}>
+                <div style={{ color:color.ink, fontSize:font.lg, fontWeight:700 }}>{sitterName}</div>
+                <div style={{ color:color.muted, fontSize:font.sm }}>{tr('receipt_sitterOnTime')}</div>
               </div>
             </div>
             <div style={{ display:'flex', gap:8 }}>
               {b.sitterPhone && (
-                <a href={'tel:'+b.sitterPhone}
-                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'12px 0', borderRadius:12, border:'1.5px solid rgba(255,255,255,0.15)', background:'transparent', color:'white', fontSize:13, fontWeight:600, textDecoration:'none' }}>
-                  <Phone size={15} /> {tr('receipt_callSitter')}
+                <a href={'tel:'+b.sitterPhone} style={{ ...ui.secondaryButton, flex:1, minHeight:44, fontSize:14, textDecoration:'none' }}>
+                  <Icon name="phone" size={16} /> {tr('receipt_callSitter')}
                 </a>
               )}
-              <button type="button" style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, fontFamily:'inherit', cursor:'pointer' }}
-                onClick={onViewBookings}>
-                <MessageCircle size={15} /> {tr('receipt_message')}
+              <button type="button" style={{ ...ui.primaryButton, flex:1, minHeight:44, fontSize:14 }} onClick={onViewBookings}>
+                <Icon name="message" size={16} /> {tr('receipt_message')}
               </button>
             </div>
           </div>
         )}
 
-        <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:16, padding:'14px 16px', marginBottom:14 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'white', marginBottom:10 }}>{tr('receipt_whatsNextHeading')}</div>
+        <div style={ui.card}>
+          <div style={ui.sectionTitle}>{tr('receipt_whatsNextHeading')}</div>
           {[
-            { emoji:'📱', text:tr('receipt_bullet1') },
-            { emoji:'📍', text:tr('receipt_bullet2') },
-            { emoji:'🐾', text:tr('receipt_bullet3') },
+            { icon:'bell', text:tr('receipt_bullet1') },
+            { icon:'pin', text:tr('receipt_bullet2') },
+            { icon:'shield', text:tr('receipt_bullet3') },
           ].map((s,i) => (
-            <div key={i} style={{ display:'flex', gap:10, padding:'6px 0', alignItems:'flex-start' }}>
-              <span style={{ fontSize:16, flexShrink:0 }}>{s.emoji}</span>
-              <span style={{ fontSize:13, color:'rgba(255,255,255,0.6)', lineHeight:1.5 }}>{s.text}</span>
+            <div key={i} style={{ display:'flex', gap:12, padding:'8px 0', alignItems:'center' }}>
+              <span style={{ ...ui.iconTile, width:36, height:36, borderRadius:radius.sm }}><Icon name={s.icon} size={18} /></span>
+              <span style={{ fontSize:13, color:color.text, lineHeight:1.5 }}>{s.text}</span>
             </div>
           ))}
         </div>
 
-        <button onClick={onViewBookings}
-          style={{ width:'100%', padding:'16px 0', borderRadius:16, border:'none', background:t.primary, color:'white', fontSize:15, fontWeight:700, cursor:'pointer', marginBottom:10 }}>
-          {tr('receipt_viewBookings')}
-        </button>
-        <button onClick={onBack}
-          style={{ width:'100%', padding:'14px 0', borderRadius:16, border:'1.5px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.5)', fontSize:14, cursor:'pointer' }}>
-          {tr('receipt_backToHome')}
-        </button>
+        <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:4 }}>
+          <button type="button" onClick={onViewBookings} style={{ ...ui.primaryButton, width:'100%' }}>
+            {tr('receipt_viewBookings')}
+          </button>
+          <button type="button" onClick={onBack} style={{ ...ui.secondaryButton, width:'100%' }}>
+            {tr('receipt_backToHome')}
+          </button>
+        </div>
       </div>
     </div>
   );

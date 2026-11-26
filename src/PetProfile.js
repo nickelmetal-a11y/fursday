@@ -1,13 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Camera, X, ChevronRight } from 'lucide-react';
 import { supabase } from './supabase';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 const BREED_LABEL_KEYS = { 'Indie/Mixed': 'pet_breedIndie', 'Other': 'pet_breedOther' };
 
@@ -33,7 +29,6 @@ const compressImage = (file, maxSizeMB = 1) => new Promise((resolve) => {
   reader.readAsDataURL(file);
 });
 export default function PetProfile({ onBack, city, onSave, petId }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr } = useLanguage();
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState([]);
@@ -120,25 +115,26 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
   const canSave = pet.vaccinated !== null;
 
   const Btn = ({ label, selected, onClick }) => (
-    <button type="button" onClick={onClick} aria-pressed={selected} style={{ flex:1, padding:'10px 6px', borderRadius:12, border:selected?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:selected?t.light:'white', textAlign:'center', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:selected?600:400, color:selected?t.primary:'#555', minHeight:44 }}>
+    <button type="button" onClick={onClick} aria-pressed={selected} style={{ flex:1, minWidth:0, padding:'10px 6px', borderRadius:radius.md, border:`1.5px solid ${selected ? color.navy : color.line}`, background:selected ? color.navySoft : color.surface, textAlign:'center', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:600, color:selected ? color.navy : color.text, minHeight:44 }}>
       {label}
     </button>
   );
+  const fieldLabel = { ...ui.label, fontSize:13 };
+  const questionLabel = { fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:10 };
+  const nextEnabled = step === 0 ? canNext0 : canNext1;
 
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ background:t.grad, padding:'48px 20px 20px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <button type="button" aria-label={tr('common_back')} onClick={step === 0 ? onBack : () => setStep(s => s-1)} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-            <ArrowLeft size={18} color="white" />
-          </button>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>
-            {[tr('pet_stepAbout'), tr('pet_stepPersonality'), tr('pet_stepSafety')][step]}
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:6 }}>
+    <div style={{ ...ui.page, paddingBottom:40 }}>
+      <div style={{ ...ui.header, flexWrap:'wrap', rowGap:12 }}>
+        <button type="button" aria-label={tr('common_back')} onClick={step === 0 ? onBack : () => setStep(s => s-1)} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
+        </button>
+        <h1 style={{ ...ui.headerTitle, flex:1 }}>
+          {[tr('pet_stepAbout'), tr('pet_stepPersonality'), tr('pet_stepSafety')][step]}
+        </h1>
+        <div aria-hidden="true" style={{ display:'flex', gap:6, width:'100%' }}>
           {[0,1,2].map(i => (
-            <div key={i} style={{ flex:1, height:4, borderRadius:2, background:i<=step?'white':'rgba(255,255,255,0.3)' }} />
+            <div key={i} style={{ flex:1, height:4, borderRadius:2, background:i<=step ? color.navy : color.line }} />
           ))}
         </div>
       </div>
@@ -150,112 +146,116 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
             <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center', marginBottom:8 }}>
               {photos.map((url, i) => (
                 <div key={i} style={{ position:'relative', width:80, height:80 }}>
-                  <img src={url} alt={tr('pet_photoAlt')} style={{ width:80, height:80, borderRadius:18, objectFit:'cover' }} />
+                  <img src={url} alt={tr('pet_photoAlt')} style={{ width:80, height:80, borderRadius:radius.lg, objectFit:'cover', border:`1px solid ${color.line}` }} />
                   <button type="button" aria-label={tr('pet_removePhotoAria')} onClick={() => setPhotos(p => p.filter((_,j) => j!==i))}
-                    style={{ position:'absolute', top:-6, right:-6, width:22, height:22, borderRadius:11, border:'none', padding:0, background:'#A32D2D', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                    <X size={12} color="white" />
+                    style={{ position:'absolute', top:-8, right:-8, width:26, height:26, borderRadius:radius.pill, border:`2px solid ${color.surface}`, padding:0, background:color.ink, color:color.surface, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                    <Icon name="plus" size={14} strokeWidth={2.25} style={{ transform:'rotate(45deg)' }} />
                   </button>
                 </div>
               ))}
               {photos.length < 4 && (
                 <button type="button" onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
-                  style={{ width:80, height:80, borderRadius:18, padding:0, fontFamily:'inherit', background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
-                  {uploading ? <span style={{ fontSize:11, color:t.primary }}>...</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{photos.length===0?tr('pet_addPhotoLabel'):tr('pet_morePhotoLabel')}</span></>}
+                  style={{ width:80, height:80, borderRadius:radius.lg, padding:0, fontFamily:'inherit', background:color.surface, border:`1.5px dashed ${color.faint}`, color:color.navy, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
+                  {uploading ? <span style={{ fontSize:font.xs, color:color.muted }}>...</span> : <><Icon name="camera" size={22} /><span style={{ fontSize:font.xs, fontWeight:600 }}>{photos.length===0?tr('pet_addPhotoLabel'):tr('pet_morePhotoLabel')}</span></>}
                 </button>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display:'none' }} />
             </div>
-            <div style={{ fontSize:11, color:'#AAA', textAlign:'center', marginBottom:20 }}>{tr('pet_photosCount', { n: photos.length })}</div>
+            <div style={{ fontSize:font.xs, color:color.muted, textAlign:'center', marginBottom:20 }}>{tr('pet_photosCount', { n: photos.length })}</div>
 
-            <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_nameLabel')} *</div>
-            <input value={pet.name} onChange={e => update('name', e.target.value)} placeholder={tr('pet_namePlaceholder')}
-              style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, boxSizing:'border-box' }} />
+            <div style={{ ...ui.card, marginBottom:16 }}>
+              <label htmlFor="pet-name" style={fieldLabel}>{tr('pet_nameLabel')} *</label>
+              <input id="pet-name" value={pet.name} onChange={e => update('name', e.target.value)} placeholder={tr('pet_namePlaceholder')}
+                style={{ ...ui.input, marginBottom:14 }} />
 
-            <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_breedLabel')} *</div>
-            <select value={pet.breed} onChange={e => update('breed', e.target.value)}
-              style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, background:'white', boxSizing:'border-box' }}>
-              <option value="">{tr('pet_selectBreed')}</option>
-              {BREEDS.map(b => <option key={b} value={b}>{BREED_LABEL_KEYS[b] ? tr(BREED_LABEL_KEYS[b]) : b}</option>)}
-            </select>
+              <label htmlFor="pet-breed" style={fieldLabel}>{tr('pet_breedLabel')} *</label>
+              <select id="pet-breed" value={pet.breed} onChange={e => update('breed', e.target.value)}
+                style={{ ...ui.input, marginBottom:14 }}>
+                <option value="">{tr('pet_selectBreed')}</option>
+                {BREEDS.map(b => <option key={b} value={b}>{BREED_LABEL_KEYS[b] ? tr(BREED_LABEL_KEYS[b]) : b}</option>)}
+              </select>
 
-            <div style={{ display:'flex', gap:10, marginBottom:14 }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_ageLabel')} *</div>
-                <input value={pet.age} onChange={e => update('age', e.target.value)} placeholder={tr('pet_agePlaceholder')} type="number"
-                  style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', boxSizing:'border-box' }} />
+              <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <label htmlFor="pet-age" style={fieldLabel}>{tr('pet_ageLabel')} *</label>
+                  <input id="pet-age" value={pet.age} onChange={e => update('age', e.target.value)} placeholder={tr('pet_agePlaceholder')} type="number"
+                    style={ui.input} />
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <label htmlFor="pet-weight" style={fieldLabel}>{tr('pet_weightLabel')}</label>
+                  <input id="pet-weight" value={pet.weight} onChange={e => update('weight', e.target.value)} placeholder={tr('pet_weightPlaceholder')} type="number"
+                    style={ui.input} />
+                </div>
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_weightLabel')}</div>
-                <input value={pet.weight} onChange={e => update('weight', e.target.value)} placeholder={tr('pet_weightPlaceholder')} type="number"
-                  style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', boxSizing:'border-box' }} />
-              </div>
-            </div>
 
-            <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>{tr('pet_genderLabel')} *</div>
-            <div style={{ display:'flex', gap:8, marginBottom:24 }}>
-              <Btn label={tr('pet_genderMale')} selected={pet.gender==='male'} onClick={() => update('gender','male')} />
-              <Btn label={tr('pet_genderFemale')} selected={pet.gender==='female'} onClick={() => update('gender','female')} />
+              <div style={fieldLabel}>{tr('pet_genderLabel')} *</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <Btn label={tr('pet_genderMale')} selected={pet.gender==='male'} onClick={() => update('gender','male')} />
+                <Btn label={tr('pet_genderFemale')} selected={pet.gender==='female'} onClick={() => update('gender','female')} />
+              </div>
             </div>
           </div>
         )}
 
         {step === 1 && (
           <div>
-            <div style={{ background:t.light, borderRadius:14, padding:'10px 14px', marginBottom:20, fontSize:13, color:t.primary }}>
-              {tr('pet_personalityIntro')}
+            <div style={{ background:color.infoSoft, color:color.info, borderRadius:radius.md, padding:'10px 12px', marginBottom:16, fontSize:13, display:'flex', gap:8, alignItems:'flex-start', lineHeight:1.5 }}>
+              <Icon name="info" size={16} style={{ marginTop:1 }} /><div>{tr('pet_personalityIntro')}</div>
             </div>
 
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:10 }}>{tr('pet_energyLabel')} *</div>
-            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              <Btn label={tr('pet_energyLazy')} selected={pet.energy==='lazy'} onClick={() => update('energy','lazy')} />
-              <Btn label={tr('pet_energyModerate')} selected={pet.energy==='moderate'} onClick={() => update('energy','moderate')} />
-              <Btn label={tr('pet_energyHyper')} selected={pet.energy==='hyper'} onClick={() => update('energy','hyper')} />
-            </div>
+            <div style={{ ...ui.card, marginBottom:16 }}>
+              <div style={questionLabel}>{tr('pet_energyLabel')} *</div>
+              <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+                <Btn label={tr('pet_energyLazy')} selected={pet.energy==='lazy'} onClick={() => update('energy','lazy')} />
+                <Btn label={tr('pet_energyModerate')} selected={pet.energy==='moderate'} onClick={() => update('energy','moderate')} />
+                <Btn label={tr('pet_energyHyper')} selected={pet.energy==='hyper'} onClick={() => update('energy','hyper')} />
+              </div>
 
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:10 }}>{tr('pet_strangersLabel')} *</div>
-            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              <Btn label={tr('pet_strangersFriendly')} selected={pet.strangers==='friendly'} onClick={() => update('strangers','friendly')} />
-              <Btn label={tr('pet_strangersShy')} selected={pet.strangers==='shy'} onClick={() => update('strangers','shy')} />
-              <Btn label={tr('pet_strangersCautious')} selected={pet.strangers==='cautious'} onClick={() => update('strangers','cautious')} />
-            </div>
+              <div style={questionLabel}>{tr('pet_strangersLabel')} *</div>
+              <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+                <Btn label={tr('pet_strangersFriendly')} selected={pet.strangers==='friendly'} onClick={() => update('strangers','friendly')} />
+                <Btn label={tr('pet_strangersShy')} selected={pet.strangers==='shy'} onClick={() => update('strangers','shy')} />
+                <Btn label={tr('pet_strangersCautious')} selected={pet.strangers==='cautious'} onClick={() => update('strangers','cautious')} />
+              </div>
 
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:10 }}>{tr('pet_leashLabel')} *</div>
-            <div style={{ display:'flex', gap:8, marginBottom:24 }}>
-              <Btn label={tr('pet_leashGood')} selected={pet.leash==='good'} onClick={() => update('leash','good')} />
-              <Btn label={tr('pet_leashPulls')} selected={pet.leash==='pulls'} onClick={() => update('leash','pulls')} />
-              <Btn label={tr('pet_leashReactive')} selected={pet.leash==='reactive'} onClick={() => update('leash','reactive')} />
+              <div style={questionLabel}>{tr('pet_leashLabel')} *</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <Btn label={tr('pet_leashGood')} selected={pet.leash==='good'} onClick={() => update('leash','good')} />
+                <Btn label={tr('pet_leashPulls')} selected={pet.leash==='pulls'} onClick={() => update('leash','pulls')} />
+                <Btn label={tr('pet_leashReactive')} selected={pet.leash==='reactive'} onClick={() => update('leash','reactive')} />
+              </div>
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div>
-            <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:10 }}>{tr('pet_vaccinatedLabel')} *</div>
+          <div style={{ ...ui.card, marginBottom:16 }}>
+            <div style={questionLabel}>{tr('pet_vaccinatedLabel')} *</div>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
               <Btn label={tr('pet_vaccinatedYes')} selected={pet.vaccinated==='yes'} onClick={() => update('vaccinated','yes')} />
               <Btn label={tr('pet_vaccinatedNo')} selected={pet.vaccinated==='no'} onClick={() => update('vaccinated','no')} />
             </div>
 
-            <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_emergencyLabel')}</div>
-            <input value={pet.emergency} onChange={e => update('emergency', e.target.value)} placeholder={tr('pet_emergencyPlaceholder')} type="tel"
-              style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, boxSizing:'border-box' }} />
+            <label htmlFor="pet-emergency" style={fieldLabel}>{tr('pet_emergencyLabel')}</label>
+            <input id="pet-emergency" value={pet.emergency} onChange={e => update('emergency', e.target.value)} placeholder={tr('pet_emergencyPlaceholder')} type="tel"
+              style={{ ...ui.input, marginBottom:14 }} />
 
-            <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('pet_notesLabel')}</div>
-            <textarea value={pet.notes} onChange={e => update('notes', e.target.value)}
+            <label htmlFor="pet-notes" style={fieldLabel}>{tr('pet_notesLabel')}</label>
+            <textarea id="pet-notes" value={pet.notes} onChange={e => update('notes', e.target.value)}
               placeholder={tr('pet_notesPlaceholder')}
-              rows={3} style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', resize:'none', boxSizing:'border-box', fontFamily:'inherit', marginBottom:24 }} />
+              rows={3} style={{ ...ui.input, fontSize:14, resize:'none', lineHeight:1.5 }} />
           </div>
         )}
 
         <div style={{ display:'flex', gap:10 }}>
           {step < 2 ? (
-            <button onClick={() => setStep(s => s+1)} disabled={step===0?!canNext0:!canNext1}
-              style={{ flex:1, padding:'14px 0', borderRadius:100, border:'none', background:(step===0?canNext0:canNext1)?t.primary:'#E0E0E0', color:'white', fontSize:15, fontWeight:700, cursor:(step===0?canNext0:canNext1)?'pointer':'not-allowed' }}>
-              {tr('pet_continueButton')} <ChevronRight size={16} style={{ display:'inline', verticalAlign:'middle' }} />
+            <button onClick={() => setStep(s => s+1)} disabled={!nextEnabled}
+              style={{ ...ui.primaryButton, flex:1, opacity:nextEnabled ? 1 : 0.45, cursor:nextEnabled ? 'pointer' : 'not-allowed' }}>
+              {tr('pet_continueButton')} <Icon name="chevronRight" size={18} />
             </button>
           ) : (
             <button onClick={savePet} disabled={!canSave || saving}
-              style={{ flex:1, padding:'14px 0', borderRadius:100, border:'none', background:canSave?t.primary:'#E0E0E0', color:'white', fontSize:15, fontWeight:700, cursor:canSave?'pointer':'not-allowed' }}>
+              style={{ ...ui.primaryButton, flex:1, opacity:canSave ? 1 : 0.45, cursor:canSave ? 'pointer' : 'not-allowed' }}>
               {saving ? tr('common_saving') : tr('pet_saveButton')}
             </button>
           )}

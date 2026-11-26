@@ -1,12 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, MessageCircle, Phone, Mail, Search } from 'lucide-react';
 import { useLanguage } from './i18n';
 import { useSupportContact, openWhatsAppSupport, callSupport } from './supportContact';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 // Each answer is kept in both languages side by side so the two never drift apart.
 const FAQ = [
@@ -49,7 +45,6 @@ const GROUPS = [
 ];
 
 export default function HelpScreen({ onBack, city, isSitter }) {
-  const theme = THEMES[city] || THEMES.Gurgaon;
   const { lang } = useLanguage();
   const L = (o) => o[lang] || o.en;
   const { whatsapp, phone } = useSupportContact();
@@ -64,68 +59,81 @@ export default function HelpScreen({ onBack, city, isSitter }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, group, lang]);
 
-  const contactBtn = { flex: 1, minHeight: 64, borderRadius: 14, border: '1px solid #EEE', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#1a1a1a', cursor: 'pointer' };
+  const contactBtn = { flex: 1, minWidth: 0, minHeight: 72, borderRadius: radius.lg, border: `1px solid ${color.line}`, background: color.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: font.sm, fontWeight: 600, fontFamily: font.family, color: color.ink, cursor: 'pointer', boxSizing: 'border-box' };
+  const contactIcon = (name, tone) => (
+    <span style={{ width: 36, height: 36, borderRadius: radius.pill, background: tone ? color[tone + 'Soft'] : color.navySoft, color: tone ? color[tone] : color.navy, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Icon name={name} size={18} />
+    </span>
+  );
 
   return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 40 }}>
-      <div style={{ background: theme.grad, padding: 'calc(48px + env(safe-area-inset-top)) 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <button onClick={onBack} aria-label={hi ? 'वापस' : 'Back'} style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <ArrowLeft size={18} color="white" />
-          </button>
-          <div style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>{hi ? 'मदद और सवाल' : 'Help & FAQ'}</div>
-        </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', borderRadius: 12, padding: '0 12px' }}>
-          <Search size={16} color="#999" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={hi ? 'अपना सवाल खोजें' : 'Search your question'} aria-label={hi ? 'खोजें' : 'Search'}
-            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, padding: '12px 0', background: 'transparent' }} />
-        </label>
+    <div style={{ ...ui.page, paddingBottom: 40 }}>
+      <div style={ui.header}>
+        <button onClick={onBack} aria-label={hi ? 'वापस' : 'Back'} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
+        </button>
+        <h1 style={ui.headerTitle}>{hi ? 'मदद और सवाल' : 'Help & FAQ'}</h1>
       </div>
 
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: color.surface, border: `1px solid ${color.line}`, borderRadius: radius.md, padding: '0 14px', minHeight: 48 }}>
+          <Icon name="search" size={18} color={color.muted} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={hi ? 'अपना सवाल खोजें' : 'Search your question'} aria-label={hi ? 'खोजें' : 'Search'}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: 15, padding: '12px 0', background: 'transparent', fontFamily: font.family, color: color.ink }} />
+        </label>
+
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>{hi ? 'हमसे बात करें' : 'Talk to us'}</div>
+          <h2 style={ui.sectionTitle}>{hi ? 'हमसे बात करें' : 'Talk to us'}</h2>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={contactBtn} disabled={!whatsapp} onClick={() => openWhatsAppSupport(whatsapp, hi ? 'नमस्ते, मुझे Fursday में मदद चाहिए' : 'Hi, I need help with Fursday')}>
-              <MessageCircle size={20} color="#25D366" />WhatsApp
+            <button style={{ ...contactBtn, opacity: whatsapp ? 1 : 0.5 }} disabled={!whatsapp} onClick={() => openWhatsAppSupport(whatsapp, hi ? 'नमस्ते, मुझे Fursday में मदद चाहिए' : 'Hi, I need help with Fursday')}>
+              {contactIcon('message', 'success')}WhatsApp
             </button>
-            <button style={contactBtn} disabled={!phone} onClick={() => callSupport(phone)}>
-              <Phone size={20} color={theme.primary} />{hi ? 'कॉल करें' : 'Call'}
+            <button style={{ ...contactBtn, opacity: phone ? 1 : 0.5 }} disabled={!phone} onClick={() => callSupport(phone)}>
+              {contactIcon('phone')}{hi ? 'कॉल करें' : 'Call'}
             </button>
             <a href="mailto:support@fursday.in" style={{ ...contactBtn, textDecoration: 'none' }}>
-              <Mail size={20} color="#1565C0" />{hi ? 'ईमेल' : 'Email'}
+              {contactIcon('mail', 'info')}{hi ? 'ईमेल' : 'Email'}
             </a>
           </div>
-          <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>{hi ? 'हम आमतौर पर 24 घंटे में जवाब देते हैं। आपात स्थिति में Settings में SOS दबाएँ।' : 'We usually reply within 24 hours. In an emergency, use SOS in Settings.'}</div>
+          <div style={{ fontSize: font.sm, color: color.muted, marginTop: 8, lineHeight: 1.5 }}>{hi ? 'हम आमतौर पर 24 घंटे में जवाब देते हैं। आपात स्थिति में Settings में SOS दबाएँ।' : 'We usually reply within 24 hours. In an emergency, use SOS in Settings.'}</div>
         </div>
 
-        {!query && (
-          <div role="tablist" style={{ display: 'flex', gap: 6 }}>
-            {GROUPS.map(g => (
-              <button key={g.id} role="tab" aria-selected={group === g.id} onClick={() => { setGroup(g.id); setOpen(null); }}
-                style={{ minHeight: 40, padding: '0 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: group === g.id ? theme.primary : 'white', color: group === g.id ? 'white' : '#555' }}>
-                {L(g.label)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {results.length === 0 && <div style={{ fontSize: 13, color: '#888', textAlign: 'center', padding: 24 }}>{hi ? 'कोई जवाब नहीं मिला। ऊपर WhatsApp पर पूछें।' : 'No answer found. Ask us on WhatsApp above.'}</div>}
-          {results.map((f) => {
-            const key = f.q.en;
-            const isOpen = open === key;
-            return (
-              <div key={key} style={{ background: 'white', borderRadius: 14, overflow: 'hidden', border: '1px solid #EEE' }}>
-                <button onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen}
-                  style={{ width: '100%', minHeight: 52, padding: '12px 16px', background: 'none', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>
-                  <span>{L(f.q)}</span>
-                  {isOpen ? <ChevronUp size={18} color={theme.primary} /> : <ChevronDown size={18} color="#BBB" />}
+        <div>
+          {!query && (
+            <div role="tablist" style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto' }}>
+              {GROUPS.map(g => (
+                <button key={g.id} role="tab" aria-selected={group === g.id} onClick={() => { setGroup(g.id); setOpen(null); }}
+                  style={{ ...ui.chip(group === g.id), minHeight: 40, flexShrink: 0 }}>
+                  {L(g.label)}
                 </button>
-                {isOpen && <div style={{ padding: '0 16px 16px', fontSize: 13, color: '#555', lineHeight: 1.7 }}>{L(f.a)}</div>}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
+
+          {results.length === 0 && (
+            <div style={{ ...ui.card, textAlign: 'center', padding: 24, fontSize: 13, color: color.muted }}>
+              <div style={{ ...ui.iconTile, margin: '0 auto 10px' }}><Icon name="search" /></div>
+              {hi ? 'कोई जवाब नहीं मिला। ऊपर WhatsApp पर पूछें।' : 'No answer found. Ask us on WhatsApp above.'}
+            </div>
+          )}
+          {results.length > 0 && (
+            <div style={{ background: color.surface, borderRadius: radius.lg, overflow: 'hidden', border: `1px solid ${color.line}` }}>
+              {results.map((f, i) => {
+                const key = f.q.en;
+                const isOpen = open === key;
+                return (
+                  <div key={key} style={{ borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+                    <button onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen}
+                      style={{ width: '100%', minHeight: 56, padding: '12px 16px', background: 'none', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', fontSize: font.md, fontWeight: 600, fontFamily: font.family, color: color.ink }}>
+                      <span>{L(f.q)}</span>
+                      <Icon name="chevronDown" size={18} color={isOpen ? color.navy : color.faint} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                    </button>
+                    {isOpen && <div style={{ padding: '0 16px 16px', fontSize: font.md, color: color.text, lineHeight: 1.65 }}>{L(f.a)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

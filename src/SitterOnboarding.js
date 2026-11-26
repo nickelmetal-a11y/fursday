@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { supabase } from './supabase';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 
 const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
@@ -23,20 +24,15 @@ const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
   reader.readAsDataURL(file);
 });
 
-const ORANGE = '#FF6B35';
-const ORANGE_LIGHT = '#FFF0EB';
-const DARK = '#0f0f1a';
-const DARK2 = '#1a1a2e';
-
 const CITY_DATA = {
   Gurgaon: { avg: 22000, top: 45000 },
   Pune: { avg: 19000, top: 40000 },
 };
 
 const SERVICES = [
-  { id: 'walk30', name: 'Request a walker', sub: '30 min per walk', icon: '🦮', avg: 320, default: 299, min: 149, max: 599, bookings: 20, nameKey: 'sitterOnboarding_serviceWalkName', subKey: 'sitterOnboarding_serviceWalkSub' },
-  { id: 'boarding', name: 'Home boarding', sub: 'Per night', icon: '🏠', avg: 899, default: 799, min: 499, max: 1999, bookings: 4, nameKey: 'sitterOnboarding_serviceBoardingName', subKey: 'sitterOnboarding_serviceBoardingSub' },
-  { id: 'daycare', name: 'Doggy daycare', sub: 'Per day', icon: '☀️', avg: 699, default: 599, min: 399, max: 1299, bookings: 8, nameKey: 'sitterOnboarding_serviceDaycareName', subKey: 'sitterOnboarding_serviceDaycareSub' },
+  { id: 'walk30', name: 'Request a walker', sub: '30 min per walk', icon: 'walk', avg: 320, default: 299, min: 149, max: 599, bookings: 20, nameKey: 'sitterOnboarding_serviceWalkName', subKey: 'sitterOnboarding_serviceWalkSub' },
+  { id: 'boarding', name: 'Home boarding', sub: 'Per night', icon: 'boarding', avg: 899, default: 799, min: 499, max: 1999, bookings: 4, nameKey: 'sitterOnboarding_serviceBoardingName', subKey: 'sitterOnboarding_serviceBoardingSub' },
+  { id: 'daycare', name: 'Doggy daycare', sub: 'Per day', icon: 'sun', avg: 699, default: 599, min: 399, max: 1299, bookings: 8, nameKey: 'sitterOnboarding_serviceDaycareName', subKey: 'sitterOnboarding_serviceDaycareSub' },
 ];
 
 const EXPERIENCE_OPTIONS = ['Less than 1 year', '1-2 years', '3-5 years', '5+ years'];
@@ -70,16 +66,16 @@ const ADVANCE_NOTICE_KEYS = {
 };
 
 const RESPONSIBILITIES = [
-  { emoji: '🦺', labelKey: 'sitterOnboarding_respKitLabel', detailKey: 'sitterOnboarding_respKitDetail', required: true },
-  { emoji: '⏰', labelKey: 'sitterOnboarding_respTimeLabel', detailKey: 'sitterOnboarding_respTimeDetail', required: true },
-  { emoji: '📱', labelKey: 'sitterOnboarding_respOtpLabel', detailKey: 'sitterOnboarding_respOtpDetail', required: true },
-  { emoji: '🧹', labelKey: 'sitterOnboarding_respPottyLabel', detailKey: 'sitterOnboarding_respPottyDetail', required: true },
-  { emoji: '🐾', labelKey: 'sitterOnboarding_respWipeLabel', detailKey: 'sitterOnboarding_respWipeDetail', required: true },
-  { emoji: '📋', labelKey: 'sitterOnboarding_respReportLabel', detailKey: 'sitterOnboarding_respReportDetail', required: true },
-  { emoji: '🚫', labelKey: 'sitterOnboarding_respNoFoodLabel', detailKey: 'sitterOnboarding_respNoFoodDetail', required: false },
-  { emoji: '🔒', labelKey: 'sitterOnboarding_respPrivacyLabel', detailKey: 'sitterOnboarding_respPrivacyDetail', required: true },
-  { emoji: '💰', labelKey: 'sitterOnboarding_respNoDealsLabel', detailKey: 'sitterOnboarding_respNoDealsDetail', required: true },
-  { emoji: '🆘', labelKey: 'sitterOnboarding_respEmergencyLabel', detailKey: 'sitterOnboarding_respEmergencyDetail', required: true },
+  { icon: 'briefcase', labelKey: 'sitterOnboarding_respKitLabel', detailKey: 'sitterOnboarding_respKitDetail', required: true },
+  { icon: 'clock', labelKey: 'sitterOnboarding_respTimeLabel', detailKey: 'sitterOnboarding_respTimeDetail', required: true },
+  { icon: 'smartphone', labelKey: 'sitterOnboarding_respOtpLabel', detailKey: 'sitterOnboarding_respOtpDetail', required: true },
+  { icon: 'check', labelKey: 'sitterOnboarding_respPottyLabel', detailKey: 'sitterOnboarding_respPottyDetail', required: true },
+  { icon: 'paw', labelKey: 'sitterOnboarding_respWipeLabel', detailKey: 'sitterOnboarding_respWipeDetail', required: true },
+  { icon: 'fileText', labelKey: 'sitterOnboarding_respReportLabel', detailKey: 'sitterOnboarding_respReportDetail', required: true },
+  { icon: 'alert', labelKey: 'sitterOnboarding_respNoFoodLabel', detailKey: 'sitterOnboarding_respNoFoodDetail', required: false },
+  { icon: 'lock', labelKey: 'sitterOnboarding_respPrivacyLabel', detailKey: 'sitterOnboarding_respPrivacyDetail', required: true },
+  { icon: 'wallet', labelKey: 'sitterOnboarding_respNoDealsLabel', detailKey: 'sitterOnboarding_respNoDealsDetail', required: true },
+  { icon: 'sos', labelKey: 'sitterOnboarding_respEmergencyLabel', detailKey: 'sitterOnboarding_respEmergencyDetail', required: true },
 ];
 
 const VERIFY_STEP_KEYS = ['sitterOnboarding_verifyStep1', 'sitterOnboarding_verifyStep2', 'sitterOnboarding_verifyStep3'];
@@ -305,530 +301,541 @@ export default function SitterOnboarding({ onDone, city }) {
     setScreen(9);
   };
 
-  const wrap = (children, dark) => (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: dark ? DARK : '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
+  const money = { fontVariantNumeric: 'tabular-nums' };
+  const wrap = (children) => (
+    <div style={{ ...ui.page, paddingBottom: 'calc(104px + env(safe-area-inset-bottom))' }}>
       {children}
     </div>
   );
-
-  const BackBtn = ({ to, dark }) => (
-    <button onClick={() => setScreen(to)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: dark ? 'rgba(255,255,255,0.5)' : '#888', fontSize: 13, padding: '56px 24px 0', marginBottom: 24 }}>
-      <ArrowLeft size={16} /> {tr('common_back')}
-    </button>
+  const body = { padding: '20px 16px 0' };
+  const title = { fontSize: font.xxl, fontWeight: 700, color: color.ink, margin: '0 0 4px', letterSpacing: -0.3, lineHeight: 1.25 };
+  const subtitle = { fontSize: font.md, color: color.muted, margin: '0 0 20px', lineHeight: 1.5 };
+  const card = { ...ui.card, marginBottom: 12 };
+  const cardTitle = { fontSize: font.md, fontWeight: 600, color: color.ink, marginBottom: 10 };
+  const chipRow = { display: 'flex', flexWrap: 'wrap', gap: 8 };
+  const hint = { fontSize: font.xs, color: color.muted, marginTop: 6, lineHeight: 1.5 };
+  const switchVisual = (on) => (
+    <span aria-hidden="true" style={{ width: 44, height: 26, borderRadius: radius.pill, background: on ? color.navy : color.line, position: 'relative', transition: 'background 0.2s', flexShrink: 0, display: 'block' }}>
+      <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: radius.pill, background: color.surface, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(16,24,40,0.2)' }} />
+    </span>
   );
+  const botAvatar = (size) => (
+    <div style={{ width: size, height: size, borderRadius: radius.md, background: color.navy, color: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon name="paw" size={Math.round(size * 0.55)} />
+    </div>
+  );
+  const botBubble = (text) => (
+    <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'flex-end' }}>
+      {botAvatar(32)}
+      <div style={{ background: color.surface, border: `1px solid ${color.line}`, borderRadius: '16px 16px 16px 4px', padding: '12px 14px', fontSize: font.md, color: color.ink, lineHeight: 1.5 }}>{text}</div>
+    </div>
+  );
+  const smallPrimary = { ...ui.primaryButton, minHeight: 44, padding: '0 20px', fontSize: font.md };
 
-  const ProgressBar = ({ step, dark }) => (
-    <div style={{ padding: '0 24px', marginBottom: 20 }}>
-      <div style={{ fontSize: 11, color: dark ? 'rgba(255,255,255,0.4)' : '#AAA', marginBottom: 6 }}>{tr('sitterOnboarding_stepOf', { step, total: TOTAL_STEPS })}</div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < step ? ORANGE : (dark ? 'rgba(255,255,255,0.1)' : '#E8E8E8') }} />
-        ))}
+  const stepHeader = (backTo, step) => (
+    <div style={{ ...ui.header, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => setScreen(backTo)} aria-label={tr('common_back')} style={ui.backButton}><Icon name="arrowLeft" size={20} /></button>
+        <span style={{ fontSize: font.sm, fontWeight: 600, color: color.muted }}>{tr('sitterOnboarding_stepOf', { step, total: TOTAL_STEPS })}</span>
+      </div>
+      <div role="progressbar" aria-valuemin={0} aria-valuemax={TOTAL_STEPS} aria-valuenow={step} style={{ background: color.tile, height: 6, borderRadius: radius.pill, overflow: 'hidden' }}>
+        <div style={{ width: (step / TOTAL_STEPS * 100) + '%', background: color.navy, height: 6, borderRadius: radius.pill, transition: 'width 0.3s' }} />
       </div>
     </div>
   );
 
-  const BottomBtn = ({ label, onClick, disabled, dark }) => (
-    <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 24px calc(28px + env(safe-area-inset-bottom))', background: dark ? DARK : 'white', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#F0F0F0'}` }}>
-      <button onClick={onClick} disabled={disabled}
-        style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: disabled ? '#E0E0E0' : ORANGE, color: disabled ? '#AAA' : 'white', fontSize: 15, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-        {label}
-      </button>
+  const bottomBar = (label, onClick, disabled) => (
+    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, background: color.surface, borderTop: `1px solid ${color.line}` }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+        <button onClick={onClick} disabled={disabled}
+          style={{ ...ui.primaryButton, width: '100%', background: disabled ? color.tile : color.navy, color: disabled ? color.faint : color.surface, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+          {label}
+        </button>
+      </div>
     </div>
   );
 
   if (restoringDraft) return wrap(
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>{tr('common_loading')}</div>
+    <div role="status" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+      {botAvatar(44)}
+      <div style={{ color: color.muted, fontSize: font.sm }}>{tr('common_loading')}</div>
     </div>
-  , true);
+  );
 
   // SCREEN 0 — City + earnings
   if (screen === 0) return wrap(
-    <div style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <div style={{ paddingTop: 56, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🐾</div>
-        <span style={{ color: 'white', fontSize: 17, fontWeight: 700 }}>Fursday</span>
+    <div style={{ padding: 'calc(20px + env(safe-area-inset-top)) 16px 24px', display: 'flex', flexDirection: 'column', minHeight: '100vh', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {botAvatar(36)}
+        <span style={{ color: color.ink, fontSize: font.lg, fontWeight: 700 }}>Fursday</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{tr('sitterOnboarding_yourCity')}</div>
-        <div style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: 'white', fontSize: 16, fontWeight: 600, marginBottom: 28 }}>
-          {city === 'Pune' ? '🌴' : '🏙️'} {city || 'Gurgaon'}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingTop: 24 }}>
+        <div style={{ fontSize: font.xs, fontWeight: 600, letterSpacing: 0.5, color: color.muted, marginBottom: 8 }}>{tr('sitterOnboarding_yourCity')}</div>
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16 }}>
+          <Icon name="pin" size={20} color={color.navy} />
+          <span style={{ fontSize: font.lg, fontWeight: 600, color: color.ink }}>{city || 'Gurgaon'}</span>
         </div>
-        <div style={{ fontSize: 52, fontWeight: 900, color: ORANGE, lineHeight: 1, marginBottom: 4 }}>Rs.{cityInfo.avg.toLocaleString('en-IN')}</div>
-        <div style={{ fontSize: 16, color: 'white', fontWeight: 600, marginBottom: 6 }}>{tr('sitterOnboarding_averagePerMonth')}</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 32 }}>{tr('sitterOnboarding_topSittersEarn', { amount: cityInfo.top.toLocaleString('en-IN'), city })}</div>
-        <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+        <div style={{ background: color.navy, color: color.surface, borderRadius: radius.lg, padding: 20, marginBottom: 16 }}>
+          <div style={{ ...money, fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5 }}>Rs.{cityInfo.avg.toLocaleString('en-IN')}</div>
+          <div style={{ fontSize: font.lg, fontWeight: 600, marginTop: 6 }}>{tr('sitterOnboarding_averagePerMonth')}</div>
+          <div style={{ fontSize: font.sm, color: color.faint, marginTop: 4, lineHeight: 1.5 }}>{tr('sitterOnboarding_topSittersEarn', { amount: cityInfo.top.toLocaleString('en-IN'), city })}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>
           {[
-            { v: tr('sitterOnboarding_statSetOwnSchedule'), s: tr('sitterOnboarding_statSetOwnScheduleSub') },
-            { v: tr('sitterOnboarding_statNoLockIn'), s: tr('sitterOnboarding_statNoLockInSub') },
-            { v: 'Rs.0', s: tr('sitterOnboarding_statFreeToJoinSub') },
-          ].map((x,i) => (
-            <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>{x.v}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{x.s}</div>
+            { icon: 'calendar', v: tr('sitterOnboarding_statSetOwnSchedule'), s: tr('sitterOnboarding_statSetOwnScheduleSub') },
+            { icon: 'key', v: tr('sitterOnboarding_statNoLockIn'), s: tr('sitterOnboarding_statNoLockInSub') },
+            { icon: 'wallet', v: 'Rs.0', s: tr('sitterOnboarding_statFreeToJoinSub') },
+          ].map((x, i) => (
+            <div key={i} style={{ ...ui.card, padding: '12px 8px', textAlign: 'center', minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', color: color.navy, marginBottom: 6 }}><Icon name={x.icon} size={18} /></div>
+              <div style={{ fontSize: font.sm, fontWeight: 700, color: color.ink, lineHeight: 1.3 }}>{x.v}</div>
+              <div style={{ fontSize: font.xs, color: color.muted, marginTop: 2, lineHeight: 1.3 }}>{x.s}</div>
             </div>
           ))}
         </div>
-        <button onClick={() => setScreen(1)}
-          style={{ width: '100%', padding: '18px 0', borderRadius: 18, border: 'none', background: ORANGE, color: 'white', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>
+        <button onClick={() => setScreen(1)} style={{ ...ui.primaryButton, width: '100%', minHeight: 52, fontSize: font.lg }}>
           {tr('sitterOnboarding_iWantToEarnThis')}
         </button>
         <button onClick={onDone}
-          style={{ width: '100%', marginTop: 12, padding: '12px 0', border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer' }}>
+          style={{ width: '100%', marginTop: 8, minHeight: 44, border: 'none', background: 'transparent', color: color.muted, fontSize: font.md, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           {tr('sitterOnboarding_notNow')}
         </button>
       </div>
     </div>
-  , true);
+  );
 
   // SCREEN 1 — Name + WhatsApp chat
   if (screen === 1) return wrap(
-    <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <BackBtn to={0} dark={true} />
-      <ProgressBar step={1} dark={true} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 14, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🐾</div>
-        <div>
-          <div style={{ color: 'white', fontSize: 14, fontWeight: 600 }}>Fursday</div>
-          <div style={{ color: '#2ECC71', fontSize: 11 }}>{tr('sitterOnboarding_onlineNow')}</div>
-        </div>
-      </div>
-      <div>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'flex-end' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🐾</div>
-          <div style={{ background: DARK2, borderRadius: '18px 18px 18px 4px', padding: '12px 16px' }}>
-            <div style={{ color: 'white', fontSize: 14, lineHeight: 1.5 }}>{tr('sitterOnboarding_welcomeAskName')}</div>
+    <>
+      {stepHeader(0, 1)}
+      <div style={body}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          {botAvatar(40)}
+          <div>
+            <div style={{ color: color.ink, fontSize: font.md, fontWeight: 700 }}>Fursday</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: color.success, fontSize: font.xs, fontWeight: 600 }}>
+              <span style={{ width: 6, height: 6, borderRadius: radius.pill, background: color.success }} />{tr('sitterOnboarding_onlineNow')}
+            </div>
           </div>
         </div>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder={tr('sitterOnboarding_fullNamePlaceholder')}
-          style={{ width: '100%', padding: '14px 16px', borderRadius: 16, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 15, color: 'white', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }} />
+        {botBubble(tr('sitterOnboarding_welcomeAskName'))}
+        <input value={name} onChange={e => setName(e.target.value)} placeholder={tr('sitterOnboarding_fullNamePlaceholder')} aria-label={tr('sitterOnboarding_fullNamePlaceholder')}
+          style={{ ...ui.input, marginBottom: 8 }} />
         {name.length > 1 && chatStep === 0 && (
           <div style={{ textAlign: 'right', marginBottom: 16 }}>
-            <button onClick={() => setChatStep(1)} style={{ padding: '8px 20px', minHeight: 44, borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('sitterOnboarding_send')}</button>
+            <button onClick={() => setChatStep(1)} style={smallPrimary}>{tr('sitterOnboarding_send')}</button>
           </div>
         )}
         {chatStep >= 1 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-              <div style={{ background: ORANGE, borderRadius: '18px 18px 4px 18px', padding: '10px 16px' }}>
-                <div style={{ color: 'white', fontSize: 14 }}>{name}</div>
-              </div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <div style={{ background: color.navy, color: color.surface, borderRadius: '16px 16px 4px 16px', padding: '10px 14px', fontSize: font.md, maxWidth: '80%', wordBreak: 'break-word' }}>{name}</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'flex-end' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🐾</div>
-              <div style={{ background: DARK2, borderRadius: '18px 18px 18px 4px', padding: '12px 16px' }}>
-                <div style={{ color: 'white', fontSize: 14 }}>{tr('sitterOnboarding_greatAskWhatsapp', { name })}</div>
-              </div>
-            </div>
+            {botBubble(tr('sitterOnboarding_greatAskWhatsapp', { name }))}
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <div style={{ padding: '14px 12px', borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>+91</div>
-              <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder={tr('sitterOnboarding_whatsappNumberPlaceholder')}
-                style={{ flex: 1, padding: '14px 16px', borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 15, color: 'white', outline: 'none' }} />
+              <div style={{ ...ui.input, width: 'auto', background: color.tile, color: color.muted, flexShrink: 0 }}>+91</div>
+              <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder={tr('sitterOnboarding_whatsappNumberPlaceholder')} inputMode="numeric" aria-label={tr('sitterOnboarding_whatsappNumberPlaceholder')}
+                style={{ ...ui.input, flex: 1, minWidth: 0, ...money }} />
             </div>
             {phone.length === 10 && !/^[6-9]\d{9}$/.test(phone) && (
-              <div style={{ fontSize: 12, color: '#FF6B35', marginBottom: 8 }}>{tr('sitterOnboarding_invalidMobileNumber')}</div>
+              <div role="alert" style={{ fontSize: font.sm, color: color.danger, marginBottom: 8 }}>{tr('sitterOnboarding_invalidMobileNumber')}</div>
             )}
             {phone.length === 10 && /^[6-9]\d{9}$/.test(phone) && (
               <div style={{ textAlign: 'right', marginBottom: 16 }}>
-                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={{ padding: '8px 20px', minHeight: 44, borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('common_next')}</button>
+                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={smallPrimary}>{tr('common_next')}</button>
               </div>
             )}
           </div>
         )}
       </div>
-    </div>
-  , true);
+    </>
+  );
 
   // SCREEN 2 — Services
   if (screen === 2) return wrap(
-    <div style={{ padding: '0 24px 100px', minHeight: '100vh' }}>
-      <BackBtn to={1} dark={true} />
-      <ProgressBar step={2} dark={true} />
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 4, paddingTop: 0 }}>{tr('sitterOnboarding_whatWillYouOffer')}</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 20 }}>{tr('sitterOnboarding_selectAllThatApply')}</div>
-      <div style={{ background: DARK2, borderRadius: 20, padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(255,107,53,0.3)' }}>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{tr('sitterOnboarding_estimatedMonthlyEarnings')}</div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: services.length > 0 ? ORANGE : 'rgba(255,255,255,0.2)' }}>
-          Rs.{estimated.toLocaleString('en-IN')}
+    <>
+      {stepHeader(1, 2)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_whatWillYouOffer')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_selectAllThatApply')}</p>
+        <div style={{ ...card, background: color.navySoft, border: `1px solid ${color.navySoft}` }}>
+          <div style={{ fontSize: font.sm, color: color.text, marginBottom: 2 }}>{tr('sitterOnboarding_estimatedMonthlyEarnings')}</div>
+          <div style={{ ...money, fontSize: 28, fontWeight: 700, color: services.length > 0 ? color.navy : color.faint, letterSpacing: -0.3 }}>
+            Rs.{estimated.toLocaleString('en-IN')}
+          </div>
+          {services.length === 0 && <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('sitterOnboarding_selectServicesToSeeEarnings')}</div>}
         </div>
-        {services.length === 0 && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{tr('sitterOnboarding_selectServicesToSeeEarnings')}</div>}
+        {SERVICES.map(s => {
+          const sel = services.includes(s.id);
+          return (
+            <button type="button" key={s.id} onClick={() => toggleService(s.id)} aria-pressed={sel} aria-label={tr('sitterOnboarding_toggleServiceLabel', { service: tr(s.nameKey) })}
+              style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', color: 'inherit', background: color.surface, borderRadius: radius.lg, padding: 14, marginBottom: 10, border: `1.5px solid ${sel ? color.navy : color.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ ...ui.iconTile, width: 44, height: 44, background: sel ? color.navySoft : color.tile }}><Icon name={s.icon} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr(s.nameKey)}</div>
+                <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr(s.subKey)} · {tr('sitterOnboarding_avgPrice', { amount: s.avg })}</div>
+                {sel && <div style={{ ...money, fontSize: font.sm, fontWeight: 700, color: color.success, marginTop: 4 }}>+Rs.{(prices[s.id] * s.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>}
+              </div>
+              <span style={{ width: 28, height: 28, borderRadius: radius.sm, border: sel ? 'none' : `1.5px solid ${color.line}`, background: sel ? color.navy : color.surface, color: sel ? color.surface : color.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name={sel ? 'check' : 'plus'} size={16} strokeWidth={2.2} />
+              </span>
+            </button>
+          );
+        })}
       </div>
-      {SERVICES.map(s => {
-        const sel = services.includes(s.id);
-        return (
-          <button type="button" key={s.id} onClick={() => toggleService(s.id)} aria-pressed={sel} aria-label={tr('sitterOnboarding_toggleServiceLabel', { service: tr(s.nameKey) })}
-            style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: sel ? 'rgba(255,107,53,0.12)' : DARK2, borderRadius: 16, padding: '14px 16px', marginBottom: 10, border: sel ? '1.5px solid ' + ORANGE : '1.5px solid rgba(255,255,255,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 24 }}>{s.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>{tr(s.nameKey)}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{tr(s.subKey)} · {tr('sitterOnboarding_avgPrice', { amount: s.avg })}</div>
-            </div>
-            {sel
-              ? <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE }}>+Rs.{(prices[s.id] * s.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
-                  <CheckCircle size={16} color={ORANGE} style={{ marginTop: 2 }} />
-                </div>
-              : <div style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 20 }}>+</div>
-            }
-          </button>
-        );
-      })}
-      <BottomBtn label={services.length > 0 ? tr('sitterOnboarding_setMyPrices') : tr('sitterOnboarding_selectAtLeastOneService')} onClick={async () => { if(services.length > 0){ const id = await saveDraft(3); await saveDraftServices(id); setPricingIdx(0); setScreen(3); } }} disabled={services.length === 0} dark={true} />
-    </div>
-  , true);
+      {bottomBar(services.length > 0 ? tr('sitterOnboarding_setMyPrices') : tr('sitterOnboarding_selectAtLeastOneService'), async () => { if(services.length > 0){ const id = await saveDraft(3); await saveDraftServices(id); setPricingIdx(0); setScreen(3); } }, services.length === 0)}
+    </>
+  );
 
   // SCREEN 3 — Pricing
   if (screen === 3) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={2} dark={false} />
-      <ProgressBar step={3} dark={false} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ fontSize: 13, color: '#888' }}>{tr('sitterOnboarding_pricingOf', { idx: pricingIdx + 1, total: activeServices.length })}</div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {activeServices.map((_, i) => (
-            <div key={i} style={{ width: i === pricingIdx ? 20 : 8, height: 6, borderRadius: 3, background: i <= pricingIdx ? ORANGE : '#E0E0E0' }} />
-          ))}
-        </div>
-      </div>
-      {pricingService && (
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 2 }}>{pricingService.icon} {tr(pricingService.nameKey)}</div>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr(pricingService.subKey)}</div>
-          <div style={{ background: 'white', borderRadius: 20, padding: 20, marginBottom: 14, boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, color: '#888' }}>{tr('sitterOnboarding_yourPrice')}</div>
-                <div style={{ fontSize: 40, fontWeight: 900, color: ORANGE }}>Rs.{prices[pricingService.id]}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#AAA' }}>{tr('sitterOnboarding_marketAvg')}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a' }}>Rs.{pricingService.avg}</div>
-              </div>
-            </div>
-            <input type="range" min={pricingService.min} max={pricingService.max} step={50} value={prices[pricingService.id]}
-              onChange={e => setPrices(prev => ({ ...prev, [pricingService.id]: parseInt(e.target.value) }))}
-              style={{ width: '100%', marginBottom: 14, accentColor: ORANGE }} />
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              {[{l:tr('sitterOnboarding_low'),v:pricingService.min},{l:tr('sitterOnboarding_avgLabel'),v:pricingService.avg},{l:tr('sitterOnboarding_high'),v:pricingService.max}].map(btn => (
-                <button key={btn.v} onClick={() => setPrices(prev => ({ ...prev, [pricingService.id]: btn.v }))}
-                  style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: prices[pricingService.id] === btn.v ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: prices[pricingService.id] === btn.v ? ORANGE_LIGHT : 'white', color: prices[pricingService.id] === btn.v ? ORANGE : '#888', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  {btn.l}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: ORANGE_LIGHT, borderRadius: 12, padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 12, color: '#888' }}>{tr('sitterOnboarding_monthlyEstimate')}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>Rs.{(prices[pricingService.id] * pricingService.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
-            </div>
+    <>
+      {stepHeader(2, 3)}
+      <div style={body}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: font.sm, color: color.muted }}>{tr('sitterOnboarding_pricingOf', { idx: pricingIdx + 1, total: activeServices.length })}</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {activeServices.map((_, i) => (
+              <div key={i} style={{ width: i === pricingIdx ? 20 : 8, height: 6, borderRadius: radius.pill, background: i <= pricingIdx ? color.navy : color.line }} />
+            ))}
           </div>
         </div>
-      )}
-      <BottomBtn label={pricingIdx < activeServices.length - 1 ? tr('sitterOnboarding_nextService') : tr('sitterOnboarding_doneWithPricing')} onClick={async () => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else { await saveDraftServices(draftSitterId); await saveDraft(4); setScreen(4); } }} dark={false} />
-    </div>
-  , false);
+        {pricingService && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={ui.iconTile}><Icon name={pricingService.icon} /></span>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ ...title, margin: 0 }}>{tr(pricingService.nameKey)}</h1>
+                <div style={{ fontSize: font.md, color: color.muted }}>{tr(pricingService.subKey)}</div>
+              </div>
+            </div>
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: font.sm, color: color.muted }}>{tr('sitterOnboarding_yourPrice')}</div>
+                  <div style={{ ...money, fontSize: 32, fontWeight: 700, color: color.navy, letterSpacing: -0.5 }}>Rs.{prices[pricingService.id]}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: font.xs, color: color.muted }}>{tr('sitterOnboarding_marketAvg')}</div>
+                  <div style={{ ...money, fontSize: font.xl, fontWeight: 700, color: color.ink }}>Rs.{pricingService.avg}</div>
+                </div>
+              </div>
+              <input type="range" min={pricingService.min} max={pricingService.max} step={50} value={prices[pricingService.id]}
+                aria-label={tr('sitterOnboarding_yourPrice')}
+                onChange={e => setPrices(prev => ({ ...prev, [pricingService.id]: parseInt(e.target.value) }))}
+                style={{ width: '100%', marginBottom: 14, accentColor: color.navy }} />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                {[{l:tr('sitterOnboarding_low'),v:pricingService.min},{l:tr('sitterOnboarding_avgLabel'),v:pricingService.avg},{l:tr('sitterOnboarding_high'),v:pricingService.max}].map(btn => (
+                  <button key={btn.v} onClick={() => setPrices(prev => ({ ...prev, [pricingService.id]: btn.v }))} aria-pressed={prices[pricingService.id] === btn.v}
+                    style={{ ...ui.chip(prices[pricingService.id] === btn.v), flex: 1, minHeight: 40, padding: '0 6px' }}>
+                    {btn.l}
+                  </button>
+                ))}
+              </div>
+              <div style={{ background: color.navySoft, borderRadius: radius.md, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: font.sm, color: color.text }}>{tr('sitterOnboarding_monthlyEstimate')}</div>
+                <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.navy }}>Rs.{(prices[pricingService.id] * pricingService.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {bottomBar(pricingIdx < activeServices.length - 1 ? tr('sitterOnboarding_nextService') : tr('sitterOnboarding_doneWithPricing'), async () => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else { await saveDraftServices(draftSitterId); await saveDraft(4); setScreen(4); } })}
+    </>
+  );
 
   // SCREEN 4 — About you
   if (screen === 4) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={3} dark={false} />
-      <ProgressBar step={4} dark={false} />
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterOnboarding_aboutYou')}</div>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr('sitterOnboarding_helpPetParentsTrust')}</div>
+    <>
+      {stepHeader(3, 4)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_aboutYou')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_helpPetParentsTrust')}</p>
 
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_profilePhoto')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button type="button" onClick={() => choosePhoto(photoInputRef, handlePhotoUpload)} aria-label={tr('sitterOnboarding_profilePhoto')}
-            style={{ width: 72, height: 72, padding: 0, font: 'inherit', borderRadius: 20, background: photoUrl ? 'transparent' : ORANGE_LIGHT, border: photoUrl ? 'none' : '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
-            {uploadingPhoto ? <span style={{ fontSize: 11, color: ORANGE }}>...</span>
-              : photoUrl ? <img src={photoUrl} alt={tr('sitterOnboarding_profilePhotoAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <><span style={{ fontSize: 24 }}>📷</span><span style={{ fontSize: 10, color: ORANGE, marginTop: 2 }}>{tr('sitterOnboarding_addPhoto')}</span></>}
-          </button>
-          <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
-          <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>{tr('sitterOnboarding_photoHint')}</div>
-        </div>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>{tr('sitterOnboarding_bio')}</div>
-        <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={200}
-          placeholder={tr('sitterOnboarding_bioPlaceholder')}
-          style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1.5px solid #E0E0E0', fontSize: 13, color: '#1a1a1a', outline: 'none', resize: 'none', minHeight: 90, lineHeight: 1.6, fontFamily: 'inherit', boxSizing: 'border-box' }} />
-        <div style={{ fontSize: 11, color: '#CCC', textAlign: 'right', marginTop: 4 }}>{bio.length}/200</div>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>{tr('sitterOnboarding_experienceWithPets')}</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {EXPERIENCE_OPTIONS.map(opt => (
-            <button key={opt} onClick={() => setExperience(opt)}
-              style={{ padding: '8px 14px', borderRadius: 20, border: experience === opt ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: experience === opt ? ORANGE_LIGHT : 'white', color: experience === opt ? ORANGE : '#555', fontSize: 13, fontWeight: experience === opt ? 600 : 400, cursor: 'pointer' }}>
-              {tr(EXPERIENCE_KEYS[opt])}
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_profilePhoto')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button type="button" onClick={() => choosePhoto(photoInputRef, handlePhotoUpload)} aria-label={tr('sitterOnboarding_profilePhoto')}
+              style={{ width: 72, height: 72, padding: 0, fontFamily: 'inherit', borderRadius: radius.lg, background: color.tile, border: photoUrl ? 'none' : `1.5px dashed ${color.faint}`, color: color.navy, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
+              {uploadingPhoto ? <span style={{ fontSize: font.xs }}>...</span>
+                : photoUrl ? <img src={photoUrl} alt={tr('sitterOnboarding_profilePhotoAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <><Icon name="camera" size={22} /><span style={{ fontSize: font.xs, fontWeight: 600, marginTop: 2 }}>{tr('sitterOnboarding_addPhoto')}</span></>}
             </button>
-          ))}
+            <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+            <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6 }}>{tr('sitterOnboarding_photoHint')}</div>
+          </div>
+        </div>
+
+        <div style={card}>
+          <label htmlFor="onb-bio" style={{ ...cardTitle, display: 'block', marginBottom: 8 }}>{tr('sitterOnboarding_bio')}</label>
+          <textarea id="onb-bio" value={bio} onChange={e => setBio(e.target.value)} maxLength={200}
+            placeholder={tr('sitterOnboarding_bioPlaceholder')}
+            style={{ ...ui.input, fontSize: font.md, resize: 'none', minHeight: 96, lineHeight: 1.6 }} />
+          <div style={{ ...money, fontSize: font.xs, color: color.faint, textAlign: 'right', marginTop: 4 }}>{bio.length}/200</div>
+        </div>
+
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_experienceWithPets')}</div>
+          <div style={chipRow}>
+            {EXPERIENCE_OPTIONS.map(opt => (
+              <button key={opt} onClick={() => setExperience(opt)} aria-pressed={experience === opt} style={ui.chip(experience === opt)}>
+                {tr(EXPERIENCE_KEYS[opt])}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_languagesSpoken')}</div>
+          <div style={chipRow}>
+            {LANGUAGES.map(lang => (
+              <button key={lang} onClick={() => toggleLang(lang)} aria-pressed={languages.includes(lang)} style={ui.chip(languages.includes(lang))}>
+                {tr(LANGUAGE_KEYS[lang])}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>{tr('sitterOnboarding_languagesSpoken')}</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {LANGUAGES.map(lang => (
-            <button key={lang} onClick={() => toggleLang(lang)}
-              style={{ padding: '8px 14px', borderRadius: 20, border: languages.includes(lang) ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: languages.includes(lang) ? ORANGE_LIGHT : 'white', color: languages.includes(lang) ? ORANGE : '#555', fontSize: 13, fontWeight: languages.includes(lang) ? 600 : 400, cursor: 'pointer' }}>
-              {tr(LANGUAGE_KEYS[lang])}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <BottomBtn label={tr('sitterOnboarding_continue')} onClick={async () => { await saveDraft(5); setScreen(5); }} dark={false} />
-    </div>
-  , false);
+      {bottomBar(tr('sitterOnboarding_continue'), async () => { await saveDraft(5); setScreen(5); })}
+    </>
+  );
 
   // SCREEN 5 — Availability
   if (screen === 5) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={4} dark={false} />
-      <ProgressBar step={5} dark={false} />
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterOnboarding_yourAvailability')}</div>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr('sitterOnboarding_setScheduleChangeAnytime')}</div>
+    <>
+      {stepHeader(4, 5)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_yourAvailability')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_setScheduleChangeAnytime')}</p>
 
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_availableDays')}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => {
-            const sel = availableDays.includes(day);
-            return (
-              <button key={day} onClick={() => setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
-                style={{ padding: '8px 14px', borderRadius: 20, border: sel ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: sel ? ORANGE_LIGHT : 'white', color: sel ? ORANGE : '#555', fontSize: 13, fontWeight: sel ? 600 : 400, cursor: 'pointer' }}>
-                {tr(DAY_KEYS[day])}
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_availableDays')}</div>
+          <div style={chipRow}>
+            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => {
+              const sel = availableDays.includes(day);
+              return (
+                <button key={day} onClick={() => setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])} aria-pressed={sel} style={ui.chip(sel)}>
+                  {tr(DAY_KEYS[day])}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            {[
+              { label: tr('sitterOnboarding_weekdays'), days: ['Mon','Tue','Wed','Thu','Fri'] },
+              { label: tr('sitterOnboarding_weekends'), days: ['Sat','Sun'] },
+              { label: tr('sitterOnboarding_allDays'), days: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] },
+            ].map(p => (
+              <button key={p.label} onClick={() => setAvailableDays(p.days)}
+                style={{ ...ui.secondaryButton, flex: 1, minHeight: 40, padding: '0 6px', fontSize: font.sm, color: color.text }}>
+                {p.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <button onClick={() => setAvailableDays(['Mon','Tue','Wed','Thu','Fri'])}
-            style={{ flex: 1, padding: '6px 0', borderRadius: 10, border: '1px solid #E0E0E0', background: 'white', color: '#888', fontSize: 12, cursor: 'pointer' }}>
-            {tr('sitterOnboarding_weekdays')}
-          </button>
-          <button onClick={() => setAvailableDays(['Sat','Sun'])}
-            style={{ flex: 1, padding: '6px 0', borderRadius: 10, border: '1px solid #E0E0E0', background: 'white', color: '#888', fontSize: 12, cursor: 'pointer' }}>
-            {tr('sitterOnboarding_weekends')}
-          </button>
-          <button onClick={() => setAvailableDays(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])}
-            style={{ flex: 1, padding: '6px 0', borderRadius: 10, border: '1px solid #E0E0E0', background: 'white', color: '#888', fontSize: 12, cursor: 'pointer' }}>
-            {tr('sitterOnboarding_allDays')}
-          </button>
-        </div>
-      </div>
 
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_availableTimeSlots')}</div>
-        {[
-          { label: tr('sitterOnboarding_slotMorning'), sub: tr('sitterEdit_morningHours'), key: 'morning', val: morningSlot, set: setMorningSlot },
-          { label: tr('sitterOnboarding_slotAfternoon'), sub: tr('sitterEdit_afternoonHours'), key: 'afternoon', val: afternoonSlot, set: setAfternoonSlot },
-          { label: tr('sitterOnboarding_slotEvening'), sub: tr('sitterEdit_eveningHours'), key: 'evening', val: eveningSlot, set: setEveningSlot },
-        ].map(slot => (
-          <button type="button" key={slot.key} onClick={() => slot.set(!slot.val)} role="switch" aria-checked={slot.val}
-            style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: slot.key !== 'evening' ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{slot.label}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>{slot.sub}</div>
-            </div>
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: slot.val ? ORANGE : '#E0E0E0', position: 'relative', transition: 'background 0.2s', cursor: 'pointer' }}>
-              <div style={{ position: 'absolute', top: 2, left: slot.val ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-            </div>
-          </button>
-        ))}
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>{tr('sitterOnboarding_maxDogsAtOneTime')}</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {['1','2','3','4+'].map(n => (
-            <button key={n} onClick={() => setMaxDogs(n)}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: maxDogs === n ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: maxDogs === n ? ORANGE_LIGHT : 'white', color: maxDogs === n ? ORANGE : '#555', fontSize: 16, fontWeight: maxDogs === n ? 700 : 400, cursor: 'pointer' }}>
-              {n}
+        <div style={card}>
+          <div style={{ ...cardTitle, marginBottom: 2 }}>{tr('sitterOnboarding_availableTimeSlots')}</div>
+          {[
+            { label: tr('sitterOnboarding_slotMorning'), sub: tr('sitterEdit_morningHours'), key: 'morning', val: morningSlot, set: setMorningSlot },
+            { label: tr('sitterOnboarding_slotAfternoon'), sub: tr('sitterEdit_afternoonHours'), key: 'afternoon', val: afternoonSlot, set: setAfternoonSlot },
+            { label: tr('sitterOnboarding_slotEvening'), sub: tr('sitterEdit_eveningHours'), key: 'evening', val: eveningSlot, set: setEveningSlot },
+          ].map((slot, i) => (
+            <button type="button" key={slot.key} onClick={() => slot.set(!slot.val)} role="switch" aria-checked={slot.val}
+              style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', color: 'inherit', background: 'none', border: 'none', borderTop: i ? `1px solid ${color.line}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{slot.label}</div>
+                <div style={{ fontSize: font.sm, color: color.muted }}>{slot.sub}</div>
+              </div>
+              {switchVisual(slot.val)}
             </button>
           ))}
         </div>
-      </div>
 
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>{tr('sitterOnboarding_advanceNoticeNeeded')}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {['Same day','12hrs','24hrs','48hrs','1 week'].map(n => (
-            <button key={n} onClick={() => setAdvanceNotice(n)}
-              style={{ padding: '8px 14px', borderRadius: 20, border: advanceNotice === n ? '2px solid ' + ORANGE : '1.5px solid #E0E0E0', background: advanceNotice === n ? ORANGE_LIGHT : 'white', color: advanceNotice === n ? ORANGE : '#555', fontSize: 12, fontWeight: advanceNotice === n ? 600 : 400, cursor: 'pointer' }}>
-              {tr(ADVANCE_NOTICE_KEYS[n])}
-            </button>
-          ))}
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_maxDogsAtOneTime')}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['1','2','3','4+'].map(n => (
+              <button key={n} onClick={() => setMaxDogs(n)} aria-pressed={maxDogs === n}
+                style={{ ...ui.chip(maxDogs === n), flex: 1, minHeight: 44, borderRadius: radius.md, fontSize: font.lg }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={cardTitle}>{tr('sitterOnboarding_advanceNoticeNeeded')}</div>
+          <div style={chipRow}>
+            {['Same day','12hrs','24hrs','48hrs','1 week'].map(n => (
+              <button key={n} onClick={() => setAdvanceNotice(n)} aria-pressed={advanceNotice === n} style={ui.chip(advanceNotice === n)}>
+                {tr(ADVANCE_NOTICE_KEYS[n])}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
-      <BottomBtn label={tr('sitterOnboarding_continue')} onClick={async () => { await saveDraft(6); setScreen(6); }} dark={false} />
-    </div>
-  , false);
+      {bottomBar(tr('sitterOnboarding_continue'), async () => { await saveDraft(6); setScreen(6); })}
+    </>
+  );
 
   // SCREEN 6 — ID Verification
   if (screen === 6) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={5} dark={false} />
-      <ProgressBar step={6} dark={false} />
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterOnboarding_idVerification')}</div>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr('sitterOnboarding_requiredBeforeFirstBooking')}</div>
+    <>
+      {stepHeader(5, 6)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_idVerification')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_requiredBeforeFirstBooking')}</p>
 
-      <div style={{ background: '#E3F2FD', borderRadius: 14, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10 }}>
-        <span style={{ fontSize: 20 }}>🛡️</span>
-        <div style={{ fontSize: 12, color: '#1565C0', lineHeight: 1.6 }}>
-          <strong>{tr('sitterOnboarding_whyWeVerifyTitle')}</strong> {tr('sitterOnboarding_whyWeVerifyBody')}
+        <div style={{ background: color.infoSoft, borderRadius: radius.lg, padding: '12px 14px', marginBottom: 12, display: 'flex', gap: 10 }}>
+          <Icon name="shield" size={20} color={color.info} style={{ marginTop: 1 }} />
+          <div style={{ fontSize: font.sm, color: color.text, lineHeight: 1.6 }}>
+            <strong style={{ color: color.info }}>{tr('sitterOnboarding_whyWeVerifyTitle')}</strong> {tr('sitterOnboarding_whyWeVerifyBody')}
+          </div>
+        </div>
+
+        <div style={card}>
+          <label htmlFor="onb-aadhaar" style={{ ...cardTitle, display: 'block', marginBottom: 8 }}>{tr('sitterOnboarding_aadhaarNumber')}</label>
+          <input id="onb-aadhaar" value={aadhaar} onChange={e => setAadhaar(e.target.value.replace(/\D/g,'').slice(0,12))}
+            placeholder="XXXX XXXX XXXX" inputMode="numeric"
+            style={{ ...ui.input, fontSize: font.lg, letterSpacing: 3, ...money }} />
+          <div style={hint}>{tr('sitterOnboarding_aadhaarHint')}</div>
+        </div>
+
+        <div style={card}>
+          <label htmlFor="onb-upi" style={{ ...cardTitle, display: 'block', marginBottom: 8 }}>{tr('sitterOnboarding_upiIdForPayouts')}</label>
+          <input id="onb-upi" value={upiId} onChange={e => setUpiId(e.target.value)}
+            placeholder={tr('sitterOnboarding_upiPlaceholder')}
+            style={ui.input} />
+          <div style={hint}>{tr('sitterOnboarding_upiHint')}</div>
+        </div>
+
+        <div style={card}>
+          <div style={{ ...cardTitle, marginBottom: 2 }}>{tr('sitterOnboarding_whatHappensNext')}</div>
+          {VERIFY_STEP_KEYS.map((key, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+              <Icon name="check" size={17} color={color.success} style={{ marginTop: 1 }} />
+              <span style={{ fontSize: font.md, color: color.text, lineHeight: 1.5 }}>{tr(key)}</span>
+            </div>
+          ))}
         </div>
       </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>{tr('sitterOnboarding_aadhaarNumber')}</div>
-        <input value={aadhaar} onChange={e => setAadhaar(e.target.value.replace(/\D/g,'').slice(0,12))}
-          placeholder="XXXX XXXX XXXX"
-          style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #E0E0E0', fontSize: 16, color: '#1a1a1a', outline: 'none', letterSpacing: 4, boxSizing: 'border-box' }} />
-        <div style={{ fontSize: 11, color: '#AAA', marginTop: 6 }}>{tr('sitterOnboarding_aadhaarHint')}</div>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>{tr('sitterOnboarding_upiIdForPayouts')}</div>
-        <input value={upiId} onChange={e => setUpiId(e.target.value)}
-          placeholder={tr('sitterOnboarding_upiPlaceholder')}
-          style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #E0E0E0', fontSize: 15, color: '#1a1a1a', outline: 'none', boxSizing: 'border-box' }} />
-        <div style={{ fontSize: 11, color: '#AAA', marginTop: 6 }}>{tr('sitterOnboarding_upiHint')}</div>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>{tr('sitterOnboarding_whatHappensNext')}</div>
-        {VERIFY_STEP_KEYS.map((key, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid #F5F5F5' : 'none' }}>
-            <CheckCircle size={16} color={ORANGE} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 13, color: '#555' }}>{tr(key)}</span>
-          </div>
-        ))}
-      </div>
-
-      <BottomBtn label={tr('sitterOnboarding_continue')} onClick={async () => { const id = await saveDraft(7); if (id && (aadhaar || upiId)) { await supabase.from('sitter_pii').upsert({ sitter_id: id, aadhaar_number: aadhaar || null, upi_id: upiId || null }, { onConflict: 'sitter_id' }); } setScreen(7); }} dark={false} />
-    </div>
-  , false);
+      {bottomBar(tr('sitterOnboarding_continue'), async () => { const id = await saveDraft(7); if (id && (aadhaar || upiId)) { await supabase.from('sitter_pii').upsert({ sitter_id: id, aadhaar_number: aadhaar || null, upi_id: upiId || null }, { onConflict: 'sitter_id' }); } setScreen(7); })}
+    </>
+  );
 
   // SCREEN 7 — Sitter responsibilities
   if (screen === 7) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={6} dark={false} />
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterOnboarding_yourResponsibilities')}</div>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr('sitterOnboarding_whatFursdayExpects')}</div>
+    <>
+      {stepHeader(6, 7)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_yourResponsibilities')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_whatFursdayExpects')}</p>
 
-      <div style={{ background:'#FFF0EB', borderRadius:14, padding:'12px 16px', marginBottom:14, display:'flex', gap:10 }}>
-        <span style={{ fontSize:18 }}>ℹ️</span>
-        <div style={{ fontSize:12, color:'#FF6B35', lineHeight:1.6 }}>{tr('sitterOnboarding_responsibilitiesIntro')}</div>
-      </div>
-
-      {RESPONSIBILITIES.map((item, i) => (
-        <div key={i} style={{ background:'white', borderRadius:14, padding:'12px 14px', marginBottom:8, display:'flex', gap:12, alignItems:'flex-start', boxShadow:'0 1px 6px rgba(0,0,0,0.04)' }}>
-          <div style={{ width:38, height:38, borderRadius:10, background:item.required?'#FFF0EB':'#F8F8F8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>{item.emoji}</div>
-          <div style={{ flex:1 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{tr(item.labelKey)}</div>
-              {item.required && <span style={{ fontSize:10, background:'#FCEBEB', color:'#A32D2D', borderRadius:6, padding:'1px 6px', fontWeight:600 }}>{tr('common_required')}</span>}
-            </div>
-            <div style={{ fontSize:12, color:'#888', lineHeight:1.5 }}>{tr(item.detailKey)}</div>
-          </div>
+        <div style={{ background: color.navySoft, borderRadius: radius.lg, padding: '12px 14px', marginBottom: 12, display: 'flex', gap: 10 }}>
+          <Icon name="info" size={20} color={color.navy} style={{ marginTop: 1 }} />
+          <div style={{ fontSize: font.sm, color: color.text, lineHeight: 1.6 }}>{tr('sitterOnboarding_responsibilitiesIntro')}</div>
         </div>
-      ))}
 
-      <div style={{ background:'#E8F5E9', borderRadius:14, padding:'12px 16px', marginBottom:16, display:'flex', gap:10 }}>
-        <span style={{ fontSize:16 }}>✓</span>
-        <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.6 }}>{tr('sitterOnboarding_responsibilitiesFooter')}</div>
+        <div style={{ background: color.surface, borderRadius: radius.lg, border: `1px solid ${color.line}`, overflow: 'hidden', marginBottom: 12 }}>
+          {RESPONSIBILITIES.map((item, i) => (
+            <div key={i} style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'flex-start', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+              <span style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name={item.icon} size={19} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
+                  <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr(item.labelKey)}</div>
+                  {item.required && <span style={ui.badge('warning')}>{tr('common_required')}</span>}
+                </div>
+                <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.5 }}>{tr(item.detailKey)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: color.successSoft, borderRadius: radius.lg, padding: '12px 14px', display: 'flex', gap: 10 }}>
+          <Icon name="check" size={18} color={color.success} style={{ marginTop: 1 }} />
+          <div style={{ fontSize: font.sm, color: color.success, lineHeight: 1.6 }}>{tr('sitterOnboarding_responsibilitiesFooter')}</div>
+        </div>
       </div>
-
-      <BottomBtn label={tr('sitterOnboarding_acceptResponsibilities')} onClick={async () => { await saveDraft(8); setScreen(8); }} dark={false} />
-    </div>
-  , false);
+      {bottomBar(tr('sitterOnboarding_acceptResponsibilities'), async () => { await saveDraft(8); setScreen(8); })}
+    </>
+  );
 
   // SCREEN 8 — Review + agree
   if (screen === 8) return wrap(
-    <div style={{ padding: '0 20px 100px', minHeight: '100vh' }}>
-      <BackBtn to={7} dark={false} />
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>{tr('sitterOnboarding_reviewAndGoLive')}</div>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>{tr('sitterOnboarding_almostThere')}</div>
+    <>
+      {stepHeader(7, 8)}
+      <div style={body}>
+        <h1 style={title}>{tr('sitterOnboarding_reviewAndGoLive')}</h1>
+        <p style={subtitle}>{tr('sitterOnboarding_almostThere')}</p>
 
-      <div style={{ background: DARK, borderRadius: 24, padding: 20, marginBottom: 14 }}>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{tr('sitterOnboarding_estimatedMonthlyEarnings')}</div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: ORANGE, marginBottom: 4 }}>Rs.{estimated.toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 14 }}>
-          {tr('sitterOnboarding_acrossInCity', { count: activeServices.length, unit: tr(activeServices.length > 1 ? 'sitterOnboarding_servicesWord' : 'sitterOnboarding_serviceWord'), city })}
-        </div>
-        {activeServices.map((s, i) => (
-          <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < activeServices.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{s.icon} {tr(s.nameKey)}</span>
-            <span style={{ fontSize: 13, color: ORANGE, fontWeight: 600 }}>Rs.{prices[s.id]}</span>
+        <div style={{ background: color.navy, color: color.surface, borderRadius: radius.lg, padding: 18, marginBottom: 12 }}>
+          <div style={{ fontSize: font.sm, color: color.faint, marginBottom: 2 }}>{tr('sitterOnboarding_estimatedMonthlyEarnings')}</div>
+          <div style={{ ...money, fontSize: 28, fontWeight: 700, letterSpacing: -0.3 }}>Rs.{estimated.toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
+          <div style={{ fontSize: font.sm, color: color.faint, margin: '2px 0 12px' }}>
+            {tr('sitterOnboarding_acrossInCity', { count: activeServices.length, unit: tr(activeServices.length > 1 ? 'sitterOnboarding_servicesWord' : 'sitterOnboarding_serviceWord'), city })}
           </div>
-        ))}
-      </div>
-
-      <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_completeAfterApproval')}</div>
-        {COMPLETE_STEP_KEYS.map((key, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid #F5F5F5' : 'none' }}>
-            <div style={{ width: 20, height: 20, borderRadius: 10, background: '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 10, color: '#CCC' }}>○</span>
+          {activeServices.map(s => (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '9px 0', borderTop: `1px solid ${color.navyHover}` }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: font.md }}><Icon name={s.icon} size={17} color={color.faint} />{tr(s.nameKey)}</span>
+              <span style={{ ...money, fontSize: font.md, fontWeight: 700 }}>Rs.{prices[s.id]}</span>
             </div>
-            <span style={{ fontSize: 13, color: '#555' }}>{tr(key)}</span>
-          </div>
-        ))}
-      </div>
-
-      <button type="button" onClick={() => setAgreed(!agreed)} role="checkbox" aria-checked={agreed}
-        style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: agreed ? '#E8F5E9' : 'white', borderRadius: 16, padding: '14px 16px', marginBottom: 14, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', display: 'flex', gap: 10, border: agreed ? '1.5px solid #A5D6A7' : '1.5px solid transparent' }}>
-        <div style={{ width: 22, height: 22, borderRadius: 7, border: agreed ? 'none' : '1.5px solid #DDD', background: agreed ? ORANGE : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-          {agreed && <CheckCircle size={14} color="white" />}
+          ))}
         </div>
-        <div style={{ fontSize: 12, color: '#555', lineHeight: 1.7 }}>
-          {tr('sitterOnboarding_agreeTermsPart1')} <span style={{ color: ORANGE, fontWeight: 600 }}>{tr('sitterOnboarding_sitterTermsOfService')}</span>{tr('sitterOnboarding_agreeTermsPart2')}
-        </div>
-      </button>
 
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px calc(28px + env(safe-area-inset-bottom))', background: '#F8F8F8', borderTop: '1px solid #E0E0E0' }}>
-        <button onClick={() => agreed && !saving && handleGoLive()} disabled={!agreed || saving}
-          style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: agreed && !saving ? ORANGE : '#E0E0E0', color: agreed && !saving ? 'white' : '#AAA', fontSize: 15, fontWeight: 700, cursor: agreed && !saving ? 'pointer' : 'not-allowed' }}>
-          {saving ? tr('common_saving') : tr('sitterOnboarding_goLiveOnFursday')}
+        <div style={card}>
+          <div style={{ ...cardTitle, marginBottom: 2 }}>{tr('sitterOnboarding_completeAfterApproval')}</div>
+          {COMPLETE_STEP_KEYS.map((key, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+              <span style={{ width: 18, height: 18, borderRadius: radius.pill, border: `1.5px solid ${color.faint}`, flexShrink: 0 }} />
+              <span style={{ fontSize: font.md, color: color.text }}>{tr(key)}</span>
+            </div>
+          ))}
+        </div>
+
+        <button type="button" onClick={() => setAgreed(!agreed)} role="checkbox" aria-checked={agreed}
+          style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', color: 'inherit', background: color.surface, borderRadius: radius.lg, padding: 14, marginBottom: 12, cursor: 'pointer', display: 'flex', gap: 12, border: `1.5px solid ${agreed ? color.navy : color.line}` }}>
+          <span style={{ width: 22, height: 22, borderRadius: 6, border: agreed ? 'none' : `1.5px solid ${color.faint}`, background: agreed ? color.navy : color.surface, color: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+            {agreed && <Icon name="check" size={15} strokeWidth={2.4} />}
+          </span>
+          <span style={{ fontSize: font.sm, color: color.text, lineHeight: 1.7 }}>
+            {tr('sitterOnboarding_agreeTermsPart1')} <span style={{ color: color.navy, fontWeight: 600 }}>{tr('sitterOnboarding_sitterTermsOfService')}</span>{tr('sitterOnboarding_agreeTermsPart2')}
+          </span>
         </button>
       </div>
-    </div>
-  , false);
+      {bottomBar(saving ? tr('common_saving') : tr('sitterOnboarding_goLiveOnFursday'), () => agreed && !saving && handleGoLive(), !agreed || saving)}
+    </>
+  );
 
   // SCREEN 9 — Celebration
   return wrap(
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
-      <div style={{ fontSize: 72, marginBottom: 16 }}>🎉</div>
-      <div style={{ fontSize: 28, fontWeight: 900, color: 'white', marginBottom: 8, lineHeight: 1.2 }}>
-        {tr('sitterOnboarding_youreLive')}<br /><span style={{ color: ORANGE }}>{name}!</span>
+    <div style={{ minHeight: '100vh', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px', textAlign: 'center' }}>
+      <div style={{ width: 72, height: 72, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        <Icon name="check" size={36} strokeWidth={2.2} />
       </div>
-      <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 32, lineHeight: 1.6 }}>
+      <div style={{ fontSize: font.xxl, fontWeight: 700, color: color.ink, marginBottom: 8, lineHeight: 1.3 }}>
+        {tr('sitterOnboarding_youreLive')}<br /><span style={{ color: color.navy }}>{name}!</span>
+      </div>
+      <div style={{ fontSize: font.md, color: color.muted, marginBottom: 24, lineHeight: 1.6 }}>
         {tr('sitterOnboarding_profileUnderReview')}<br />{tr('sitterOnboarding_whatsappWithin24h')}
       </div>
-      <div style={{ background: DARK2, borderRadius: 24, padding: 20, width: '100%', marginBottom: 16, border: '1px solid rgba(255,107,53,0.2)' }}>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>{tr('sitterOnboarding_yourEarningPotential')}</div>
-        <div style={{ fontSize: 40, fontWeight: 900, color: ORANGE }}>Rs.{estimated.toLocaleString('en-IN')}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{tr('sitterOnboarding_estimatedMonthlyInCity', { city })}</div>
+      <div style={{ ...card, width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 4 }}>{tr('sitterOnboarding_yourEarningPotential')}</div>
+        <div style={{ ...money, fontSize: 32, fontWeight: 700, color: color.navy, letterSpacing: -0.5 }}>Rs.{estimated.toLocaleString('en-IN')}</div>
+        <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('sitterOnboarding_estimatedMonthlyInCity', { city })}</div>
       </div>
-      <div style={{ background: '#128C7E', borderRadius: 18, padding: '14px 20px', width: '100%', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 24 }}>💬</span>
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>{tr('sitterOnboarding_whatsappNotification')}</div>
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{tr('sitterOnboarding_phoneWhenApproved', { phone })}</div>
+      <div style={{ background: color.successSoft, borderRadius: radius.lg, padding: '14px 16px', width: '100%', boxSizing: 'border-box', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ ...ui.iconTile, width: 40, height: 40, background: color.surface, color: color.success }}><Icon name="message" size={20} /></span>
+        <div style={{ textAlign: 'left', minWidth: 0 }}>
+          <div style={{ color: color.ink, fontSize: font.md, fontWeight: 600 }}>{tr('sitterOnboarding_whatsappNotification')}</div>
+          <div style={{ color: color.muted, fontSize: font.sm }}>{tr('sitterOnboarding_phoneWhenApproved', { phone })}</div>
         </div>
-        <CheckCircle size={18} color="white" style={{ marginLeft: 'auto', flexShrink: 0 }} />
+        <Icon name="check" size={20} color={color.success} style={{ marginLeft: 'auto' }} />
       </div>
       <button onClick={() => { if(window.confirm) { onDone('sitter'); } else { onDone(); } }}
-        style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+        style={{ ...ui.primaryButton, width: '100%' }}>
         {tr('sitterOnboarding_goToSitterDashboard')}
       </button>
     </div>
-  , true);
+  );
 }

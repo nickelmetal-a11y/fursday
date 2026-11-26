@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
 
 // App.js calls checkLocationRestriction() on mount, which otherwise hits the
@@ -130,11 +130,12 @@ describe('Fursday App - Map First Design & Settings', () => {
 
   // ─── SETTINGS SCREEN TESTS ──────────────────────────────────
 
-  test('renders settings icon in bottom navigation', async () => {
+  test('renders one bottom navigation with an Account tab', async () => {
     render(<App />);
     await waitFor(() => {
-      const settingsIcons = screen.getAllByText(/⚙️/i);
-      expect(settingsIcons.length).toBeGreaterThan(0);
+      const navs = screen.getAllByRole('navigation', { name: 'Main' });
+      expect(navs).toHaveLength(1);
+      expect(within(navs[0]).getByRole('button', { name: 'Account' })).toBeInTheDocument();
     }, { timeout: 3000 });
   });
 

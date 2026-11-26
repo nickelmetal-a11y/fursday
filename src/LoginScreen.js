@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
-import { Shield } from 'lucide-react';
 import { useLanguage } from './i18n';
-
-const ORANGE = '#FF6B35';
-const DARK = '#0f0f1a';
-
-const CITY_CONFIG = {
-  Gurgaon: { displayName: 'Delhi NCR' },
-  Pune:    { displayName: 'Pune' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   const [email, setEmail] = useState('');
@@ -59,15 +52,10 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
     setLoading(false);
   };
 
-  const inp = {
-    width: '100%', padding: '16px', borderRadius: 14,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    background: 'rgba(255,255,255,0.06)',
-    fontSize: 15, color: 'white', outline: 'none',
-    fontFamily: 'inherit', boxSizing: 'border-box',
-  };
-
   const defaultCity = 'Gurgaon';
+  const linkBtn = { background: 'none', border: 'none', padding: 0, font: 'inherit', color: color.navy, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 2, cursor: 'pointer' };
+  const emailReady = email.includes('@') && termsAccepted;
+  const toggleTerms = () => { setTermsAccepted(!termsAccepted); setShowTermsError(false); };
 
   if (showTermsLocal) {
     const TermsAndConditions = require('./TermsAndConditions').default;
@@ -79,110 +67,116 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   }
 
   return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: DARK, fontFamily: '-apple-system, sans-serif', display: 'flex', flexDirection: 'column', padding: '0 24px' }}>
-      <div style={{ paddingTop: 40, marginBottom: 32 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 24 }}>
-          🐾
+    <div style={{ ...ui.page, background: color.surface, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: color.navy, padding: 'calc(48px + env(safe-area-inset-top)) 24px 52px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg,#F4A25B 0%,#FFFFFF 52%,#5FB088 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', marginBottom: 14 }}>
+          <Icon name="paw" size={40} color={color.navy} strokeWidth={2} />
         </div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: 'white', marginBottom: 8, letterSpacing: -0.5 }}>
-          {tr('welcome')}
-        </div>
-        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-          {step === 'email' ? tr('taglineEmail') : tr('taglineOtp')}
-        </div>
+        <div style={{ color: color.surface, fontSize: font.xxl, fontWeight: 700, letterSpacing: -0.3 }}>Fursday</div>
+        <div style={{ color: color.surface, opacity: 0.72, fontSize: font.sm, marginTop: 4 }}>{tr('splash_tagline')}</div>
       </div>
 
-      {step === 'email' && (
-        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '14px 16px', marginBottom: 24, display: 'flex', gap: 12 }}>
-          {[
-            { emoji: '🛡️', text: tr('trustAadhaar') },
-            { emoji: '📍', text: tr('trustGps') },
-            { emoji: '🆘', text: tr('trustInsurance') },
-          ].map((item, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center', opacity: i === 2 ? 0.5 : 1 }}>
-              <div style={{ fontSize: 20, marginBottom: 4 }}>{item.emoji}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>{item.text}</div>
-            </div>
-          ))}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: color.surface, borderRadius: `${radius.xl}px ${radius.xl}px 0 0`, marginTop: -24, padding: '28px 20px 0' }}>
+        <h1 style={{ fontSize: font.xl, fontWeight: 700, color: color.ink, margin: '0 0 6px', letterSpacing: -0.2 }}>{tr('welcome')}</h1>
+        <div style={{ fontSize: font.md, color: color.muted, lineHeight: 1.5, marginBottom: 20 }}>
+          {step === 'email' ? tr('taglineEmail') : tr('taglineOtp')}
         </div>
-      )}
 
-      {error && (
-        <div style={{ background: '#FCEBEB', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#A32D2D', lineHeight: 1.5 }}>
-          {error}
-        </div>
-      )}
-
-      {step === 'email' && (
-        <div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{tr('yourEmail')}</div>
-          <input value={email} onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendOtp()}
-            placeholder="your@email.com" type="email" aria-label={tr('yourEmail')} style={{ ...inp, marginBottom: 16 }} />
-
-          <div onClick={() => { setTermsAccepted(!termsAccepted); setShowTermsError(false); }}
-            style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 16, cursor: 'pointer' }}>
-            <div role="checkbox" aria-checked={termsAccepted} aria-label={tr('login_agreeCheckboxAria')} tabIndex={0}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTermsAccepted(!termsAccepted); setShowTermsError(false); } }}
-              style={{ width: 22, height: 22, borderRadius: 7, border: termsAccepted ? 'none' : '1.5px solid rgba(255,255,255,0.2)', background: termsAccepted ? ORANGE : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-              {termsAccepted && <span style={{ color: 'white', fontSize: 13 }}>✓</span>}
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-              {tr('login_agreePrefix')}{' '}
-              <button type="button" onClick={e => { e.stopPropagation(); setShowTermsLocal(true); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>{tr('login_termsOfService')}</button>
-              {' '}{tr('login_and')}{' '}
-              <button type="button" onClick={e => { e.stopPropagation(); setShowPrivacyLocal(true); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>{tr('login_privacyPolicy')}</button>
-              {tr('login_agreeSuffix')}
-            </div>
+        {step === 'email' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
+            {[
+              { icon: 'shield', text: tr('trustAadhaar') },
+              { icon: 'pin', text: tr('trustGps') },
+              { icon: 'sos', text: tr('trustInsurance') },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ ...ui.iconTile, width: 32, height: 32, borderRadius: radius.sm, background: color.navySoft }}>
+                  <Icon name={item.icon} size={17} />
+                </span>
+                <span style={{ fontSize: font.md, color: color.text, fontWeight: 500 }}>{item.text}</span>
+              </div>
+            ))}
           </div>
-          {showTermsError && (
-            <div style={{ background: 'rgba(255,107,53,0.15)', borderRadius: 10, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: ORANGE }}>
-              {tr('login_acceptTermsError')}
-            </div>
-          )}
+        )}
 
-          <button onClick={sendOtp} disabled={loading}
-            style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: email.includes('@') && termsAccepted ? ORANGE : 'rgba(255,255,255,0.1)', color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}>
-            {loading ? tr('sending') : tr('continueWithEmail')}
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-            <Shield size={12} color="rgba(255,255,255,0.2)" />
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>{tr('noPasswordNeeded')}</span>
+        {error && (
+          <div role="alert" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: color.dangerSoft, borderRadius: radius.md, padding: '10px 12px', marginBottom: 16, fontSize: 13, color: color.danger, lineHeight: 1.5 }}>
+            <Icon name="alert" size={16} style={{ marginTop: 2 }} />{error}
           </div>
-        </div>
-      )}
+        )}
 
-      {step === 'otp' && (
-        <div>
-          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 20 }}>📧</span>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-              {tr('codeSentTo')} <span style={{ color: ORANGE, fontWeight: 600 }}>{email}</span>.<br/>{tr('checkInbox')}
+        {step === 'email' && (
+          <div>
+            <label htmlFor="login-email" style={ui.label}>{tr('yourEmail')}</label>
+            <input id="login-email" value={email} onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendOtp()}
+              placeholder="your@email.com" type="email" autoComplete="email" aria-label={tr('yourEmail')}
+              style={{ ...ui.input, minHeight: 50, marginBottom: 16 }} />
+
+            <div onClick={toggleTerms}
+              style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 16, cursor: 'pointer' }}>
+              <div role="checkbox" aria-checked={termsAccepted} aria-label={tr('login_agreeCheckboxAria')} tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTerms(); } }}
+                style={{ width: 22, height: 22, borderRadius: 6, border: `1.5px solid ${termsAccepted ? color.navy : color.faint}`, background: termsAccepted ? color.navy : color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, boxSizing: 'border-box' }}>
+                {termsAccepted && <Icon name="check" size={14} color={color.surface} strokeWidth={2.5} />}
+              </div>
+              <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6 }}>
+                {tr('login_agreePrefix')}{' '}
+                <button type="button" onClick={e => { e.stopPropagation(); setShowTermsLocal(true); }} style={linkBtn}>{tr('login_termsOfService')}</button>
+                {' '}{tr('login_and')}{' '}
+                <button type="button" onClick={e => { e.stopPropagation(); setShowPrivacyLocal(true); }} style={linkBtn}>{tr('login_privacyPolicy')}</button>
+                {tr('login_agreeSuffix')}
+              </div>
             </div>
-          </div>
-          <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
-            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
-            placeholder="000000" type="tel" maxLength={6} aria-label={tr('login_otpAria')}
-            style={{ ...inp, fontSize: 32, letterSpacing: 12, textAlign: 'center', marginBottom: 12 }} />
-          <button onClick={verifyOtp} disabled={loading || otp.length < 6}
-            style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: otp.length === 6 ? ORANGE : 'rgba(255,255,255,0.1)', color: 'white', fontSize: 15, fontWeight: 600, cursor: otp.length === 6 ? 'pointer' : 'not-allowed', marginBottom: 12 }}>
-            {loading ? tr('verifying') : tr('signIn')}
-          </button>
-          <button onClick={() => { setStep('email'); setOtp(''); setError(''); }}
-            style={{ width: '100%', padding: 12, borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 14, cursor: 'pointer', marginBottom: 12 }}>
-            {tr('useDifferentEmail')}
-          </button>
-          <div style={{ textAlign: 'center' }}>
-            <button type="button" onClick={sendOtp} style={{ background: 'none', border: 'none', font: 'inherit', padding: 0, fontSize: 13, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', textDecoration: 'underline' }}>
-              {tr('resendCode')}
+            {showTermsError && (
+              <div role="alert" style={{ background: color.warningSoft, borderRadius: radius.sm, padding: '8px 12px', marginBottom: 12, fontSize: font.sm, color: color.warning }}>
+                {tr('login_acceptTermsError')}
+              </div>
+            )}
+
+            <button onClick={sendOtp} disabled={loading}
+              style={{ ...ui.primaryButton, width: '100%', minHeight: 50, marginBottom: 14, opacity: emailReady || loading ? 1 : 0.55 }}>
+              {loading ? tr('sending') : tr('continueWithEmail')}
             </button>
-          </div>
-        </div>
-      )}
 
-      <div style={{ marginTop: 'auto', paddingBottom: 40, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.6 }}>
-        {tr('footerExpanding')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+              <Icon name="lock" size={13} color={color.faint} />
+              <span style={{ fontSize: font.xs, color: color.muted }}>{tr('noPasswordNeeded')}</span>
+            </div>
+          </div>
+        )}
+
+        {step === 'otp' && (
+          <div>
+            <div style={{ ...ui.card, background: color.bg, padding: '12px 14px', marginBottom: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ ...ui.iconTile, width: 40, height: 40, background: color.navySoft }}><Icon name="mail" size={20} /></span>
+              <div style={{ fontSize: 13, color: color.text, lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere' }}>
+                {tr('codeSentTo')} <span style={{ color: color.navy, fontWeight: 600 }}>{email}</span>.<br/>{tr('checkInbox')}
+              </div>
+            </div>
+            <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+              onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+              placeholder="000000" type="tel" inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-label={tr('login_otpAria')}
+              style={{ ...ui.input, minHeight: 60, fontSize: 28, fontWeight: 600, letterSpacing: 10, textAlign: 'center', fontVariantNumeric: 'tabular-nums', marginBottom: 14 }} />
+            <button onClick={verifyOtp} disabled={loading || otp.length < 6}
+              style={{ ...ui.primaryButton, width: '100%', minHeight: 50, marginBottom: 10, opacity: otp.length === 6 ? 1 : 0.55, cursor: otp.length === 6 ? 'pointer' : 'not-allowed' }}>
+              {loading ? tr('verifying') : tr('signIn')}
+            </button>
+            <button onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+              style={{ ...ui.secondaryButton, width: '100%', marginBottom: 12 }}>
+              {tr('useDifferentEmail')}
+            </button>
+            <div style={{ textAlign: 'center' }}>
+              <button type="button" onClick={sendOtp} style={{ ...linkBtn, fontSize: 13, minHeight: 44 }}>
+                {tr('resendCode')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 'auto', padding: '28px 0 calc(28px + env(safe-area-inset-bottom))', fontSize: font.xs, color: color.faint, textAlign: 'center', lineHeight: 1.6 }}>
+          {tr('footerExpanding')}
+        </div>
       </div>
     </div>
   );

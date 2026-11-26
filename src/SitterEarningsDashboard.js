@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Calendar, Wallet, DollarSign } from 'lucide-react';
 import { supabase } from './supabase';
 import { useLanguage } from './i18n';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui, navPadding } from './theme';
+import Icon from './ui/Icon';
 
 const DAY = 24 * 60 * 60 * 1000;
+const money = { fontVariantNumeric: 'tabular-nums' };
 
 export default function SitterEarningsDashboard({ city, onBack }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr, lang } = useLanguage();
   const locale = lang === 'hi' ? 'hi-IN' : 'en-IN';
   const [rows, setRows] = useState([]);
@@ -57,7 +53,25 @@ export default function SitterEarningsDashboard({ city, onBack }) {
     })();
   }, []);
 
-  if (loading) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>{tr('earn_loading')}</div>;
+  const header = (
+    <div style={ui.header}>
+      <button onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}><Icon name="arrowLeft" size={20} /></button>
+      <div style={{ minWidth: 0 }}>
+        <h1 style={ui.headerTitle}>{tr('earn_title')}</h1>
+        <div style={{ fontSize: font.sm, color: color.muted, marginTop: 1 }}>{tr('earn_subtitle')}</div>
+      </div>
+    </div>
+  );
+
+  if (loading) return (
+    <div style={{ ...ui.page, paddingBottom: navPadding }}>
+      {header}
+      <div role="status" style={{ padding: 16 }}>
+        {[96, 120, 160].map((h, i) => <div key={i} style={{ height: h, borderRadius: radius.lg, background: color.tile, marginBottom: 12 }} />)}
+        <div style={{ fontSize: font.sm, color: color.muted, textAlign: 'center' }}>{tr('earn_loading')}</div>
+      </div>
+    </div>
+  );
 
   const now = Date.now();
   const filtered = rows.filter(r => timeFilter === 'all' || (now - r.when) <= (timeFilter === 'month' ? 30 : 7) * DAY);
@@ -70,101 +84,100 @@ export default function SitterEarningsDashboard({ city, onBack }) {
     m[k] = (m[k] || 0) + r.earnedRs; return m;
   }, {}));
   const rs = (n) => 'Rs. ' + n.toFixed(2);
-  const card = { padding: 20, background: 'white', margin: '0 16px 16px', borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' };
-  const heading = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 14, fontWeight: 600, color: '#1a1a1a' };
+  const card = { ...ui.card, marginBottom: 12 };
+  const heading = { ...ui.sectionTitle, display: 'flex', alignItems: 'center', gap: 8 };
+  const emptyLine = { color: color.muted, fontSize: font.sm, textAlign: 'center', padding: '16px 0' };
 
   return (
-    <div style={{ maxWidth: 500, margin: '0 auto', background: '#F8F8F8', minHeight: '100vh', paddingBottom: 100 }}>
-      <div style={{ background: t.grad, padding: '48px 20px 20px', color: 'white', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} aria-label={tr('common_back')} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', width: 44, height: 44, borderRadius: 12, color: 'white', cursor: 'pointer', fontSize: 18 }}>←</button>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{tr('earn_title')}</div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>{tr('earn_subtitle')}</div>
-        </div>
-      </div>
+    <div style={{ ...ui.page, paddingBottom: navPadding }}>
+      {header}
 
-      {loadError && <div role="alert" style={{ margin: '16px 16px 0', background: '#FCEBEB', color: '#A32D2D', borderRadius: 12, padding: '10px 14px', fontSize: 13 }}>{tr('earn_loadError')}</div>}
+      <div style={{ padding: 16 }}>
+        {loadError && <div role="alert" style={{ background: color.dangerSoft, color: color.danger, borderRadius: radius.md, padding: '10px 14px', fontSize: font.sm, marginBottom: 12 }}>{tr('earn_loadError')}</div>}
 
-      {isFoundingSitter && (
-        <div style={{ margin: '16px 16px 0', background: '#FFF0EB', border: '1.5px solid ' + t.primary, borderRadius: 14, padding: '10px 14px', fontSize: 12, fontWeight: 700, color: t.primary, textAlign: 'center' }}>
-          {tr('earn_foundingBanner')}
-        </div>
-      )}
-
-      <div style={{ ...card, margin: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div style={{ width: 48, height: 48, background: t.light, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💰</div>
-          <div>
-            <div style={{ fontSize: 12, color: '#888' }}>{tr('earn_totalAllTime')}</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: t.primary }}>{rs(total)}</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 12, color: '#888' }}>✓ {tr('earn_walksCount', { n: rows.length })}</div>
-      </div>
-
-      <div style={card}>
-        <div style={heading}><Wallet size={16} color={t.primary} />{tr('earn_payoutStatus')}</div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ flex: 1, background: '#FFF3E0', borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 11, color: '#E65100' }}>{tr('earn_pendingPayout')}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#E65100' }}>{rs(pending)}</div>
-          </div>
-          <div style={{ flex: 1, background: '#E8F5E9', borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 11, color: '#2E7D32' }}>{tr('earn_paidOut')}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#2E7D32' }}>{rs(paidOut)}</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 12, color: '#777', lineHeight: 1.6, marginTop: 10 }}>{tr('earn_payoutExplain')}</div>
-      </div>
-
-      <div style={card}>
-        <div style={heading}><Calendar size={16} color={t.primary} />{tr('earn_monthly')}</div>
-        {monthly.length === 0
-          ? <div style={{ color: '#AAA', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>{tr('earn_noneYet')}</div>
-          : monthly.map(([month, amount], idx) => (
-            <div key={month} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: idx < monthly.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
-              <span style={{ fontSize: 13, color: '#555' }}>{month}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: t.primary }}>{rs(amount)}</span>
-            </div>
-          ))}
-      </div>
-
-      <div style={card}>
-        <div style={heading}><DollarSign size={16} color={t.primary} />{tr('earn_perWalk')}</div>
-        <div role="tablist" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {['all', 'month', 'week'].map(f => (
-            <button key={f} role="tab" aria-selected={timeFilter === f} onClick={() => setTimeFilter(f)}
-              style={{ minHeight: 36, padding: '6px 12px', borderRadius: 8, border: 'none', background: timeFilter === f ? t.primary : '#F0F0F0', color: timeFilter === f ? 'white' : '#666', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {tr(f === 'all' ? 'earn_filterAll' : f === 'month' ? 'earn_filterMonth' : 'earn_filterWeek')}
-            </button>
-          ))}
-        </div>
-        {filtered.length > 0 && (
-          <div style={{ background: t.light, padding: 12, borderRadius: 10, marginBottom: 12, textAlign: 'center', fontSize: 11, color: '#666' }}>
-            {tr(filtered.length === 1 ? 'earn_periodSummaryOne' : 'earn_periodSummary', { n: filtered.length, amount: rs(sum(filtered)) })}
+        {isFoundingSitter && (
+          <div style={{ background: color.saffronSoft, borderRadius: radius.md, padding: '10px 14px', fontSize: font.sm, fontWeight: 600, color: color.warning, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="gift" size={18} />
+            <span>{tr('earn_foundingBanner')}</span>
           </div>
         )}
-        {filtered.length === 0
-          ? <div style={{ color: '#AAA', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>{tr('earn_noneInPeriod')}</div>
-          : filtered.map((r, idx) => (
-            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < filtered.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{r.when.toLocaleDateString(locale)}</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{tr('earn_bookingAmount', { amount: rs(r.bookingRs) })}</div>
+
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={ui.iconTile}><Icon name="wallet" /></div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: font.sm, color: color.muted }}>{tr('earn_totalAllTime')}</div>
+              <div style={{ ...money, fontSize: font.xxl, fontWeight: 700, color: color.ink, letterSpacing: -0.3 }}>{rs(total)}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: font.sm, color: color.success, fontWeight: 600, marginTop: 10 }}>✓ {tr('earn_walksCount', { n: rows.length })}</div>
+        </div>
+
+        <h2 style={{ ...heading, marginTop: 4 }}>{tr('earn_payoutStatus')}</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
+          {[
+            { label: tr('earn_pendingPayout'), val: pending, tone: 'warning', icon: 'clock' },
+            { label: tr('earn_paidOut'), val: paidOut, tone: 'success', icon: 'check' },
+          ].map(tile => (
+            <div key={tile.tone} style={{ ...ui.card, padding: 14, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: font.sm, fontWeight: 600, color: color[tile.tone], lineHeight: 1.3 }}>
+                <Icon name={tile.icon} size={15} />
+                <span>{tile.label}</span>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.primary }}>{rs(r.earnedRs)}</div>
-                <div style={{ fontSize: 10, color: r.paidOut ? '#2E7D32' : '#E65100', fontWeight: 600 }}>{tr(r.paidOut ? 'earn_statusPaidOut' : 'earn_statusPending')}</div>
-              </div>
+              <div style={{ ...money, fontSize: font.lg, fontWeight: 700, color: color.ink, marginTop: 6 }}>{rs(tile.val)}</div>
             </div>
           ))}
-      </div>
+        </div>
+        <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6, margin: '0 2px 16px' }}>{tr('earn_payoutExplain')}</div>
 
-      <div style={card}>
-        <div style={heading}><TrendingUp size={16} color={t.primary} />{tr('earn_tipsTitle')}</div>
-        <ul style={{ fontSize: 12, color: '#555', lineHeight: 1.8, paddingLeft: 16, margin: 0 }}>
-          {['earn_tip1', 'earn_tip2', 'earn_tip3', 'earn_tip4'].map(k => <li key={k}>{tr(k)}</li>)}
-        </ul>
+        <div style={card}>
+          <h2 style={heading}><Icon name="calendar" size={17} color={color.navy} />{tr('earn_monthly')}</h2>
+          {monthly.length === 0
+            ? <div style={emptyLine}>{tr('earn_noneYet')}</div>
+            : monthly.map(([month, amount], idx) => (
+              <div key={month} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, borderTop: idx ? `1px solid ${color.line}` : 'none' }}>
+                <span style={{ fontSize: font.md, color: color.text }}>{month}</span>
+                <span style={{ ...money, fontSize: font.md, fontWeight: 600, color: color.ink }}>{rs(amount)}</span>
+              </div>
+            ))}
+        </div>
+
+        <div style={card}>
+          <h2 style={heading}><Icon name="receipt" size={17} color={color.navy} />{tr('earn_perWalk')}</h2>
+          <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {['all', 'month', 'week'].map(f => (
+              <button key={f} role="tab" aria-selected={timeFilter === f} onClick={() => setTimeFilter(f)} style={ui.chip(timeFilter === f)}>
+                {tr(f === 'all' ? 'earn_filterAll' : f === 'month' ? 'earn_filterMonth' : 'earn_filterWeek')}
+              </button>
+            ))}
+          </div>
+          {filtered.length > 0 && (
+            <div style={{ ...money, background: color.bg, padding: '10px 12px', borderRadius: radius.md, marginBottom: 4, fontSize: font.sm, fontWeight: 600, color: color.text }}>
+              {tr(filtered.length === 1 ? 'earn_periodSummaryOne' : 'earn_periodSummary', { n: filtered.length, amount: rs(sum(filtered)) })}
+            </div>
+          )}
+          {filtered.length === 0
+            ? <div style={emptyLine}>{tr('earn_noneInPeriod')}</div>
+            : filtered.map((r, idx) => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: idx ? `1px solid ${color.line}` : 'none' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ ...money, fontSize: font.md, fontWeight: 600, color: color.ink }}>{r.when.toLocaleDateString(locale)}</div>
+                  <div style={{ ...money, fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('earn_bookingAmount', { amount: rs(r.bookingRs) })}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.ink }}>{rs(r.earnedRs)}</div>
+                  <span style={{ ...ui.badge(r.paidOut ? 'success' : 'warning'), marginTop: 4 }}>{tr(r.paidOut ? 'earn_statusPaidOut' : 'earn_statusPending')}</span>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        <div style={card}>
+          <h2 style={heading}><Icon name="star" size={17} color={color.saffron} />{tr('earn_tipsTitle')}</h2>
+          <ul style={{ fontSize: font.sm, color: color.text, lineHeight: 1.8, paddingLeft: 18, margin: 0 }}>
+            {['earn_tip1', 'earn_tip2', 'earn_tip3', 'earn_tip4'].map(k => <li key={k}>{tr(k)}</li>)}
+          </ul>
+        </div>
       </div>
     </div>
   );

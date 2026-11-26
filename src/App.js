@@ -24,6 +24,13 @@ import SettingsScreen from './SettingsScreen';
 import LanguageToggle from './LanguageToggle';
 import { useLanguage, translate } from './i18n';
 import { checkLocationRestriction } from './geolocationService';
+import BottomNav, { PARENT_TABS, SITTER_TABS } from './ui/BottomNav';
+import Icon from './ui/Icon';
+import { color, font, radius, ui, navPadding } from './theme';
+import InboxScreen from './InboxScreen';
+import SitterEarningsDashboard from './SitterEarningsDashboard';
+import NotificationCenter from './NotificationCenter';
+import WalkingPaws from './ui/WalkingPaws';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)', label: 'Delhi NCR' },
@@ -101,11 +108,28 @@ export default function App() {
   const [locationError, setLocationError] = useState(null);
   const [regionRestricted, setRegionRestricted] = useState(false);
   const [userIP, setUserIP] = useState(null);
+  const [sitterTab, setSitterTab] = useState('jobs');
+  const [showNotifications, setShowNotifications] = useState(false);
+  // Keep the loading screen up for at least one walk cycle so it never just flashes.
+  const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSplashDone(true), process.env.NODE_ENV === 'test' ? 0 : 1600); return () => clearTimeout(t); }, []);
   const { t: tr } = useLanguage();
 
   const theme = THEMES[city] || THEMES.Gurgaon;
 
   const goHome = () => { setActiveNav('home'); };
+  const closeTabScreens = () => { setShowBookings(false); setShowExplore(false); setShowUserProfile(false); setShowSettings(false); };
+  // Screens still call onNav with their old ids ('book', 'profile', 'settings').
+  const TAB_ALIASES = { book: 'bookings', profile: 'pets', settings: 'account' };
+  const goParentTab = (raw) => {
+    const id = TAB_ALIASES[raw] || raw;
+    closeTabScreens();
+    setActiveNav(id === 'bookings' ? 'book' : id === 'pets' ? 'profile' : id === 'account' ? 'settings' : id);
+    if (id === 'bookings') setShowBookings(true);
+    else if (id === 'explore') setShowExplore(true);
+    else if (id === 'pets') setShowUserProfile(true);
+    else if (id === 'account') setShowSettings(true);
+  };
 
   // Android's hardware back button closes the whole app by default because
   // screens are React state, not browser history. Instead, press the visible
@@ -314,6 +338,8 @@ export default function App() {
   // Wrapped in an IIFE (rather than converting every branch below to
   // else-if) so a single <LanguageToggle/> can render on top of whichever
   // screen comes out, instead of each screen needing its own copy.
+  let navMode = null;
+  let floatingToggle = true;
   const screen = (function renderScreen() {
   if (regionRestricted) return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', padding:'0 24px', textAlign:'center', gap:16 }}>
@@ -334,11 +360,12 @@ export default function App() {
     </div>
   );
 
-  if (loading) return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
-      <div style={{ fontSize:56 }}>🐾</div>
-      <div style={{ color:'white', fontSize:22, fontWeight:700 }}>Fursday</div>
-      <div style={{ color:'rgba(255,255,255,0.4)', fontSize:13 }}>{tr('common_loading')}</div>
+  if (loading || !splashDone) floatingToggle = false;
+  if (loading || !splashDone) return (
+    <div role="status" aria-label={tr('common_loading')} style={{ minHeight:'100vh', background:color.navy, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', fontFamily:font.family, textAlign:'center', padding:24 }}>
+      <WalkingPaws color="#F3B77A" />
+      <div style={{ color:'white', fontSize:28, fontWeight:700, letterSpacing:-0.3, marginTop:28 }}>Fursday</div>
+      <div style={{ color:'#B9C3DA', fontSize:13, marginTop:6 }}>{tr('splash_tagline')}</div>
     </div>
   );
 
@@ -388,186 +415,175 @@ export default function App() {
     </div>
   );
 
-  const goSettings = () => { setActiveNav('settings'); setShowSettings(true); };
+  const goSettings = () => goParentTab('account');
 
-  if (showSettings) return <SettingsScreen onBack={() => { setShowSettings(false); goHome(); }} city={city} userName={userName} activeNav={activeNav} onNav={id => { setShowSettings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } }} />;
+  if (isSitterMode) {
+    navMode = 'sitter';
+    if (sitterTab === 'jobs') floatingToggle = false;
+    if (sitterTab === 'earnings') return <SitterEarningsDashboard city={city} onBack={() => setSitterTab('jobs')} />;
+    if (sitterTab === 'messages') return <InboxScreen role="sitter" onOpenChat={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
+    if (sitterTab === 'profile') return <SitterEditProfile onBack={() => setSitterTab('jobs')} city={city} />;
+    if (sitterTab === 'account') return <SettingsScreen onBack={() => setSitterTab('jobs')} city={city} userName={userName} onNav={() => {}} onSwitchRole={() => { setIsSitterMode(false); setSitterTab('jobs'); goHome(); }} switchRoleLabel={tr('sitterMode_backToParent')} />;
+    return <SitterDashboard onBack={() => { setIsSitterMode(false); goHome(); }} onEditProfile={() => setSitterTab('profile')} onOpenNotifications={() => setShowNotifications(true)} city={city} onMessage={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:b.users?.phone||'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
+  }
+  if (showSettings) { navMode = 'parent'; return <SettingsScreen onBack={() => goParentTab('home')} city={city} userName={userName} activeNav={activeNav} onNav={goParentTab} onSwitchRole={isSitter ? () => { closeTabScreens(); setSitterTab('jobs'); setIsSitterMode(true); } : null} switchRoleLabel={tr('home_switchToSitter')} />; }
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
   if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
   if (showOnboarding) return <SitterOnboarding onDone={dest => { setShowOnboarding(false); if(dest==='sitter'){ setIsSitter(true); setIsSitterMode(true); } }} city={city} />;
-  if (isSitterMode) return <SitterDashboard onBack={() => { setIsSitterMode(false); goHome(); }} onEditProfile={() => { setIsSitterMode(false); setShowSitterEdit(true); }} city={city} onMessage={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:b.users?.phone||'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
   if (showSitterEdit) return <SitterEditProfile onBack={() => { setShowSitterEdit(false); goHome(); }} city={city} />;
-  if (showUserProfile) return <UserProfile onBack={() => { setShowUserProfile(false); goHome(); }} city={city} activeNav={activeNav} onAddPet={() => { setShowUserProfile(false); setEditingPetId(null); setShowPetProfile(true); }} onEditPet={(pet) => { setShowUserProfile(false); setEditingPetId(pet?.id || null); setShowPetProfile(true); }} onSignOut={async () => { await supabase.auth.signOut(); setUser(null); setShowUserProfile(false); }} onNav={id => { setShowUserProfile(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='settings'){ goSettings(); } }} />;
-  if (showExplore) return <ExploreScreen onBack={() => { setShowExplore(false); goHome(); }} city={city} userLocation={userLocation} activeNav={activeNav} onBook={sitter => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} onNav={id => { setShowExplore(false); if(id==='home'){ goHome(); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } }} />;
+  if (showUserProfile) navMode = 'parent';
+  if (showUserProfile) return <UserProfile onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onAddPet={() => { setShowUserProfile(false); setEditingPetId(null); setShowPetProfile(true); }} onEditPet={(pet) => { setShowUserProfile(false); setEditingPetId(pet?.id || null); setShowPetProfile(true); }} onSignOut={async () => { await supabase.auth.signOut(); setUser(null); setShowUserProfile(false); }} onNav={goParentTab} />;
+  if (showExplore) navMode = 'parent';
+  if (showExplore) return <ExploreScreen onBack={() => goParentTab('home')} city={city} userLocation={userLocation} activeNav={activeNav} onBook={sitter => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} onNav={goParentTab} />;
   if (showChat) return <ChatScreen onBack={() => { setShowChat(false); if(chatBooking?.fromSitter) setIsSitterMode(true); else { setShowBookings(true); } }} city={city} booking={chatBooking} userType={chatBooking?.fromSitter?'sitter':'parent'} />;
   if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={paymentId => { setShowPayment(false); if(paymentBooking?.id) sendBookingEmail(paymentBooking); setReceiptData({ ...paymentBooking, paymentId }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
   if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
-  if (showBookings) return <BookingsDashboard onBack={() => { setShowBookings(false); goHome(); }} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { setShowBookings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } else if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
+  if (showBookings) navMode = 'parent';
+  if (showBookings) return <BookingsDashboard onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { if (!(id==='book' && payload?.repeatBooking)) { goParentTab(id); return; } setShowBookings(false); if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
   if (showPetProfile) return <PetProfile onBack={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} city={city} petId={editingPetId} onSave={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} />;
   if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); goHome(); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} />;
   if (selectedSitter && !showBooking) return <SitterProfile onBack={() => { setSelectedSitter(null); goHome(); }} onBook={() => setShowBooking(true)} sitter={selectedSitter} city={city} />;
 
-  const filteredSitters = realSitters.filter(s =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase())
-  );
+  navMode = 'parent';
+  floatingToggle = false;
+  const firstName = (userName || '').trim().split(/\s+/)[0] || '';
+  const initials = (userName || user?.email || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const place = neighbourhood || CITY_CONFIG[city]?.displayName;
+  const services = [
+    { id: 'walk30', icon: 'walk', label: tr('home_svcWalk') },
+    { id: 'boarding', icon: 'boarding', label: tr('home_svcBoarding') },
+    { id: 'daycare', icon: 'sun', label: tr('home_svcDaycare') },
+    { id: 'broadcast', icon: 'megaphone', label: tr('home_svcAnyone') },
+  ];
+  const openService = (id) => { if (id === 'broadcast') { setShowBroadcast(true); return; } setSelectedServiceType(id); setShowBooking(true); };
+  const topSitters = [...realSitters].sort((x, y) => (y.isTopSitter - x.isTopSitter) || (y.rating - x.rating)).slice(0, 3);
 
   // ── Home ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F5F5F5', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', paddingBottom:80 }}>
-
+    <div style={{ ...ui.page, background: color.surface, paddingBottom: navPadding }}>
       {requestSentFor && (
-        <div style={{ position:'fixed', top:16, left:'50%', transform:'translateX(-50%)', width:340, background:'#2E7D32', borderRadius:14, padding:'12px 16px', zIndex:2000, display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ color:'white', fontSize:13, fontWeight:600 }}>{tr('home_requestSent', { name: requestSentFor })}</span>
+        <div role="status" style={{ position:'fixed', top:'calc(12px + env(safe-area-inset-top))', left:16, right:16, maxWidth:448, margin:'0 auto', background:color.success, color:'white', borderRadius:radius.md, padding:'12px 16px', zIndex:2000, fontSize:13, fontWeight:600 }}>
+          {tr('home_requestSent', { name: requestSentFor })}
+        </div>
+      )}
+      {showNotifications && <NotificationCenter onClose={() => setShowNotifications(false)} />}
+
+      <header style={{ padding:'calc(16px + env(safe-area-inset-top)) 16px 4px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+          <button type="button" onClick={() => { if (locationError) { setLocationError(null); setLocationLoading(true); navigator.geolocation?.getCurrentPosition(pos => { setUserLocation({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setLocationLoading(false); }, () => { setLocationError('Failed'); setLocationLoading(false); }, { timeout:10000 }); } }}
+            style={{ background:'none', border:'none', padding:0, textAlign:'left', cursor:'pointer', fontFamily:font.family, minWidth:0 }}>
+            <span style={{ display:'block', fontSize:11, fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', color:color.muted }}>{tr('home_walksIn')}</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:16, fontWeight:700, color:color.ink }}>
+              <Icon name="pin" size={16} color={color.navy} />
+              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{locationLoading ? tr('home_findingLocation') + '…' : place}</span>
+              <Icon name="chevronDown" size={16} color={color.muted} />
+            </span>
+          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+            <LanguageToggle inline />
+            <button type="button" aria-label={tr('nav_notifications')} onClick={() => setShowNotifications(true)}
+              style={{ width:40, height:40, borderRadius:radius.pill, border:`1px solid ${color.line}`, background:color.surface, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:color.text }}>
+              <Icon name="bell" size={19} />
+            </button>
+            <button type="button" aria-label={tr('nav_account')} onClick={() => goParentTab('account')}
+              style={{ width:40, height:40, borderRadius:radius.pill, border:'none', background:color.navy, color:'white', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:font.family }}>
+              {initials}
+            </button>
+          </div>
+        </div>
+        {firstName && <div style={{ fontSize:22, fontWeight:700, color:color.ink, margin:'16px 0 0', letterSpacing:-0.3 }}>{tr('greeting')}, {firstName}</div>}
+        <button type="button" onClick={() => goParentTab('explore')}
+          style={{ marginTop:14, width:'100%', display:'flex', alignItems:'center', gap:10, padding:'0 14px', height:48, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg, color:color.faint, fontSize:14, cursor:'pointer', fontFamily:font.family, textAlign:'left' }}>
+          <Icon name="search" size={18} color={color.muted} />{tr('home_searchPlaceholder')}
+        </button>
+      </header>
+
+      <section style={{ padding:'20px 16px 4px' }}>
+        <h2 style={ui.sectionTitle}>{tr('home_bookService')}</h2>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8 }}>
+          {services.map(svc => (
+            <button key={svc.id} type="button" onClick={() => openService(svc.id)}
+              style={{ background:'none', border:'none', padding:'4px 0', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, fontFamily:font.family }}>
+              <span style={{ width:60, height:60, borderRadius:radius.lg, background:color.tile, display:'flex', alignItems:'center', justifyContent:'center', color:color.navy }}>
+                <Icon name={svc.icon} size={26} />
+              </span>
+              <span style={{ fontSize:12, fontWeight:600, color:color.text, textAlign:'center', lineHeight:1.25 }}>{svc.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {featuredPromo && (
+        <div style={{ padding:'16px 16px 0' }}>
+          <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); setShowBooking(true); }} />
         </div>
       )}
 
-      {/* HOME LAYOUT - MAP FIRST DESIGN */}
-      <div style={{ position:'relative' }}>
-
-        {/* Top bar with logo and title */}
-        <div style={{ background:theme.grad, padding:'16px', display:'flex', justifyContent:'flex-start', alignItems:'center', zIndex:100 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <span style={{ fontSize:20, fontWeight:800, color:'white', letterSpacing:-0.5 }}>fursday</span>
-            <span style={{ fontSize:16 }}>🐾</span>
-          </div>
-        </div>
-
-        {/* Compact status bar — replaces a Leaflet map that was blocking the
-            home screen behind a spinner whenever GPS was slow or denied.
-            Location is now used silently in the background (sitter sorting
-            only); nothing here blocks the rest of the page from rendering. */}
-        <div style={{ padding:'14px 16px', background:'white' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, marginBottom: realSitters.length>0 ? 12 : 0 }}>
-            <div style={{ fontSize:12, color:'#888' }}>
-              {locationLoading ? tr('home_findingLocation') + '…' : (neighbourhood || (locationError ? tr('home_enableLocation') : CITY_CONFIG[city]?.displayName))}
-            </div>
-            {locationError && !userLocation && (
-              <button onClick={() => { setLocationError(null); setLocationLoading(true); navigator.geolocation?.getCurrentPosition(pos => { setUserLocation({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setLocationError(null); setLocationLoading(false); }, () => { setLocationError('Failed'); setLocationLoading(false); }, { timeout:10000 }); }}
-                style={{ background:'none', border:'none', color:theme.primary, fontWeight:700, cursor:'pointer', fontSize:12 }}>{tr('common_tryAgain')}</button>
-            )}
-          </div>
-          {realSitters.length > 0 && (
-            <div style={{ display:'flex', justifyContent:'space-between', gap:16, fontSize:12, background:'#FAFAFA', borderRadius:12, padding:12 }}>
-              <div>
-                <div style={{ color:'#888', marginBottom:2 }}>{tr('home_avgRating')}</div>
-                <div style={{ fontWeight:700, fontSize:14 }}>⭐ {(realSitters.reduce((a,b)=>a+b.rating,0)/realSitters.length).toFixed(1)}</div>
-              </div>
-              <div>
-                <div style={{ color:'#888', marginBottom:2 }}>{tr('home_available')}</div>
-                <div style={{ fontWeight:700, fontSize:14 }}>{tr('home_prosCount', { n: realSitters.length })}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Content area */}
-        <div style={{ background:'white', paddingBottom:80 }}>
-
-          {/* Quick action button */}
-          <div style={{ padding:'0 16px 0' }}>
-            <button onClick={() => { setActiveNav('explore'); setShowExplore(true); }}
-              style={{ width:'100%', padding:'14px', minHeight:44, background:theme.primary, border:'none', borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>🔍 {tr('common_seeAll')} {tr('nav_explore').toLowerCase()}</button>
-          </div>
-
-          {/* Admin-declared promo banner (AdminPanel's Promotions tab) */}
-          {featuredPromo && (
-            <div style={{ padding:'0 16px 16px' }}>
-              <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); setShowBooking(true); }} />
-            </div>
-          )}
-
-          {/* Service quick access */}
-          <div style={{ padding:'16px' }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#888', marginBottom:10 }}>{tr('home_whatDoYouNeed')}</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              {SERVICES.slice(0,2).map(svc => (
-                <button type="button" key={svc.id} onClick={() => { if(svc.id==='broadcast'){ setShowBroadcast(true); return; } setSelectedServiceType(svc.id); setShowBooking(true); }}
-                  style={{ display:'block', width:'100%', textAlign:'left', font:'inherit', color:'inherit', background:svc.color, borderRadius:12, padding:'12px', cursor:'pointer', border:'0.5px solid rgba(0,0,0,0.04)' }}>
-                  <div style={{ fontSize:24, marginBottom:6 }}>{svc.icon}</div>
-                  <div style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', marginBottom:2, lineHeight:1.2 }}>{tr(svc.id==='walk30'?'service_walk':svc.id==='boarding'?'service_boarding':svc.id==='daycare'?'service_daycare':'service_broadcast')}</div>
-                  <div style={{ fontSize:10, color:svc.tc, fontWeight:600 }}>{tr(svc.id==='walk30'?'service_walkPrice':svc.id==='boarding'?'service_boardingPrice':svc.id==='daycare'?'service_daycarePrice':'service_broadcastPrice')}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Recently booked */}
-          {realSitters.length > 0 && (
-            <div style={{ padding:'16px' }}>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>{tr('home_availableNow')}</div>
-              {filteredSitters.slice(0,2).map(s => (
-                <div key={s.id} role="button" tabIndex={0} onClick={() => setSelectedSitter(s)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedSitter(s); } }} style={{ background:'#fafafa', borderRadius:12, padding:12, marginBottom:10, cursor:'pointer', border:'0.5px solid #f0f0f0', display:'flex', gap:10, alignItems:'center' }}>
-                  <div style={{ width:44, height:44, borderRadius:10, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
-                    {s.profilePhoto?<img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />:s.emoji}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{s.name}</div>
-                    <div style={{ fontSize:11, color:'#888' }}>⭐ {s.rating} • {tr('home_walksSuffix', { n: s.reviews })}</div>
-                  </div>
-                  <button onClick={e => { e.stopPropagation(); requestBooking(s); }} style={{ background:theme.primary, color:'white', border:'none', padding:'6px 12px', minHeight:44, borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0 }}>{tr('common_book')}</button>
-                </div>
-              ))}
-              <button type="button" onClick={() => { setActiveNav('explore'); setShowExplore(true); }} style={{ display:'block', width:'100%', background:'none', border:'none', font:'inherit', textAlign:'center', padding:'12px', color:theme.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>{tr('home_seeAllSitters', { n: realSitters.length })}</button>
-            </div>
-          )}
-
-          {/* Sitter mode button */}
-          {isSitter && (
-            <div style={{ padding:'16px' }}>
-              <button type="button" onClick={() => setIsSitterMode(true)} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', background:'#E8F5E9', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid #C8E6C9' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background:'#2E7D32', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>💰</div>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1B5E20' }}>{tr('home_sitterMode')}</div>
-                    <div style={{ fontSize:11, color:'#4CAF50', fontWeight:500 }}>
-                      {sitterStatus === 'active' ? tr('live') : sitterStatus === 'needs_changes' ? tr('sitterEdit_statusNeedsChanges') : tr('pendingApproval')}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Become pro banner */}
-          {!isSitter && (
-            <div style={{ padding:'16px' }}>
-              <button type="button" onClick={() => setShowOnboarding(true)} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', border:'none', background:'#0f0f1a', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🐾</div>
-                  <div>
-                    <div style={{ color:'white', fontSize:13, fontWeight:700 }}>{sitterStatus === 'draft' ? tr('home_resumeSignup') : tr('home_becomePro')}</div>
-                    <div style={{ color:theme.primary, fontSize:11 }}>{tr('home_earnRange')}</div>
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8, padding:'14px 16px 0' }}>
+        {[['shield', 'home_trustVerified'], ['key', 'home_trustStartCode'], ['sos', 'home_trustSos']].map(([icon, key]) => (
+          <span key={key} style={{ ...ui.badge('success'), padding:'5px 10px', fontSize:12 }}><Icon name={icon} size={14} />{tr(key)}</span>
+        ))}
       </div>
 
-      {/* BOTTOM NAV */}
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'0.5px solid #E8E8E8', display:'flex', justifyContent:'space-around', padding:'10px 0 calc(20px + env(safe-area-inset-bottom))', zIndex:500 }}>
-        {[
-          { id:'home',    label:tr('nav_home'),     icon:'🏠', action: () => goHome() },
-          { id:'book',    label:tr('nav_bookings'), icon:'📋', action: () => { setShowBookings(true); setActiveNav('book'); } },
-          { id:'explore', label:tr('nav_explore'),  icon:'🔍', action: () => { setActiveNav('explore'); setShowExplore(true); } },
-          { id:'profile', label:tr('nav_myPets'),  icon:'🐕', action: () => { setShowUserProfile(true); setActiveNav('profile'); } },
-          { id:'settings',label:tr('nav_settings'), icon:'⚙️', action: () => goSettings() },
-        ].map(n => (
-          <button type="button" key={n.id} onClick={n.action} aria-current={activeNav===n.id ? 'page' : undefined} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:50, minHeight:44, padding:'2px 0 0', background:'none', border:'none', font:'inherit', color:'inherit' }}>
-            <span style={{ fontSize:20 }} aria-hidden="true">{n.icon}</span>
-            <div style={{ fontSize:9, fontWeight:activeNav===n.id?700:400, color:activeNav===n.id?theme.primary:'#BBBBBB' }}>{n.label}</div>
-            {activeNav===n.id && <div style={{ width:4, height:4, borderRadius:2, background:theme.primary }} />}
-          </button>
+      <section style={{ padding:'22px 16px 0' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+          <h2 style={ui.sectionTitle}>{tr('home_topSitters')}</h2>
+          {realSitters.length > 0 && <button type="button" onClick={() => goParentTab('explore')} style={{ background:'none', border:'none', color:color.navy, fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:font.family, padding:'4px 0' }}>{tr('home_seeAll')}</button>}
+        </div>
+        {!sittersLoading && realSitters.length === 0 && <div style={{ ...ui.card, color:color.muted, fontSize:13 }}>{tr('home_noSittersYet')}</div>}
+        {sittersLoading && [0,1].map(i => <div key={i} style={{ height:64, borderRadius:radius.md, background:color.tile, marginBottom:10 }} />)}
+        {topSitters.map((s, i) => (
+          <div key={s.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+            <button type="button" onClick={() => setSelectedSitter(s)} aria-label={s.name}
+              style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0, background:'none', border:'none', padding:0, cursor:'pointer', textAlign:'left', fontFamily:font.family }}>
+              <span style={{ width:52, height:52, borderRadius:radius.md, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:18, overflow:'hidden', flexShrink:0 }}>
+                {s.profilePhoto ? <img src={s.profilePhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.emoji}
+              </span>
+              <span style={{ minWidth:0 }}>
+                <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:14, fontWeight:600, color:color.ink }}>
+                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</span>
+                  {s.verified && <Icon name="shield" size={14} color={color.success} title={tr('home_trustVerified')} />}
+                </span>
+                <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:color.muted, marginTop:2 }}>
+                  <Icon name="star" size={13} color={color.saffron} />{Number(s.rating).toFixed(1)} · {tr('home_sitterWalks', { n: s.reviews })} · {s.price}
+                </span>
+              </span>
+            </button>
+            <button type="button" onClick={() => { setSelectedSitter(s); setShowBooking(true); }}
+              style={{ minHeight:36, padding:'0 14px', borderRadius:radius.sm, border:`1px solid ${color.navy}`, background:color.surface, color:color.navy, fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:font.family, flexShrink:0 }}>
+              {tr('common_book')}
+            </button>
+          </div>
         ))}
+      </section>
+
+      <div style={{ padding:'20px 16px 8px' }}>
+        <button type="button" onClick={() => { if (isSitter) { closeTabScreens(); setSitterTab('jobs'); setIsSitterMode(true); } else setShowOnboarding(true); }}
+          style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:14, borderRadius:radius.lg, border:`1px solid ${color.line}`, background:color.bg, cursor:'pointer', textAlign:'left', fontFamily:font.family }}>
+          <span style={ui.iconTile}><Icon name={isSitter ? 'briefcase' : 'wallet'} /></span>
+          <span style={{ flex:1, minWidth:0 }}>
+            <span style={{ display:'block', fontSize:14, fontWeight:600, color:color.ink }}>
+              {isSitter ? tr('home_switchToSitter') : sitterStatus === 'draft' ? tr('home_resumeSignup') : tr('home_becomeSitterTitle')}
+            </span>
+            <span style={{ display:'block', fontSize:12, color:color.muted, marginTop:2 }}>
+              {isSitter ? (sitterStatus === 'active' ? tr('live') : sitterStatus === 'needs_changes' ? tr('sitterEdit_statusNeedsChanges') : tr('pendingApproval')) : tr('home_becomeSitterSub')}
+            </span>
+          </span>
+          <Icon name="chevronRight" size={18} color={color.faint} />
+        </button>
       </div>
     </div>
   );
   })();
 
+  const parentTab = showSettings ? 'account' : showUserProfile ? 'pets' : showExplore ? 'explore' : showBookings ? 'bookings' : 'home';
   return (
     <>
       {screen}
-      <LanguageToggle />
+      {navMode === 'parent' && <BottomNav tabs={PARENT_TABS} active={parentTab} onSelect={goParentTab} />}
+      {navMode === 'sitter' && <BottomNav tabs={SITTER_TABS} active={sitterTab} onSelect={setSitterTab} />}
+      {navMode === 'sitter' && showNotifications && <NotificationCenter onClose={() => setShowNotifications(false)} />}
+      {floatingToggle && <LanguageToggle />}
     </>
   );
 }

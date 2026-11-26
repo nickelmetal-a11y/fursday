@@ -176,7 +176,7 @@ describe('SitterDashboard', () => {
     global.__bookings = [makeBooking({ status: 'confirmed' })];
     render(<SitterDashboard onBack={() => {}} city="Gurgaon" />);
     fireEvent.click(await screen.findByText('Upcoming'));
-    fireEvent.click(screen.getByText('🚶 On my way'));
+    fireEvent.click(screen.getByRole('button', { name: /On my way/ }));
 
     await waitFor(() => expect(notifySitterArrivingMock).toHaveBeenCalledWith('parent-1', 'Priya', 'on_way'));
   });

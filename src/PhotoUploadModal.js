@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Check } from 'lucide-react';
 import { supabase } from './supabase';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 
 const compressImage = (file, maxSizeMB = 2) => new Promise((resolve) => {
@@ -101,67 +102,73 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
     setUploading(false);
   };
 
+  const overlay = { position: 'fixed', inset: 0, background: 'rgba(16,24,40,0.5)', display: 'flex', justifyContent: 'center', zIndex: 1000, fontFamily: font.family };
+
   if (submitted) {
     return (
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-        <div style={{ background:'white', borderRadius:20, padding:32, textAlign:'center', maxWidth:320 }}>
-          <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a', marginBottom:8 }}>{tr('photoUpload_successTitle')}</div>
-          <div style={{ fontSize:14, color:'#888' }}>{tr('photoUpload_successBody')}</div>
+      <div style={{ ...overlay, alignItems: 'center', padding: 16 }}>
+        <div role="status" style={{ background: color.surface, borderRadius: radius.xl, padding: 28, textAlign: 'center', maxWidth: 320, width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ width: 56, height: 56, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Icon name="check" size={28} strokeWidth={2.2} />
+          </div>
+          <div style={{ fontSize: font.lg, fontWeight: 700, color: color.ink, marginBottom: 6 }}>{tr('photoUpload_successTitle')}</div>
+          <div style={{ fontSize: font.md, color: color.muted, lineHeight: 1.5 }}>{tr('photoUpload_successBody')}</div>
         </div>
       </div>
     );
   }
 
+  const canSubmit = photos.length > 0 && !uploading;
+
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', zIndex:1000 }}>
-      <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('photoUpload_title')}</div>
-          <button onClick={onClose} aria-label={tr('common_close')} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
-            <X size={20} />
+    <div style={{ ...overlay, alignItems: 'flex-end' }}>
+      <div role="dialog" aria-modal="true" aria-label={tr('photoUpload_title')}
+        style={{ width: '100%', maxWidth: 480, background: color.surface, borderRadius: `${radius.xl}px ${radius.xl}px 0 0`, padding: '20px 20px calc(20px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: font.lg, fontWeight: 700, color: color.ink }}>{tr('photoUpload_title')}</div>
+          <button onClick={onClose} aria-label={tr('common_close')} style={{ ...ui.backButton, width: 36, height: 36 }}>
+            <Icon name="close" size={18} />
           </button>
         </div>
 
-        <div style={{ background:'#E8F5E9', borderRadius:14, padding:12, marginBottom:20 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#2E7D32', marginBottom:4 }}>{tr('photoUpload_proofHeading')}</div>
-          <div style={{ fontSize:12, color:'#555' }}>{tr('photoUpload_proofBody', { pet: booking.pet_name || tr('photoUpload_thePetFallback') })}</div>
+        <div style={{ background: color.successSoft, borderRadius: radius.md, padding: 12, marginBottom: 16 }}>
+          <div style={{ fontSize: font.md, fontWeight: 600, color: color.success, marginBottom: 4 }}>{tr('photoUpload_proofHeading')}</div>
+          <div style={{ fontSize: font.sm, color: color.text, lineHeight: 1.5 }}>{tr('photoUpload_proofBody', { pet: booking.pet_name || tr('photoUpload_thePetFallback') })}</div>
         </div>
 
-        {/* Photo gallery */}
-        <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 10 }}>
           {photos.map((url, i) => (
-            <div key={i} style={{ position:'relative', width:90, height:90 }}>
-              <img src={url} alt={tr('photoUpload_photoAlt', { num: i + 1 })} style={{ width:90, height:90, borderRadius:12, objectFit:'cover' }} />
+            <div key={i} style={{ position: 'relative', aspectRatio: '1' }}>
+              <img src={url} alt={tr('photoUpload_photoAlt', { num: i + 1 })} style={{ width: '100%', height: '100%', borderRadius: radius.md, objectFit: 'cover', display: 'block' }} />
               <button type="button" onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))} aria-label={tr('photoUpload_removePhotoAria', { num: i + 1 })}
-                style={{ position:'absolute', top:-8, right:-8, width:28, height:28, borderRadius:14, background:'#D32F2F', border:'none', padding:0, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                <X size={16} color="white" />
+                style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: radius.pill, background: color.surface, color: color.danger, border: 'none', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(16,24,40,0.2)' }}>
+                <Icon name="close" size={16} />
               </button>
             </div>
           ))}
           {photos.length < 3 && (
             <button type="button" onClick={() => choosePhoto(fileInputRef, handlePhotoSelect)} aria-label={uploading ? tr('photoUpload_uploadingButton') : tr('photoUpload_addPhotoAria')}
-              style={{ width:90, height:90, boxSizing:'border-box', padding:0, font:'inherit', borderRadius:12, background:'#E8F5E9', border:'2px dashed #2E7D32', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
-              {uploading ? <span style={{ fontSize:12, color:'#2E7D32' }}>...</span> : <><Upload size={20} color="#2E7D32" /><span style={{ fontSize:10, color:'#2E7D32' }}>{photos.length === 0 ? tr('photoUpload_addLabel') : tr('photoUpload_moreLabel')}</span></>}
+              style={{ aspectRatio: '1', boxSizing: 'border-box', padding: 0, fontFamily: 'inherit', borderRadius: radius.md, background: color.tile, border: `1.5px dashed ${color.faint}`, color: color.navy, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
+              {uploading ? <span style={{ fontSize: font.sm }}>...</span> : <><Icon name="camera" size={22} /><span style={{ fontSize: font.xs, fontWeight: 600 }}>{photos.length === 0 ? tr('photoUpload_addLabel') : tr('photoUpload_moreLabel')}</span></>}
             </button>
           )}
         </div>
 
-        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} style={{ display:'none' }} />
-        <div style={{ fontSize:12, color:'#AAA', marginBottom:16 }}>{tr('photoUpload_countLabel', { count: photos.length })}</div>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} style={{ display: 'none' }} />
+        <div style={{ fontSize: font.xs, color: color.muted, marginBottom: 16 }}>{tr('photoUpload_countLabel', { count: photos.length })}</div>
 
         {error && (
-          <div style={{ background:'#FCEBEB', borderRadius:10, padding:'10px 12px', marginBottom:14, fontSize:12, color:'#A32D2D' }}>
+          <div role="alert" style={{ background: color.dangerSoft, borderRadius: radius.md, padding: '10px 12px', marginBottom: 14, fontSize: font.sm, color: color.danger }}>
             {error}
           </div>
         )}
 
-        {/* Buttons */}
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', fontSize:14, fontWeight:600, cursor:'pointer', color:'#555' }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ ...ui.secondaryButton, flex: 1, padding: '0 10px' }}>
             {tr('photoUpload_skipForNow')}
           </button>
-          <button onClick={submitPhotos} disabled={photos.length === 0 || uploading} style={{ flex:1, padding:'12px 0', borderRadius:12, border:'none', background:photos.length === 0 ? '#E0E0E0' : '#2E7D32', fontSize:14, fontWeight:600, cursor:photos.length === 0 ? 'not-allowed' : 'pointer', color:'white' }}>
+          <button onClick={submitPhotos} disabled={!canSubmit}
+            style={{ ...ui.primaryButton, flex: 1, padding: '0 10px', background: photos.length === 0 ? color.tile : color.navy, color: photos.length === 0 ? color.faint : color.surface, cursor: photos.length === 0 ? 'not-allowed' : 'pointer', opacity: uploading ? 0.7 : 1 }}>
             {uploading ? tr('photoUpload_uploadingButton') : photos.length > 0 ? tr('photoUpload_uploadPhotosButton') : tr('photoUpload_selectPhotosButton')}
           </button>
         </div>

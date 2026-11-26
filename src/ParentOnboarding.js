@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { useLanguage } from './i18n';
-
-
-const ORANGE = '#FF6B35';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 export default function ParentOnboarding({ onDone, city, userName }) {
   const { t: tr } = useLanguage();
@@ -35,24 +33,32 @@ export default function ParentOnboarding({ onDone, city, userName }) {
     onDone();
   };
 
+  const rowTitle = { fontSize:font.md, fontWeight:600, color:color.ink, marginBottom:2 };
+  const rowSub = { fontSize:13, color:color.muted, lineHeight:1.5 };
+  const note = (tone, icon, text) => (
+    <div style={{ background:color[tone + 'Soft'], color:color[tone], borderRadius:radius.md, padding:'10px 12px', display:'flex', gap:8, alignItems:'flex-start', fontSize:font.sm, lineHeight:1.55 }}>
+      <Icon name={icon} size={16} style={{ marginTop:1 }} /><div>{text}</div>
+    </div>
+  );
+
   const steps = [
     {
-      emoji: '🐾',
+      icon: 'paw',
       title: tr('parentOnboarding_welcomeTitle', { name: userName || tr('parentOnboarding_defaultName') }),
       sub: tr('parentOnboarding_welcomeSub', { city }),
       content: (
         <div>
           {[
-            { emoji:'🛡️', title:tr('parentOnboarding_featureAadhaarTitle'), sub:tr('parentOnboarding_featureAadhaarSub') },
-            { emoji:'📍', title:tr('parentOnboarding_featureGpsTitle'), sub:tr('parentOnboarding_featureGpsSub') },
-            { emoji:'💬', title:tr('parentOnboarding_featureReportsTitle'), sub:tr('parentOnboarding_featureReportsSub') },
-            { emoji:'⭐', title:tr('parentOnboarding_featureRatedTitle'), sub:tr('parentOnboarding_featureRatedSub') },
+            { icon:'shield', title:tr('parentOnboarding_featureAadhaarTitle'), sub:tr('parentOnboarding_featureAadhaarSub') },
+            { icon:'pin', title:tr('parentOnboarding_featureGpsTitle'), sub:tr('parentOnboarding_featureGpsSub') },
+            { icon:'message', title:tr('parentOnboarding_featureReportsTitle'), sub:tr('parentOnboarding_featureReportsSub') },
+            { icon:'star', title:tr('parentOnboarding_featureRatedTitle'), sub:tr('parentOnboarding_featureRatedSub') },
           ].map((item,i) => (
-            <div key={i} style={{ display:'flex', gap:14, padding:'14px 0', borderBottom:i<3?'1px solid #F5F5F5':'none', alignItems:'flex-start' }}>
-              <div style={{ width:44, height:44, borderRadius:14, background:'#FFF0EB', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>{item.emoji}</div>
+            <div key={i} style={{ display:'flex', gap:14, padding:'14px 0', borderTop:i?`1px solid ${color.line}`:'none', alignItems:'flex-start' }}>
+              <div style={{ ...ui.iconTile, width:44, height:44 }}><Icon name={item.icon} size={21} /></div>
               <div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>{item.title}</div>
-                <div style={{ fontSize:13, color:'#888', lineHeight:1.5 }}>{item.sub}</div>
+                <div style={rowTitle}>{item.title}</div>
+                <div style={rowSub}>{item.sub}</div>
               </div>
             </div>
           ))}
@@ -62,64 +68,56 @@ export default function ParentOnboarding({ onDone, city, userName }) {
       canNext: true,
     },
     {
-      emoji: '📋',
+      icon: 'fileText',
       title: tr('parentOnboarding_responsibilitiesTitle'),
       sub: tr('parentOnboarding_responsibilitiesSub'),
       content: (
         <div>
-          <div style={{ background:'#FFF0EB', borderRadius:14, padding:'12px 14px', marginBottom:14, display:'flex', gap:10, alignItems:'flex-start' }}>
-            <span style={{ fontSize:18, flexShrink:0 }}>ℹ️</span>
-            <div style={{ fontSize:12, color:'#FF6B35', lineHeight:1.6 }}>{tr('parentOnboarding_responsibilitiesInfo')}</div>
-          </div>
+          <div style={{ marginBottom:6 }}>{note('info', 'info', tr('parentOnboarding_responsibilitiesInfo'))}</div>
           {[
-            { emoji:'🦺', title:tr('parentOnboarding_reqCollarTitle'), detail:tr('parentOnboarding_reqCollarDetail'), must:true },
-            { emoji:'💧', title:tr('parentOnboarding_reqWaterTitle'), detail:tr('parentOnboarding_reqWaterDetail'), must:true },
-            { emoji:'⚠️', title:tr('parentOnboarding_reqAggressionTitle'), detail:tr('parentOnboarding_reqAggressionDetail'), must:true },
-            { emoji:'💊', title:tr('parentOnboarding_reqMedicationTitle'), detail:tr('parentOnboarding_reqMedicationDetail'), must:false },
-            { emoji:'🤝', title:tr('parentOnboarding_reqRespectTitle'), detail:tr('parentOnboarding_reqRespectDetail'), must:false },
-            { emoji:'📱', title:tr('parentOnboarding_reqOtpTitle'), detail:tr('parentOnboarding_reqOtpDetail'), must:true },
+            { icon:'tag', title:tr('parentOnboarding_reqCollarTitle'), detail:tr('parentOnboarding_reqCollarDetail'), must:true },
+            { icon:'droplet', title:tr('parentOnboarding_reqWaterTitle'), detail:tr('parentOnboarding_reqWaterDetail'), must:true },
+            { icon:'alert', title:tr('parentOnboarding_reqAggressionTitle'), detail:tr('parentOnboarding_reqAggressionDetail'), must:true },
+            { icon:'pill', title:tr('parentOnboarding_reqMedicationTitle'), detail:tr('parentOnboarding_reqMedicationDetail'), must:false },
+            { icon:'heart', title:tr('parentOnboarding_reqRespectTitle'), detail:tr('parentOnboarding_reqRespectDetail'), must:false },
+            { icon:'smartphone', title:tr('parentOnboarding_reqOtpTitle'), detail:tr('parentOnboarding_reqOtpDetail'), must:true },
           ].map((item, i) => (
-            <div key={i} style={{ display:'flex', gap:12, padding:'12px 0', borderBottom:i<5?'1px solid #F5F5F5':'none', alignItems:'flex-start' }}>
-              <div style={{ width:40, height:40, borderRadius:12, background:item.must?'#FFF0EB':'#F8F8F8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>{item.emoji}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{item.title}</div>
-                  {item.must && <span style={{ fontSize:10, background:'#FCEBEB', color:'#A32D2D', borderRadius:6, padding:'1px 6px', fontWeight:600 }}>{tr('parentOnboarding_requiredBadge')}</span>}
+            <div key={i} style={{ display:'flex', gap:12, padding:'12px 0', borderTop:i?`1px solid ${color.line}`:'none', alignItems:'flex-start' }}>
+              <div style={{ ...ui.iconTile, width:40, height:40 }}><Icon name={item.icon} size={19} /></div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6, marginBottom:2 }}>
+                  <div style={{ ...rowTitle, marginBottom:0, fontSize:13 }}>{item.title}</div>
+                  {item.must && <span style={ui.badge('danger')}>{tr('parentOnboarding_requiredBadge')}</span>}
                 </div>
-                <div style={{ fontSize:12, color:'#888', lineHeight:1.5 }}>{item.detail}</div>
+                <div style={{ ...rowSub, fontSize:font.sm }}>{item.detail}</div>
               </div>
             </div>
           ))}
-          <div style={{ marginTop:14, background:'#E8F5E9', borderRadius:12, padding:'10px 14px', display:'flex', gap:8 }}>
-            <span style={{ fontSize:16 }}>✓</span>
-            <div style={{ fontSize:12, color:'#2E7D32', lineHeight:1.5 }}>{tr('parentOnboarding_agreeNote')}</div>
-          </div>
+          <div style={{ marginTop:8 }}>{note('success', 'check', tr('parentOnboarding_agreeNote'))}</div>
         </div>
       ),
       btnLabel: tr('parentOnboarding_agreeButton'),
       canNext: true,
     },
     {
-      emoji: '🐕',
+      icon: 'edit',
       title: tr('parentOnboarding_dogInfoTitle'),
       sub: tr('parentOnboarding_dogInfoSub'),
       content: (
         <div>
-          <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_dogNameLabel')}</div>
-          <input value={petName} onChange={e => setPetName(e.target.value)} placeholder={tr('parentOnboarding_dogNamePlaceholder')} aria-label={tr('parentOnboarding_dogNameLabel')}
-            style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, boxSizing:'border-box' }} />
-          <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_breedLabel')}</div>
-          <select value={petBreed} onChange={e => setPetBreed(e.target.value)} aria-label={tr('parentOnboarding_breedLabel')}
-            style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, background:'white', boxSizing:'border-box' }}>
+          <label htmlFor="po-name" style={ui.label}>{tr('parentOnboarding_dogNameLabel')}</label>
+          <input id="po-name" value={petName} onChange={e => setPetName(e.target.value)} placeholder={tr('parentOnboarding_dogNamePlaceholder')} aria-label={tr('parentOnboarding_dogNameLabel')}
+            style={{ ...ui.input, marginBottom:14 }} />
+          <label htmlFor="po-breed" style={ui.label}>{tr('parentOnboarding_breedLabel')}</label>
+          <select id="po-breed" value={petBreed} onChange={e => setPetBreed(e.target.value)} aria-label={tr('parentOnboarding_breedLabel')}
+            style={{ ...ui.input, marginBottom:14 }}>
             <option value="">{tr('parentOnboarding_selectBreedPlaceholder')}</option>
             {BREEDS.map(b => <option key={b} value={b}>{b === 'Indie/Mixed' ? tr('pet_breedIndie') : b === 'Other' ? tr('pet_breedOther') : b}</option>)}
           </select>
-          <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_ageLabel')}</div>
-          <input value={petAge} onChange={e => setPetAge(e.target.value.replace(/\D/g,''))} placeholder={tr('parentOnboarding_agePlaceholder')} aria-label={tr('parentOnboarding_ageLabel')} type="tel"
-            style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:0, boxSizing:'border-box' }} />
-          <div style={{ marginTop:16, background:'#FFF0EB', borderRadius:12, padding:'10px 14px', fontSize:12, color:'#FF6B35' }}>
-            {tr('parentOnboarding_moreDetailsHint')}
-          </div>
+          <label htmlFor="po-age" style={ui.label}>{tr('parentOnboarding_ageLabel')}</label>
+          <input id="po-age" value={petAge} onChange={e => setPetAge(e.target.value.replace(/\D/g,''))} placeholder={tr('parentOnboarding_agePlaceholder')} aria-label={tr('parentOnboarding_ageLabel')} type="tel" inputMode="numeric"
+            style={ui.input} />
+          <div style={{ marginTop:16 }}>{note('info', 'info', tr('parentOnboarding_moreDetailsHint'))}</div>
         </div>
       ),
       btnLabel: saving ? tr('common_saving') : tr('parentOnboarding_findSittersButton'),
@@ -130,41 +128,41 @@ export default function ParentOnboarding({ onDone, city, userName }) {
   const current = steps[step];
 
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
-      <div style={{ background:'linear-gradient(135deg,#FF6B35,#FF8C5A)', padding:'48px 20px 24px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-          {step > 0 && (
-            <button onClick={() => setStep(s => s-1)}
-              style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:12, padding:'8px 12px', color:'white', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13 }}>
-              <ArrowLeft size={16} /> {tr('common_back')}
-            </button>
-          )}
-          <div aria-hidden="true" style={{ display:'flex', gap:6, marginLeft:'auto' }}>
-            {steps.map((_,i) => (
-              <div key={i} style={{ width:i===step?24:8, height:8, borderRadius:4, background:i<=step?'white':'rgba(255,255,255,0.3)', transition:'width 0.2s' }} />
-            ))}
-          </div>
-        </div>
-        <div style={{ fontSize:36, marginBottom:12 }}>{current.emoji}</div>
-        <div style={{ color:'white', fontSize:22, fontWeight:700, marginBottom:6 }}>{current.title}</div>
-        <div style={{ color:'rgba(255,255,255,0.75)', fontSize:14, lineHeight:1.5 }}>{current.sub}</div>
-      </div>
-
-      <div style={{ padding:'20px 20px 0' }}>
-        <div style={{ background:'white', borderRadius:20, padding:20, boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-          {current.content}
+    <div style={{ ...ui.page, paddingBottom:'calc(140px + env(safe-area-inset-bottom))' }}>
+      <div style={{ ...ui.header, minHeight:65, boxSizing:'border-box' }}>
+        {step > 0 && (
+          <button type="button" onClick={() => setStep(s => s-1)} style={ui.backButton} aria-label={tr('common_back')}>
+            <Icon name="arrowLeft" size={20} />
+          </button>
+        )}
+        <div aria-hidden="true" style={{ display:'flex', gap:6, marginLeft:'auto' }}>
+          {steps.map((_,i) => (
+            <div key={i} style={{ width:i===step?24:8, height:6, borderRadius:3, background:i<=step?color.navy:color.line, transition:'width 0.2s' }} />
+          ))}
         </div>
       </div>
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:390, background:'white', borderTop:'1px solid #F0F0F0', padding:'12px 20px calc(28px + env(safe-area-inset-bottom))' }}>
+      <div style={{ padding:'24px 16px 0' }}>
+        <div style={{ ...ui.iconTile, background:color.navySoft, marginBottom:14 }}><Icon name={current.icon} size={24} /></div>
+        <h1 style={{ fontSize:font.xxl, fontWeight:700, color:color.ink, margin:'0 0 6px', letterSpacing:-0.3 }}>{current.title}</h1>
+        <div style={{ fontSize:font.md, color:color.muted, lineHeight:1.5 }}>{current.sub}</div>
+      </div>
+
+      <div style={{ padding:'18px 16px 0' }}>
+        <div style={{ ...ui.card, padding:'6px 16px 16px' }}>
+          <div style={{ paddingTop:10 }}>{current.content}</div>
+        </div>
+      </div>
+
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, maxWidth:480, margin:'0 auto', boxSizing:'border-box', background:color.surface, borderTop:`1px solid ${color.line}`, padding:'12px 16px calc(12px + env(safe-area-inset-bottom))', zIndex:100 }}>
         <button
           onClick={() => { if(step < steps.length-1) setStep(s=>s+1); else savePet(); }}
           disabled={saving}
-          style={{ width:'100%', padding:'16px 0', borderRadius:16, border:'none', background:ORANGE, color:'white', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+          style={{ ...ui.primaryButton, width:'100%' }}>
           {current.btnLabel}
         </button>
         <button onClick={onDone}
-          style={{ width:'100%', marginTop:8, padding:'10px 0', background:'none', border:'none', color:'#AAA', fontSize:13, cursor:'pointer' }}>
+          style={{ width:'100%', marginTop:4, minHeight:44, background:'none', border:'none', color:color.muted, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
           {tr('parentOnboarding_skipForNow')}
         </button>
       </div>

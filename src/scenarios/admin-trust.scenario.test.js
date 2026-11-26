@@ -222,7 +222,7 @@ describe('Admin trust & safety scenarios', () => {
     render(<SitterDashboard city="Pune" onBack={jest.fn()} />);
     await screen.findByText(/Vikram/);
     await waitFor(() => expect(screen.queryByText('Loading your jobs...')).not.toBeInTheDocument());
-    fireEvent.click(screen.getByText(/^📢 \d+$/));
+    fireEvent.click(screen.getByRole('button', { name: /^Open requests \(\d+\)$/ }));
     const accept = screen.queryByText('Accept this request');
     if (accept) {
       fireEvent.click(accept);

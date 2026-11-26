@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLanguage } from './i18n';
-
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 const SECTIONS = [
   {
@@ -55,46 +51,51 @@ const SECTIONS = [
 ];
 
 export default function TermsAndConditions({ onBack, city }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr, lang } = useLanguage();
   const [openSection, setOpenSection] = useState(null);
 
   return (
-    <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:40 }}>
-      <div style={{ background:t.grad, padding:'48px 20px 24px', display:'flex', alignItems:'center', gap:12 }}>
-        <button type="button" aria-label={tr('common_back')} onClick={onBack} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-          <ArrowLeft size={18} color="white" />
+    <div style={{ ...ui.page, paddingBottom:40 }}>
+      <div style={ui.header}>
+        <button type="button" aria-label={tr('common_back')} onClick={onBack} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
         </button>
-        <div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('terms_title')}</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{tr('terms_lastUpdated')}</div>
+        <div style={{ minWidth:0 }}>
+          <h1 style={ui.headerTitle}>{tr('terms_title')}</h1>
+          <div style={{ fontSize:font.sm, color:color.muted }}>{tr('terms_lastUpdated')}</div>
         </div>
       </div>
 
-      <div style={{ padding:'16px 16px 0' }}>
-        <div style={{ background:'#E3F2FD', borderRadius:14, padding:'12px 16px', marginBottom:16, fontSize:13, color:'#1565C0', lineHeight:1.6 }}>
-          {tr('terms_intro')}
-          {lang === 'hi' && <div style={{ marginTop:6, fontSize:12 }}>{tr('terms_legalEnglishNote')}</div>}
+      <div style={{ padding:16 }}>
+        <div style={{ display:'flex', gap:10, alignItems:'flex-start', background:color.infoSoft, borderRadius:radius.md, padding:'12px 14px', marginBottom:16, fontSize:13, color:color.info, lineHeight:1.6 }}>
+          <Icon name="info" size={18} style={{ marginTop:1 }} />
+          <div>
+            {tr('terms_intro')}
+            {lang === 'hi' && <div style={{ marginTop:6, fontSize:font.sm }}>{tr('terms_legalEnglishNote')}</div>}
+          </div>
         </div>
 
-        {SECTIONS.map((s, i) => (
-          <div key={i} style={{ background:'white', borderRadius:16, marginBottom:8, boxShadow:'0 2px 8px rgba(0,0,0,0.05)', overflow:'hidden' }}>
-            <button type="button" aria-expanded={openSection === i} onClick={() => setOpenSection(openSection === i ? null : i)}
-              style={{ width:'100%', border:'none', background:'none', font:'inherit', textAlign:'left', padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
-              <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', flex:1, paddingRight:12 }}>{s.title}</div>
-              {openSection === i
-                ? <ChevronUp size={18} color={t.primary} />
-                : <ChevronDown size={18} color="#CCC" />}
-            </button>
-            {openSection === i && (
-              <div style={{ padding:'12px 16px 16px', fontSize:13, color:'#555', lineHeight:1.8, borderTop:'1px solid #F5F5F5', whiteSpace:'pre-line' }}>
-                {s.content}
+        <div style={{ background:color.surface, borderRadius:radius.lg, border:`1px solid ${color.line}`, overflow:'hidden' }}>
+          {SECTIONS.map((s, i) => {
+            const isOpen = openSection === i;
+            return (
+              <div key={i} style={{ borderTop:i ? `1px solid ${color.line}` : 'none' }}>
+                <button type="button" aria-expanded={isOpen} onClick={() => setOpenSection(isOpen ? null : i)}
+                  style={{ width:'100%', minHeight:52, border:'none', background:'none', fontFamily:font.family, textAlign:'left', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, cursor:'pointer' }}>
+                  <div style={{ fontSize:font.md, fontWeight:600, color:color.ink, flex:1 }}>{s.title}</div>
+                  <Icon name="chevronDown" size={18} color={isOpen ? color.navy : color.faint} style={{ transform:isOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+                </button>
+                {isOpen && (
+                  <div style={{ padding:'0 16px 16px', fontSize:13, color:color.text, lineHeight:1.75, whiteSpace:'pre-line' }}>
+                    {s.content}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+            );
+          })}
+        </div>
 
-        <div style={{ textAlign:'center', padding:'20px 0', fontSize:12, color:'#AAA', lineHeight:1.6 }}>
+        <div style={{ textAlign:'center', padding:'20px 0', fontSize:font.sm, color:color.muted, lineHeight:1.6 }}>
           {tr('terms_footer')}
         </div>
       </div>

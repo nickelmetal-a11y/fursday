@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Shield, AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from './supabase';
 import { useLanguage } from './i18n';
-
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 
 const RAZORPAY_KEY = 'rzp_test_T7V79a2d0jgcQW';
 
-const THEMES = {
-  Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
-  Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
-};
+const eyebrow = { fontSize: font.xs, color: color.muted, marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 };
 
 export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
-  const t = THEMES[city] || THEMES.Gurgaon;
   const { t: tr } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [paid, setPaid] = useState(false);
@@ -99,7 +95,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
       },
       prefill: { name: 'Pet Parent', contact: '', email: '' },
       notes: { booking_ref: bookingRef, service: serviceName },
-      theme: { color: t.primary },
+      theme: { color: color.navy },
       modal: {
         ondismiss: () => {
           setLoading(false);
@@ -141,140 +137,147 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
   };
 
   if (paid) return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', fontFamily: 'sans-serif', textAlign: 'center' }}>
-      <div style={{ fontSize: 72, marginBottom: 16 }}>🎉</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: 'white', marginBottom: 8 }}>{tr('payment_successTitle')}</div>
-      <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 32, lineHeight: 1.6 }}>
+    <div style={{ ...ui.page, background: color.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'calc(40px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))', textAlign: 'center', boxSizing: 'border-box' }}>
+      <div style={{ width: 64, height: 64, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+        <Icon name="check" size={32} strokeWidth={2.4} />
+      </div>
+      <div style={{ fontSize: font.xxl, fontWeight: 700, color: color.ink, marginBottom: 8, letterSpacing: -0.3 }}>{tr('payment_successTitle')}</div>
+      <div style={{ fontSize: font.md, color: color.muted, marginBottom: 24, lineHeight: 1.6 }}>
         {tr('payment_successSubLine1')}<br />{tr('payment_successSubLine2')}
       </div>
-      <div style={{ background: '#1a1a2e', borderRadius: 20, padding: 20, width: '100%', marginBottom: 20, border: '1px solid rgba(255,107,53,0.2)' }}>
+      <div style={{ ...ui.card, width: '100%', marginBottom: 12, padding: '6px 16px', textAlign: 'left', boxSizing: 'border-box' }}>
         {[
           { label: tr('payment_labelBookingRef'), val: bookingRef },
           { label: tr('payment_labelService'), val: serviceName },
           { label: tr('payment_amountPaidLabel'), val: 'Rs.' + Math.round(amount/100) },
           { label: tr('payment_statusLabel'), val: tr('payment_statusConfirmedValue') },
         ].map((x, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{x.label}</span>
-            <span style={{ fontSize: 13, color: i === 3 ? '#4CAF50' : 'white', fontWeight: 600 }}>{x.val}</span>
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+            <span style={{ fontSize: 13, color: color.muted }}>{x.label}</span>
+            {i === 3
+              ? <span style={ui.badge('success')}>{x.val}</span>
+              : <span style={{ fontSize: 13, color: color.ink, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{x.val}</span>}
           </div>
         ))}
       </div>
-      <div style={{ background: '#1a1a2e', borderRadius: 16, padding: '12px 16px', width: '100%', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-        <span style={{ fontSize: 22 }}>📧</span>
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{tr('payment_emailSentTitle')}</div>
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{tr('payment_emailSentSub')}</div>
+      <div style={{ ...ui.card, width: '100%', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
+        <span style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name="mail" size={20} /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: color.ink, fontSize: 13, fontWeight: 600 }}>{tr('payment_emailSentTitle')}</div>
+          <div style={{ color: color.muted, fontSize: font.sm }}>{tr('payment_emailSentSub')}</div>
         </div>
-        <CheckCircle size={18} color="#4CAF50" style={{ marginLeft: 'auto' }} />
+        <Icon name="check" size={18} color={color.success} strokeWidth={2.4} />
       </div>
-      <button onClick={onBack}
-        style={{ width: '100%', padding: 14, borderRadius: 14, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+      <button type="button" onClick={onBack} style={{ ...ui.primaryButton, width: '100%' }}>
         {tr('payment_backToHomeButton')}
       </button>
     </div>
   );
 
   if (failed) return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', fontFamily: 'sans-serif', textAlign: 'center' }}>
-      <div style={{ width: 80, height: 80, borderRadius: 24, background: '#FCEBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-        <AlertCircle size={40} color="#C62828" />
+    <div style={{ ...ui.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'calc(40px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))', textAlign: 'center', boxSizing: 'border-box' }}>
+      <div style={{ width: 64, height: 64, borderRadius: radius.pill, background: color.dangerSoft, color: color.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+        <Icon name="alert" size={30} />
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>{tr('payment_title')} {retryCount > 0 ? tr('payment_failedAgain') : tr('payment_unsuccessful')}</div>
-      <div style={{ fontSize: 14, color: '#888', marginBottom: 24, lineHeight: 1.6, maxWidth: 300 }}>{failReason}</div>
-      <div style={{ background: 'white', borderRadius: 16, padding: 16, width: '100%', marginBottom: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('payment_bookingSafeTitle')}</div>
+      <div style={{ fontSize: font.xl + 2, fontWeight: 700, color: color.ink, marginBottom: 8 }}>{tr('payment_title')} {retryCount > 0 ? tr('payment_failedAgain') : tr('payment_unsuccessful')}</div>
+      <div style={{ fontSize: font.md, color: color.muted, marginBottom: 24, lineHeight: 1.6, maxWidth: 320 }}>{failReason}</div>
+      <div style={{ ...ui.card, width: '100%', marginBottom: 20, textAlign: 'left', boxSizing: 'border-box' }}>
+        <div style={ui.sectionTitle}>{tr('payment_bookingSafeTitle')}</div>
         {[
-          { icon: '✓', text: tr('payment_safetyNoDeduction'), color: '#2E7D32' },
-          { icon: '✓', text: tr('payment_safetyBookingSaved', { ref: bookingRef }), color: '#2E7D32' },
-          { icon: '✓', text: tr('payment_safetyRetryAnytime'), color: '#2E7D32' },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid #F5F5F5' : 'none' }}>
-            <div style={{ width: 20, height: 20, borderRadius: 10, background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: item.color, fontWeight: 700, flexShrink: 0 }}>{item.icon}</div>
-            <span style={{ fontSize: 13, color: '#555' }}>{item.text}</span>
+          tr('payment_safetyNoDeduction'),
+          tr('payment_safetyBookingSaved', { ref: bookingRef }),
+          tr('payment_safetyRetryAnytime'),
+        ].map((text, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+            <span style={{ width: 22, height: 22, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="check" size={13} strokeWidth={2.6} />
+            </span>
+            <span style={{ fontSize: 13, color: color.text }}>{text}</span>
           </div>
         ))}
       </div>
-      <button onClick={() => { setFailed(false); setRetryCount(c => c + 1); handleRazorpayPayment(); }}
-        style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: t.primary, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <RefreshCw size={18} /> {tr('common_tryAgain')}
+      <button type="button" onClick={() => { setFailed(false); setRetryCount(c => c + 1); handleRazorpayPayment(); }}
+        style={{ ...ui.primaryButton, width: '100%', marginBottom: 10 }}>
+        <Icon name="repeat" size={18} /> {tr('common_tryAgain')}
       </button>
-      <button onClick={() => { setFailed(false); setMethod(method === 'upi' ? 'card' : 'upi'); }}
-        style={{ width: '100%', padding: '14px 0', borderRadius: 16, border: '1.5px solid #E0E0E0', background: 'white', color: '#555', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}>
+      <button type="button" onClick={() => { setFailed(false); setMethod(method === 'upi' ? 'card' : 'upi'); }}
+        style={{ ...ui.secondaryButton, width: '100%', marginBottom: 8 }}>
         {tr('payment_tryDifferentMethodButton')}
       </button>
-      <button onClick={onBack}
-        style={{ background: 'none', border: 'none', color: '#AAA', fontSize: 13, cursor: 'pointer', padding: '8px 0' }}>
+      <button type="button" onClick={onBack}
+        style={{ minHeight: 44, background: 'none', border: 'none', color: color.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '0 8px', fontFamily: font.family }}>
         {tr('payment_payLaterButton')}
       </button>
     </div>
   );
 
   return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
-      <div style={{ background: t.grad, padding: '48px 20px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <ArrowLeft size={18} color="white" />
+    <div style={{ ...ui.page, paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}>
+      <div style={ui.header}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}>
+          <Icon name="arrowLeft" size={20} />
         </button>
-        <div>
-          <div style={{ color: 'white', fontSize: 17, fontWeight: 700 }}>{tr('payment_headerTitle')}</div>
-          <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>{tr('payment_headerSub')}</div>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={ui.headerTitle}>{tr('payment_headerTitle')}</h1>
+          <div style={{ color: color.muted, fontSize: font.sm }}>{tr('payment_headerSub')}</div>
         </div>
       </div>
-      <div style={{ padding: '20px 20px 0' }}>
-        <div style={{ background: 'white', borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tr('payment_orderSummaryLabel')}</div>
+      <div style={{ padding: 16 }}>
+        <div style={{ ...ui.card, marginBottom: 12 }}>
+          <div style={eyebrow}>{tr('payment_orderSummaryLabel')}</div>
           {[
             { label: tr('payment_labelService'), val: serviceName },
             { label: tr('payment_labelBookingRef'), val: bookingRef },
-
             { label: tr('payment_labelPlatformFee'), val: 'Rs.0' },
           ].map((x, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 3 ? '1px solid #F5F5F5' : 'none' }}>
-              <span style={{ fontSize: 13, color: '#888' }}>{x.label}</span>
-              <span style={{ fontSize: 13, color: '#1a1a1a', fontWeight: 500 }}>{x.val}</span>
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+              <span style={{ fontSize: 13, color: color.muted }}>{x.label}</span>
+              <span style={{ fontSize: 13, color: color.ink, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{x.val}</span>
             </div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', marginTop: 4 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>{tr('payment_totalLabel')}</span>
-            <span style={{ fontSize: 20, fontWeight: 800, color: t.primary }}>Rs.{Math.round(amount/100)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 0 0', marginTop: 4, borderTop: `1px solid ${color.line}` }}>
+            <span style={{ fontSize: font.lg, fontWeight: 700, color: color.ink }}>{tr('payment_totalLabel')}</span>
+            <span style={{ fontSize: font.xl, fontWeight: 700, color: color.ink, fontVariantNumeric: 'tabular-nums' }}>Rs.{Math.round(amount/100)}</span>
           </div>
         </div>
-        <div style={{ background: 'white', borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tr('payment_payWithLabel')}</div>
+        <div style={{ ...ui.card, padding: '14px 16px 4px', marginBottom: 12 }}>
+          <div style={eyebrow}>{tr('payment_payWithLabel')}</div>
           {[
-            { id: 'upi', label: tr('payment_methodUpiLabel'), sub: tr('payment_methodUpiSub'), emoji: '📱' },
-            { id: 'card', label: tr('payment_methodCardLabel'), sub: tr('payment_methodCardSub'), emoji: '💳' },
-            { id: 'netbanking', label: tr('payment_methodNetbankingLabel'), sub: tr('payment_methodNetbankingSub'), emoji: '🏦' },
-          ].map(m => (
-            <button type="button" key={m.id} onClick={() => setMethod(m.id)} aria-pressed={method === m.id}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', border: 'none', borderBottom: m.id !== 'netbanking' ? '1px solid #F5F5F5' : 'none', background: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-              <span style={{ fontSize: 22 }}>{m.emoji}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a' }}>{m.label}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>{m.sub}</div>
-              </div>
-              <div style={{ width: 20, height: 20, borderRadius: 10, border: method === m.id ? 'none' : '1.5px solid #DDD', background: method === m.id ? t.primary : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {method === m.id && <div style={{ width: 8, height: 8, borderRadius: 4, background: 'white' }} />}
-              </div>
-            </button>
-          ))}
+            { id: 'upi', label: tr('payment_methodUpiLabel'), sub: tr('payment_methodUpiSub'), icon: 'smartphone' },
+            { id: 'card', label: tr('payment_methodCardLabel'), sub: tr('payment_methodCardSub'), icon: 'card' },
+            { id: 'netbanking', label: tr('payment_methodNetbankingLabel'), sub: tr('payment_methodNetbankingSub'), icon: 'boarding' },
+          ].map((m, i) => {
+            const on = method === m.id;
+            return (
+              <button type="button" key={m.id} onClick={() => setMethod(m.id)} aria-pressed={on}
+                style={{ width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', border: 'none', borderTop: i ? `1px solid ${color.line}` : 'none', background: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                <span style={{ ...ui.iconTile, width: 40, height: 40, background: on ? color.navySoft : color.tile }}><Icon name={m.icon} size={20} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{m.label}</div>
+                  <div style={{ fontSize: font.sm, color: color.muted }}>{m.sub}</div>
+                </div>
+                <span style={{ width: 20, height: 20, borderRadius: radius.pill, border: `1.5px solid ${on ? color.navy : color.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxSizing: 'border-box' }}>
+                  {on && <span style={{ width: 10, height: 10, borderRadius: radius.pill, background: color.navy }} />}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <div style={{ background: '#E8F5E9', borderRadius: 14, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Shield size={16} color="#2E7D32" style={{ flexShrink: 0 }} />
-          <div style={{ fontSize: 12, color: '#2E7D32', lineHeight: 1.6 }}>{tr('payment_secureNotice')}</div>
-        </div>
-        <div style={{ background: '#E3F2FD', borderRadius: 14, padding: '10px 14px', marginBottom: 20, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 16 }}>🛡️</span>
-          
+        <div style={{ background: color.successSoft, borderRadius: radius.md, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Icon name="lock" size={18} color={color.success} />
+          <div style={{ fontSize: font.sm, color: color.success, lineHeight: 1.55 }}>{tr('payment_secureNotice')}</div>
         </div>
       </div>
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px calc(28px + env(safe-area-inset-bottom))', background: 'white', borderTop: '1px solid #F0F0F0' }}>
-        <button onClick={handleRazorpayPayment} disabled={loading}
-          style={{ width: '100%', padding: '16px 0', borderRadius: 16, border: 'none', background: loading ? '#E0E0E0' : t.primary, color: loading ? '#AAA' : 'white', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>
-          {loading ? tr('payment_openingPayment') : tr('payment_payButtonLabel', { amount: Math.round(amount/100) })}
-        </button>
-        <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#AAA' }}>{tr('payment_poweredByFooter')}</div>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: color.surface, borderTop: `1px solid ${color.line}`, zIndex: 100 }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+          <button type="button" onClick={handleRazorpayPayment} disabled={loading}
+            style={{ ...ui.primaryButton, width: '100%', background: loading ? color.line : color.navy, color: loading ? color.faint : 'white', cursor: loading ? 'not-allowed' : 'pointer' }}>
+            {loading ? tr('payment_openingPayment') : tr('payment_payButtonLabel', { amount: Math.round(amount/100) })}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 8, fontSize: font.xs, color: color.faint }}>
+            <Icon name="lock" size={12} />{tr('payment_poweredByFooter')}
+          </div>
+        </div>
       </div>
     </div>
   );
