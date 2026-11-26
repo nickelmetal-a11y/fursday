@@ -110,9 +110,9 @@ export default function App() {
   const [userIP, setUserIP] = useState(null);
   const [sitterTab, setSitterTab] = useState('jobs');
   const [showNotifications, setShowNotifications] = useState(false);
-  // Keep the loading screen up for at least one walk cycle so it never just flashes.
+  // Keep the loading screen up for at least one walk cycle so everyone sees it (owner: at least 2 seconds).
   const [splashDone, setSplashDone] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setSplashDone(true), process.env.NODE_ENV === 'test' ? 0 : 1600); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setSplashDone(true), process.env.NODE_ENV === 'test' ? 0 : 2000); return () => clearTimeout(t); }, []);
   const { t: tr } = useLanguage();
 
   const theme = THEMES[city] || THEMES.Gurgaon;
