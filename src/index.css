@@ -36,7 +36,7 @@ code {
 @keyframes fursday-splash { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
 .fursday-splash-bar { animation: fursday-splash 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .fursday-splash-bar { animation: none; width: 60% !important; } }
-body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif; -webkit-font-smoothing: antialiased; background: #F6F7F9; }
+body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif; -webkit-font-smoothing: antialiased; background: #FBF8F3; }
 
 /* Loading screen: paw prints walking up the screen, one step at a time. */
 @keyframes fw-step {

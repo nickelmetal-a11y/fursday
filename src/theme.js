@@ -11,13 +11,13 @@ export const color = {
   text: '#2A3146',        // secondary headings
   muted: '#6A7085',       // captions, labels
   faint: '#9AA0B1',       // placeholders, disabled
-  line: '#E6E8EE',        // borders, dividers
-  bg: '#F6F7F9',          // page background
+  line: '#ECE5DA',        // borders, dividers (warm, to sit on cream)
+  bg: '#FBF8F3',          // page background: soft cream (owner pick, 2026-11-26)
   surface: '#FFFFFF',     // cards, sheets, nav bar
-  tile: '#F1F3F8',        // icon tiles, input fills
+  tile: '#F3EEE5',        // icon tiles, input fills
   saffron: '#E8892B',     // highlight only: offers, badges, progress
   saffronSoft: '#FDF1E4',
-  success: '#1F7A4D', successSoft: '#EAF5EF',
+  success: '#1F7A4D', successSoft: '#EAF3EA',
   warning: '#9A5B00', warningSoft: '#FFF4E0',
   danger: '#B3261E', dangerSoft: '#FCEDEC',
   info: '#1D4ED8', infoSoft: '#EAF0FE',
@@ -45,7 +45,7 @@ export const navPadding = `calc(${NAV_HEIGHT + 16}px + env(safe-area-inset-botto
 export const ui = {
   page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: color.bg, fontFamily: font.family, color: color.ink },
   // paddingRight leaves room for the floating EN/हिं toggle (LanguageToggle).
-  header: { background: color.surface, padding: 'calc(12px + env(safe-area-inset-top)) 108px 12px 16px', borderBottom: `1px solid ${color.line}`, display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50 },
+  header: { background: color.bg, padding: 'calc(12px + env(safe-area-inset-top)) 108px 12px 16px', borderBottom: `1px solid ${color.line}`, display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50 },
   headerTitle: { fontSize: font.lg, fontWeight: 700, color: color.ink, margin: 0 },
   backButton: { width: 40, height: 40, borderRadius: radius.md, border: 'none', background: color.tile, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: color.ink, flexShrink: 0 },
   card: { background: color.surface, borderRadius: radius.lg, border: `1px solid ${color.line}`, padding: 16 },

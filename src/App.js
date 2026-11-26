@@ -460,7 +460,7 @@ export default function App() {
 
   // ── Home ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ ...ui.page, background: color.surface, paddingBottom: navPadding }}>
+    <div style={{ ...ui.page, paddingBottom: navPadding }}>
       {requestSentFor && (
         <div role="status" style={{ position:'fixed', top:'calc(12px + env(safe-area-inset-top))', left:16, right:16, maxWidth:448, margin:'0 auto', background:color.success, color:'white', borderRadius:radius.md, padding:'12px 16px', zIndex:2000, fontSize:13, fontWeight:600 }}>
           {tr('home_requestSent', { name: requestSentFor })}
@@ -493,7 +493,7 @@ export default function App() {
         </div>
         {firstName && <div style={{ fontSize:22, fontWeight:700, color:color.ink, margin:'16px 0 0', letterSpacing:-0.3 }}>{tr('greeting')}, {firstName}</div>}
         <button type="button" onClick={() => goParentTab('explore')}
-          style={{ marginTop:14, width:'100%', display:'flex', alignItems:'center', gap:10, padding:'0 14px', height:48, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg, color:color.faint, fontSize:14, cursor:'pointer', fontFamily:font.family, textAlign:'left' }}>
+          style={{ marginTop:14, width:'100%', display:'flex', alignItems:'center', gap:10, padding:'0 14px', height:48, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.surface, color:color.faint, fontSize:14, cursor:'pointer', fontFamily:font.family, textAlign:'left' }}>
           <Icon name="search" size={18} color={color.muted} />{tr('home_searchPlaceholder')}
         </button>
       </header>
