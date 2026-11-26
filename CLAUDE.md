@@ -282,6 +282,25 @@ vercel --prod
 - Promotions now warns when a discount exceeds the 15% commission. Finding: WELCOME100 on a Rs.400 walk costs Fursday Rs.40.
 - **`api/test-login-links.js`** (Vercel serverless, uses the server-only `SUPABASE_SERVICE_ROLE_KEY`): POST with an admin's Supabase access token returns one-time magic links for **@example.com test accounts only**. CORS is limited to the admin site, and it's tested in `src/testLoginLinksApi.test.js`. The admin People tab → "Make login links" gives WhatsApp-ready messages. Links are single-use and expire in about 1h, so regenerate them as needed.
 
+## 🗺️ PHASE PLAN (set by the owner 2026-11-26) — authoritative
+
+- **Phase 0 — Preparation (CURRENT).** Build, test, fix. Everything that isn't listed under Phase 1 is Phase 0 work.
+- **Phase 1 — Before launch.** Must all be done before real customers:
+  1. **Admin two-factor sign-in** (built, OFF). To turn it on: run migration `034_admin_requires_two_factor.sql`, set `REACT_APP_ADMIN_REQUIRE_2FA=true` for the admin build (e.g. in `package.json` `build:admin`), set `ADMIN_REQUIRE_2FA=true` in Vercel env for the `fursday` project, then redeploy both. Each admin enrolls in an authenticator app on first sign-in. Tests live in `AdminApp.test.js` and `testLoginLinksApi.test.js`.
+  2. Razorpay merchant account and live keys.
+  3. Grievance Officer name in Terms/Privacy.
+  4. Set Supabase Email OTP Expiration back from 86400 (raised for testing) to 3600.
+  5. On-device testing on iOS and Android, then store submission.
+  6. Remove or disable `api/test-login-links.js` (test-account logins only).
+
+**Admin ops upgrade (Phase 0, built 2026-11-26):**
+- **Needs attention** on Overview (`adminInsights.attentionItems`): no-shows, silent sitters (>2h), unpaid within 24h, running long, payouts >48h, disputes >48h, applications >48h, deletions near 30 days.
+- **Sitter scorecards** on the Sitters tab (`sitterScorecard`): completed, rating, acceptance and cancellation rates, plus warning flags.
+- **Bookings tab** (`AdminBookings.js`): search and status filter, detail view, cancel with full refund, reassign to an active sitter in the same city, and admin notes (stored as `admin_audit_logs` rows, `action='booking_note'`).
+- **Messages tab** (`AdminBroadcast.js`): announcements to active sitters, parents or everyone, optionally by city, after a confirm step.
+- The admin site also signs out after 30 minutes idle and logs every admin sign-in.
+- **Security finding:** any user could set their own `users.is_admin`. Migration **033** fixes it and must be run.
+
 **Parked: admin website + domain setup** (user: "add that to our develop… but you can park it, as it will be admin side"):
 1. Move `fursday.in` DNS from GoDaddy to Vercel nameservers (`ns1/ns2.vercel-dns.com`), after first recreating every existing record in Vercel (apex A, `www` CNAME, Resend/SES `send` MX + SPF, `resend._domainkey`, `_dmarc`), so the site and email sending don't break. The user does the nameserver switch in GoDaddy; Claude prepares the records.
 2. Split AdminPanel into its own Vercel project at `admin.fursday.in` (same repo + Supabase, admin-only build). Remove `#admin` from the consumer app and the native bundles.

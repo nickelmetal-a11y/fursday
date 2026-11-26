@@ -37,6 +37,10 @@ module.exports = async function handler(req, res) {
     const caller = await who.json();
     const adminRow = await (await admin('/rest/v1/users?select=is_admin&id=eq.' + encodeURIComponent(caller.id))).json();
     if (!adminRow?.[0]?.is_admin) { res.status(403).json({ error: 'Admins only' }); return; }
+    // Phase 1: same rule as migration 034, admin actions need a two-factor session.
+    let aal = 'aal1';
+    try { aal = JSON.parse(Buffer.from(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')).aal || 'aal1'; } catch { /* malformed token */ }
+    if (process.env.ADMIN_REQUIRE_2FA === 'true' && aal !== 'aal2') { res.status(403).json({ error: 'Two-step sign-in required' }); return; }
 
     const list = await (await admin('/auth/v1/admin/users?per_page=1000')).json();
     const testUsers = (list.users || []).filter(u => TEST_EMAIL.test(u.email || ''));

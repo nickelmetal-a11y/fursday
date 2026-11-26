@@ -11,6 +11,8 @@ const mkRes = () => {
 };
 
 let handler;
+const jwt = (aal) => 'h.' + Buffer.from(JSON.stringify({ sub: 'u-admin', aal })).toString('base64url') + '.s';
+const GOOD = jwt('aal2');
 let generated;
 const authUsers = [
   { id: 'u-test-1', email: 'fursday.test.parent.ananya@example.com' },
@@ -20,7 +22,7 @@ const authUsers = [
 
 const fakeFetch = (isAdmin) => async (url, opts = {}) => {
   const ok = (b) => ({ ok: true, status: 200, json: async () => b });
-  if (url.endsWith('/auth/v1/user')) return opts.headers.Authorization === 'Bearer good' ? ok({ id: 'u-admin' }) : { ok: false, status: 401, json: async () => ({}) };
+  if (url.endsWith('/auth/v1/user')) return opts.headers.Authorization.startsWith('Bearer h.') ? ok({ id: 'u-admin' }) : { ok: false, status: 401, json: async () => ({}) };
   if (url.includes('/rest/v1/users?select=is_admin')) return ok([{ is_admin: isAdmin }]);
   if (url.includes('/auth/v1/admin/users')) return ok({ users: authUsers });
   if (url.includes('/rest/v1/users?select=id,name')) return ok([{ id: 'u-test-1', name: 'Ananya (TEST)' }, { id: 'u-test-2', name: 'Priya (TEST)' }]);
@@ -46,15 +48,26 @@ test('refuses without a session', async () => {
 test('refuses a signed-in non-admin', async () => {
   global.fetch = fakeFetch(false);
   const res = mkRes();
-  await handler({ method: 'POST', headers: { authorization: 'Bearer good' } }, res);
+  await handler({ method: 'POST', headers: { authorization: 'Bearer ' + GOOD } }, res);
   expect(res.statusCode).toBe(403);
   expect(generated).toHaveLength(0);
+});
+
+test('Phase 1: refuses an admin without two-step sign-in when required', async () => {
+  process.env.ADMIN_REQUIRE_2FA = 'true';
+  global.fetch = fakeFetch(true);
+  const res = mkRes();
+  await handler({ method: 'POST', headers: { authorization: 'Bearer ' + jwt('aal1') } }, res);
+  expect(res.statusCode).toBe(403);
+  expect(res.body.error).toMatch(/Two-step/);
+  expect(generated).toHaveLength(0);
+  delete process.env.ADMIN_REQUIRE_2FA;
 });
 
 test('makes links only for fake test accounts, never a real customer', async () => {
   global.fetch = fakeFetch(true);
   const res = mkRes();
-  await handler({ method: 'POST', headers: { authorization: 'Bearer good', origin: 'https://fursday-admin.vercel.app' } }, res);
+  await handler({ method: 'POST', headers: { authorization: 'Bearer ' + GOOD, origin: 'https://fursday-admin.vercel.app' } }, res);
   expect(res.statusCode).toBe(200);
   expect(generated).toEqual(['fursday.test.parent.ananya@example.com', 'fursday.test.sitter.priya@example.com']);
   expect(res.body.accounts.map(a => [a.name, a.role])).toEqual([['Ananya (TEST)', 'parent'], ['Priya (TEST)', 'sitter']]);
@@ -64,6 +77,6 @@ test('makes links only for fake test accounts, never a real customer', async () 
 test('does not grant CORS to unknown sites', async () => {
   global.fetch = fakeFetch(true);
   const res = mkRes();
-  await handler({ method: 'POST', headers: { authorization: 'Bearer good', origin: 'https://evil.example' } }, res);
+  await handler({ method: 'POST', headers: { authorization: 'Bearer ' + GOOD, origin: 'https://evil.example' } }, res);
   expect(res.headers['Access-Control-Allow-Origin']).toBeUndefined();
 });

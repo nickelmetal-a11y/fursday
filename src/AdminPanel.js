@@ -7,6 +7,10 @@ import AdminPromotions from './AdminPromotions';
 import AdminSettings from './AdminSettings';
 import AdminUsers from './AdminUsers';
 import AdminReports from './AdminReports';
+import AdminBookings from './AdminBookings';
+import AdminAttention from './AdminAttention';
+import AdminBroadcast from './AdminBroadcast';
+import { sitterScorecard } from './adminInsights';
 import { logSitterApproved, logSitterRejected, logSitterSuspended, logSitterNeedsChanges, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ORANGE = '#FF6B35';
@@ -32,6 +36,7 @@ export default function AdminPanel({ onSignOut }) {
   const [adminChecked, setAdminChecked] = useState(false);
   const [isRealAdmin, setIsRealAdmin] = useState(false);
   const [tab, setTab] = useState('pending');
+  const [focusBookingId, setFocusBookingId] = useState(null);
   const [sitters, setSitters] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -62,9 +67,9 @@ export default function AdminPanel({ onSignOut }) {
     setSitters(sittersWithContact.map(s => ({ ...s, aadhaar_number: piiBySitter[s.id]?.aadhaar_number || null, upi_id: piiBySitter[s.id]?.upi_id || null })));
     const { data: b } = await supabase
       .from('bookings')
-      .select('*, cities(name)')
+      .select('*, cities(name), users(name)')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
     setBookings(b || []);
     setLoading(false);
   };
@@ -383,6 +388,7 @@ export default function AdminPanel({ onSignOut }) {
     { id: 'promotions', icon: '🎟️', label: 'Promotions' },
     { id: 'users', icon: '👥', label: 'People' },
     { id: 'reports', icon: '📈', label: 'Reports' },
+    { id: 'messages', icon: '📣', label: 'Messages' },
     { id: 'audit', icon: '📜', label: 'Audit' },
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
@@ -432,6 +438,8 @@ export default function AdminPanel({ onSignOut }) {
 
         {!loading && tab === 'overview' && (
           <div>
+            <AdminAttention bookings={bookings} sitters={sitters}
+              onOpenBooking={(id) => { setFocusBookingId(id); setTab('bookings'); }} onGoTab={setTab} />
             <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
               {[
                 { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
@@ -550,7 +558,16 @@ export default function AdminPanel({ onSignOut }) {
                       {s.is_founding_sitter && <span style={{ fontSize: 10, background: '#FFF0EB', color: ORANGE, borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>🎉 FOUNDING</span>}
                     </div>
                     <div style={{ fontSize: 12, color: '#888' }}>{s.users?.phone} · {s.cities?.name}</div>
-                    <div style={{ fontSize: 11, color: '#AAA', marginTop: 2 }}>{s.total_bookings || 0} bookings · UPI: {s.upi_id || 'not set'}</div>
+                    {(() => { const sc = sitterScorecard(s, bookings); return (
+                      <div style={{ fontSize: 11, color: '#777', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
+                        <span>{sc.completed} done</span>
+                        <span>★ {sc.rating ? sc.rating.toFixed(1) : '—'} ({sc.reviews})</span>
+                        <span>Accepts {sc.acceptanceRate == null ? '—' : sc.acceptanceRate + '%'}</span>
+                        <span>Cancels {sc.cancelRate}%</span>
+                        <span>UPI: {s.upi_id || 'not set'}</span>
+                        {sc.flags.map(f => <span key={f} style={{ color: '#A32D2D', fontWeight: 700 }}>⚠ {f}</span>)}
+                      </div>
+                    ); })()}
                   </div>
                   <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[s.status]?.bg, color: STATUS_COLORS[s.status]?.color, fontWeight: 600 }}>{s.status}</div>
                 </div>
@@ -589,19 +606,7 @@ export default function AdminPanel({ onSignOut }) {
         )}
 
         {!loading && tab === 'bookings' && (
-          <div>
-            {bookings.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>No bookings yet</div>}
-            {bookings.map(b => (
-              <div key={b.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{b.booking_ref}</div>
-                  <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: BOOKING_COLORS[b.status]?.bg, color: BOOKING_COLORS[b.status]?.color, fontWeight: 600 }}>{b.status}</div>
-                </div>
-                <div style={{ fontSize: 12, color: '#888' }}>{b.service_type} · {b.cities?.name} · Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
-                <div style={{ fontSize: 11, color: '#AAA', marginTop: 4 }}>{new Date(b.created_at).toLocaleDateString('en-IN')} · Payment: {b.payment_status || 'unpaid'}</div>
-              </div>
-            ))}
-          </div>
+          <AdminBookings bookings={bookings} sitters={sitters} focusId={focusBookingId} onChanged={loadData} />
         )}
 
         {!loading && tab === 'payouts' && (
@@ -648,6 +653,8 @@ export default function AdminPanel({ onSignOut }) {
         {!loading && tab === 'users' && <AdminUsers />}
 
         {!loading && tab === 'reports' && <AdminReports />}
+
+        {!loading && tab === 'messages' && <AdminBroadcast />}
       </div>
     </div>
   );

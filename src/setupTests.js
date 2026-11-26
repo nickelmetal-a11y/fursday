@@ -31,3 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   global.fetch = realFetch;
 });
+
+// Scenario tests drive several screens per test; under a full parallel run the
+// default 5s is too tight on this (cloud-synced) machine.
+jest.setTimeout(20000);

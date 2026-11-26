@@ -216,6 +216,10 @@ export const supabase = {
     signOut: () => { db.signInAs(null); return Promise.resolve({ error: null }); },
     signInWithOtp: () => Promise.resolve({ error: null }),
     verifyOtp: () => Promise.resolve({ data: { user: currentUser }, error: null }),
+    mfa: {
+      getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: 'aal1', nextLevel: 'aal1' } }),
+      listFactors: () => Promise.resolve({ data: { totp: [], all: [] } }),
+    },
   },
   storage: {
     from: (bucket) => ({
