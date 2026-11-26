@@ -282,6 +282,18 @@ vercel --prod
 - Promotions now warns when a discount exceeds the 15% commission. Finding: WELCOME100 on a Rs.400 walk costs Fursday Rs.40.
 - **`api/test-login-links.js`** (Vercel serverless, uses the server-only `SUPABASE_SERVICE_ROLE_KEY`): POST with an admin's Supabase access token returns one-time magic links for **@example.com test accounts only**. CORS is limited to the admin site, and it's tested in `src/testLoginLinksApi.test.js`. The admin People tab → "Make login links" gives WhatsApp-ready messages. Links are single-use and expire in about 1h, so regenerate them as needed.
 
+## 📊 PROGRESS TRACKER RULE (owner, 2026-11-26) — every development task
+For every development effort, publish a **% progress tracker** page (Claude Artifact). It lists each work item with its weight and status (done / in progress / not started), plus the overall % done and % left. Give the owner the link at the start and republish to the same URL as items land. Count only finished items as done. Current tracker for the Design A redesign: https://claude.ai/artifact/ES6nQv12ik4ofPHsrk8Uwn
+
+## 🎨 DESIGN A — LIVE (commits `4500579`, `27e38e1`, `8c7ae79`, 2026-11-26)
+The whole app (parent and sitter) is on the owner-approved Design A. **Rules are in `src/ui/DESIGN.md`; tokens in `src/theme.js`; icons in `src/ui/Icon.js`.** Use them for every new screen; no emoji icons, no city colour themes.
+- **One bottom nav** (`src/ui/BottomNav.js`), rendered only by App.js through `navMode` (`'parent'` or `'sitter'`). Screens must never draw their own nav. Parent tabs: Home · Bookings · Explore · My pets · Account. Sitter tabs (state `sitterTab`): Jobs · Earnings · Messages (`InboxScreen`) · Profile · Account.
+- **Language toggle:** floats in the header row; `ui.header` reserves 108px on the right for it. Home and the sitter Jobs header render `<LanguageToggle inline/>` and set `floatingToggle = false`.
+- **Loading screen:** `src/ui/WalkingPaws.js` plus `.fw-paw` CSS in `index.css`. It shows for at least **2s** (owner request; 0 under tests). With reduced motion on it still fades step by step.
+- NotificationCenter is now reachable from the Home bell and the sitter Jobs header.
+- Account has a role switch (`onSwitchRole`).
+- City names were removed from the tagline, the Explore title and the About text (owner: "remove Gurgaon and Pune for now"). The city logic is unchanged.
+
 ## 🗺️ PHASE PLAN (set by the owner 2026-11-26) — authoritative
 
 - **Phase 0 — Preparation (CURRENT).** Build, test, fix. Everything that isn't listed under Phase 1 is Phase 0 work.
