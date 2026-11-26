@@ -37,7 +37,8 @@ export const shadow = {
 };
 
 // Height reserved at the bottom of scrolling screens for the fixed nav bar.
-export const NAV_HEIGHT = 64;
+// Floating embossed bar: 62px tall + 12px gap above the screen edge.
+export const NAV_HEIGHT = 74;
 export const navPadding = `calc(${NAV_HEIGHT + 16}px + env(safe-area-inset-bottom))`;
 
 // Shared building blocks as plain style objects, so screens stay consistent
