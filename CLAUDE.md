@@ -300,6 +300,33 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - Bounds are wider: NCR is lat 28.2–29.0, lng 76.7–77.7; Pune is lat 18.35–18.8, lng 73.6–74.2. Keep `CITY_CONFIG` (App.js) and `ALLOWED_REGIONS` (geolocationService.js) in sync.
 - **The IP gate only hard-blocks non-India IPs.** Indian mobile IPs often geolocate to the wrong city (Pune Jio shows as Mumbai). Being outside the service area is decided by GPS and shown as the soft "outside city" notice.
 
+## 🧭 ZONES, ADDRESSES, CALENDAR, REFERRALS (Phase 0, commit `321b2ce`, 2026-11-26)
+**Migration `035` must be run on prod** (after 030–033). The code works before it runs:
+- the new sitter columns are dropped from writes by `src/schemaFallback.js`;
+- booking retries without the `address_*` columns;
+- addresses and zones load as empty.
+- **Localities:** `src/data/localities.js` holds about 75 NCR and Pune neighbourhoods (pincode plus approximate lat/lng). The city key is `'Gurgaon'` for all of NCR. Pure helpers are in `src/geo.js`:
+  - `nearestLocality` (4 km cap), `searchLocalities`, `pointFor`;
+  - `serviceability`: a city with **no zones is fully open**, and where zones overlap, an open one wins;
+  - `sitterCovers`: sitters with no base location are always included.
+- **Parents:** `src/AddressBook.js` (`AddressForm`, `AreaSearch`, `loadSavedAddresses`) stores addresses in `user_addresses`.
+  - BookingFlow picks a saved address and copies it onto the booking. It blocks booking in a closed or outside zone and offers a `zone_waitlist` join instead.
+  - It warns, without blocking, when the sitter's radius doesn't reach the address.
+  - It crosses out days and times the sitter isn't available, using `isSitterAvailable` from `AvailabilityCalendar.js`.
+  - Explore shows km away, sorts by Nearest / Top rated / Lowest price, and has an "only sitters who come to my area" filter.
+- **Sitters:** `ServiceAreaPicker.js` sets the base area and a 1–15 km radius. Only the locality centre is stored, never the raw GPS fix, because `sitter_profiles` is public.
+  - `AvailabilityCalendar.js` covers the next 60 days. A day's row in `sitter_availability` overrides the weekly schedule. `time_slots` holds 'morning', 'afternoon' or 'evening': before 12 is morning, 12–17 is afternoon, from 17 is evening.
+  - SitterEditProfile adds a headline (80 characters max), up to 4 highlights stored in English, a strength meter, and a "What changed" card after saving.
+- **Referrals:** `ReferralScreen.js` (Settings → Refer & earn) shows a `FUR`+5 code, a WhatsApp share, and an apply box. The apply box calls the `apply_referral_code` RPC, which creates **pending** credits for both people.
+  - The admin applies credits by hand in the Referrals tab, after the friend's first completed booking.
+  - Payouts no longer touch referral credits.
+- **Admin:** rebuilt on Design A, with shared parts in `src/AdminUI.js`. New tabs and pieces: Overview (this week vs last week), the Sitters drawer, Payouts grouped by sitter, **Zones** (open/close, pincodes or centre plus radius, waitlist demand by area) and Referrals.
+  - People → **Test data** has two buttons that call `api/seed-test-data.js` (admin-only; it only ever creates or changes `@example.com` accounts; safe to run again):
+    - "Create Pune test accounts": 3 parents, 4 sitters, pets, bookings.
+    - "Complete test sitter profiles": illustrated face photo, 2 dog photos, headline, highlights, description, area and radius.
+  - **Phase 1:** remove the Test data buttons together with test-login-links.
+- **Tests:** booking helpers in tests skip the sitter's days off, because Priya works Mon–Fri. Without that, the suite fails on weekends.
+
 ## 🗺️ PHASE PLAN (set by the owner 2026-11-26) — authoritative
 
 - **Phase 0 — Preparation (CURRENT).** Build, test, fix. Everything that isn't listed under Phase 1 is Phase 0 work.
@@ -309,7 +336,7 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
   3. ~~Grievance Officer name in Terms/Privacy~~ done 2026-11-26: "Neha" (owner: "for now"; add a full name and grievance@fursday.in inbox before launch).
   4. Set Supabase Email OTP Expiration back from 86400 (raised for testing) to 3600.
   5. On-device testing on iOS and Android, then store submission.
-  6. Remove or disable `api/test-login-links.js` (test-account logins only).
+  6. Remove or disable `api/test-login-links.js` and `api/seed-test-data.js` (test accounts only), plus the admin People → Test logins / Test data cards.
 
 **Admin ops upgrade (Phase 0, built 2026-11-26):**
 - **Needs attention** on Overview (`adminInsights.attentionItems`): no-shows, silent sitters (>2h), unpaid within 24h, running long, payouts >48h, disputes >48h, applications >48h, deletions near 30 days.
