@@ -294,6 +294,12 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - Account has a role switch (`onSwitchRole`).
 - City names were removed from the tagline, the Explore title and the About text (owner: "remove Gurgaon and Pune for now"). The city logic is unchanged.
 
+## 📍 CITIES — Delhi NCR + Pune (fixed 2026-11-26, commit `c1dc747`)
+- GPS now **sets** `city` via `cityForCoords()` in App.js. Before, Pune users stayed on the Gurgaon default.
+- A city the person picks by hand in the Home location sheet wins over GPS (stored as `fursday_city_manual`). "Use my current location" clears that choice.
+- Bounds are wider: NCR is lat 28.2–29.0, lng 76.7–77.7; Pune is lat 18.35–18.8, lng 73.6–74.2. Keep `CITY_CONFIG` (App.js) and `ALLOWED_REGIONS` (geolocationService.js) in sync.
+- **The IP gate only hard-blocks non-India IPs.** Indian mobile IPs often geolocate to the wrong city (Pune Jio shows as Mumbai). Being outside the service area is decided by GPS and shown as the soft "outside city" notice.
+
 ## 🗺️ PHASE PLAN (set by the owner 2026-11-26) — authoritative
 
 - **Phase 0 — Preparation (CURRENT).** Build, test, fix. Everything that isn't listed under Phase 1 is Phase 0 work.
