@@ -4,8 +4,8 @@
 // Must stay in sync with CITY_CONFIG bounds in src/App.js — every city
 // Fursday actually serves needs an entry here or its users get hard-blocked.
 const ALLOWED_REGIONS = [
-  { lat: [28.3, 28.9], lng: [76.8, 77.5] }, // Gurgaon / Delhi NCR
-  { lat: [18.4, 18.7], lng: [73.7, 74.1] }, // Pune
+  { lat: [28.2, 29.0], lng: [76.7, 77.7] }, // Delhi NCR: Gurugram, Delhi, Noida, Ghaziabad, Faridabad
+  { lat: [18.35, 18.8], lng: [73.6, 74.2] }, // Pune incl. Pimpri-Chinchwad, Hinjewadi, Wagholi
 ];
 
 const isInAllowedRegion = (lat, lng) =>
@@ -34,8 +34,15 @@ export async function checkLocationRestriction() {
     const lat = parseFloat(data.latitude);
     const lng = parseFloat(data.longitude);
 
+    // IP location is only city-accurate on broadband; Indian mobile networks
+    // often report a far-away hub (a Pune Jio user can show as Mumbai). So the
+    // IP check only blocks traffic from outside India. Which city someone is
+    // in is decided by GPS or their own choice in the app (App.js), and being
+    // outside both cities there is a soft notice, not a block.
+    const country = data.country_code || data.country;
     return {
-      allowed: isInAllowedRegion(lat, lng),
+      allowed: !country || String(country).toUpperCase() === 'IN',
+      inServiceArea: isInAllowedRegion(lat, lng),
       location: data.city || 'Unknown',
       region: data.region || 'Unknown',
       country: data.country_name || 'Unknown',
@@ -65,8 +72,10 @@ async function verifyGPSLocation() {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        // GPS fallback never hard-blocks; App.js shows the soft notice instead.
         resolve({
-          allowed: isInAllowedRegion(lat, lng),
+          allowed: true,
+          inServiceArea: isInAllowedRegion(lat, lng),
           location: 'GPS verified',
           latitude: lat,
           longitude: lng,
@@ -84,7 +93,7 @@ async function verifyGPSLocation() {
 export function getLocationRestrictedMessage() {
   return {
     title: 'Not Available in Your Region',
-    message: 'Fursday is currently available only in Delhi/NCR region. We are expanding to your area soon!',
+    message: 'Fursday is currently available in Delhi NCR and Pune. We are expanding to more cities soon!',
     icon: '🗺️',
   };
 }

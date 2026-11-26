@@ -38,8 +38,8 @@ const THEMES = {
 };
 
 const CITY_CONFIG = {
-  Gurgaon: { displayName: 'Delhi NCR', emoji: '🏙', bounds: { lat: [28.3, 28.9], lng: [76.8, 77.5] }, center: [28.4595, 77.0266] },
-  Pune:    { displayName: 'Pune', emoji: '🌴', bounds: { lat: [18.4, 18.7], lng: [73.7, 74.1] }, center: [18.5204, 73.8567] },
+  Gurgaon: { displayName: 'Delhi NCR', emoji: '🏙', bounds: { lat: [28.2, 29.0], lng: [76.7, 77.7] }, center: [28.4595, 77.0266] },
+  Pune:    { displayName: 'Pune', emoji: '🌴', bounds: { lat: [18.35, 18.8], lng: [73.6, 74.2] }, center: [18.5204, 73.8567] },
 };
 
 const SERVICES = [
@@ -48,6 +48,12 @@ const SERVICES = [
   { id:'daycare',  icon:'☀️', name:'Doggy daycare',     price:'from Rs.649/day',   color:'#E3F2FD', tc:'#1565C0' },
   { id:'broadcast',icon:'📢', name:'Broadcast request', price:'all pros respond',  color:'#FFF0EB', tc:'#FF6B35' },
 ];
+
+// Which service city a coordinate falls in, or null if outside all of them.
+export const cityForCoords = (lat, lng) => Object.keys(CITY_CONFIG).find(key => {
+  const { lat: [latMin, latMax], lng: [lngMin, lngMax] } = CITY_CONFIG[key].bounds;
+  return lat > latMin && lat < latMax && lng > lngMin && lng < lngMax;
+}) || null;
 
 const getNeighbourhood = (lat, lng) => {
   if (!lat || !lng) return '';
@@ -110,6 +116,7 @@ export default function App() {
   const [userIP, setUserIP] = useState(null);
   const [sitterTab, setSitterTab] = useState('jobs');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
   // Keep the loading screen up for at least one walk cycle so everyone sees it (owner: at least 2 seconds).
   const [splashDone, setSplashDone] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSplashDone(true), process.env.NODE_ENV === 'test' ? 0 : 2000); return () => clearTimeout(t); }, []);
@@ -178,12 +185,10 @@ export default function App() {
         setNeighbourhood(getNeighbourhood(lat, lng));
         setLocationLoading(false);
 
-        const isInCity = Object.values(CITY_CONFIG).some(cfg => {
-          const [latMin, latMax] = cfg.bounds.lat;
-          const [lngMin, lngMax] = cfg.bounds.lng;
-          return lat > latMin && lat < latMax && lng > lngMin && lng < lngMax;
-        });
-        if (!isInCity) setOutsideCity(true);
+        const detected = cityForCoords(lat, lng);
+        // A city the person picked by hand wins over GPS.
+        if (detected && !localStorage.getItem('fursday_city_manual')) { setCity(detected); localStorage.setItem('fursday_city', detected); }
+        if (!detected) setOutsideCity(true);
       };
 
       const errorCallback = (error) => {
@@ -288,7 +293,18 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleCityChange = c => { setCity(c); localStorage.setItem('fursday_city', c); };
+  const handleCityChange = c => { setCity(c); setNeighbourhood(''); localStorage.setItem('fursday_city', c); localStorage.setItem('fursday_city_manual', '1'); setShowCityPicker(false); };
+  const useMyLocation = () => {
+    localStorage.removeItem('fursday_city_manual');
+    setShowCityPicker(false);
+    setLocationError(null); setLocationLoading(true);
+    navigator.geolocation?.getCurrentPosition(pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      setUserLocation({ lat, lng }); setNeighbourhood(getNeighbourhood(lat, lng)); setLocationLoading(false);
+      const detected = cityForCoords(lat, lng);
+      if (detected) { setCity(detected); localStorage.setItem('fursday_city', detected); }
+    }, () => { setLocationError('Failed'); setLocationLoading(false); }, { timeout: 10000 });
+  };
 
 
   const sendBookingEmail = async (booking) => {
@@ -448,7 +464,7 @@ export default function App() {
   floatingToggle = false;
   const firstName = (userName || '').trim().split(/\s+/)[0] || '';
   const initials = (userName || user?.email || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  const place = neighbourhood || CITY_CONFIG[city]?.displayName;
+  const place = neighbourhood && cityForCoords(userLocation?.lat, userLocation?.lng) === city ? neighbourhood : tr(city === 'Pune' ? 'city_pune' : 'city_ncr');
   const services = [
     { id: 'walk30', icon: 'walk', label: tr('home_svcWalk') },
     { id: 'boarding', icon: 'boarding', label: tr('home_svcBoarding') },
@@ -467,10 +483,36 @@ export default function App() {
         </div>
       )}
       {showNotifications && <NotificationCenter onClose={() => setShowNotifications(false)} />}
+      {showCityPicker && (
+        <div role="dialog" aria-modal="true" aria-label={tr('city_pickTitle')} onClick={() => setShowCityPicker(false)}
+          style={{ position:'fixed', inset:0, zIndex:3000, background:'rgba(21,25,42,0.45)', display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width:'100%', maxWidth:480, background:color.surface, borderRadius:'20px 20px 0 0', padding:'20px 16px calc(20px + env(safe-area-inset-bottom))', fontFamily:font.family }}>
+            <div style={{ fontSize:18, fontWeight:700, color:color.ink, marginBottom:4 }}>{tr('city_pickTitle')}</div>
+            <div style={{ fontSize:13, color:color.muted, marginBottom:14 }}>{tr('city_pickSub')}</div>
+            <button type="button" onClick={useMyLocation}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, minHeight:52, padding:'0 14px', marginBottom:10, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg, cursor:'pointer', fontFamily:font.family, fontSize:14, fontWeight:600, color:color.navy, textAlign:'left' }}>
+              <Icon name="pin" size={18} />{tr('city_useLocation')}
+            </button>
+            {Object.keys(CITY_CONFIG).map(key => {
+              const on = key === city;
+              return (
+                <button key={key} type="button" onClick={() => handleCityChange(key)} aria-pressed={on}
+                  style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', minHeight:56, padding:'0 14px', marginBottom:8, borderRadius:radius.md, border:`1.5px solid ${on ? color.navy : color.line}`, background:on ? color.navySoft : color.surface, cursor:'pointer', fontFamily:font.family, textAlign:'left' }}>
+                  <span>
+                    <span style={{ display:'block', fontSize:15, fontWeight:600, color:color.ink }}>{tr(key === 'Pune' ? 'city_pune' : 'city_ncr')}</span>
+                    <span style={{ display:'block', fontSize:12, color:color.muted }}>{tr(key === 'Pune' ? 'city_puneAreas' : 'city_ncrAreas')}</span>
+                  </span>
+                  {on && <Icon name="check" size={20} color={color.navy} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <header style={{ padding:'calc(16px + env(safe-area-inset-top)) 16px 4px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-          <button type="button" onClick={() => { if (locationError) { setLocationError(null); setLocationLoading(true); navigator.geolocation?.getCurrentPosition(pos => { setUserLocation({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setLocationLoading(false); }, () => { setLocationError('Failed'); setLocationLoading(false); }, { timeout:10000 }); } }}
+          <button type="button" onClick={() => setShowCityPicker(true)} aria-haspopup="dialog" aria-label={tr('city_change') + ': ' + (place || '')}
             style={{ background:'none', border:'none', padding:0, textAlign:'left', cursor:'pointer', fontFamily:font.family, minWidth:0 }}>
             <span style={{ display:'block', fontSize:11, fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', color:color.muted }}>{tr('home_walksIn')}</span>
             <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:16, fontWeight:700, color:color.ink }}>

@@ -41,12 +41,30 @@ describe('geolocationService', () => {
   });
 
   // UT-GEO-03
-  test('blocks Mumbai and Bangalore coordinates', async () => {
-    mockFetchOnce({ latitude: 19.07, longitude: 72.87, ip: '1.1.1.1' }); // Mumbai
-    expect((await checkLocationRestriction()).allowed).toBe(false);
+  // Indian mobile IPs often geolocate to a distant hub, so an Indian IP is
+  // never hard-blocked; it is only flagged as outside the service area.
+  test('an Indian IP that looks like Mumbai or Bangalore is not blocked, only flagged', async () => {
+    mockFetchOnce({ latitude: 19.07, longitude: 72.87, country_code: 'IN', ip: '1.1.1.1' }); // Mumbai (e.g. a Pune Jio user)
+    let r = await checkLocationRestriction();
+    expect(r.allowed).toBe(true);
+    expect(r.inServiceArea).toBe(false);
 
-    mockFetchOnce({ latitude: 12.97, longitude: 77.59, ip: '1.1.1.1' }); // Bangalore
+    mockFetchOnce({ latitude: 12.97, longitude: 77.59, country_code: 'IN', ip: '1.1.1.1' }); // Bangalore
+    r = await checkLocationRestriction();
+    expect(r.allowed).toBe(true);
+    expect(r.inServiceArea).toBe(false);
+  });
+
+  test('an IP outside India is blocked', async () => {
+    mockFetchOnce({ latitude: 51.5, longitude: -0.12, country_code: 'GB', ip: '1.1.1.1' });
     expect((await checkLocationRestriction()).allowed).toBe(false);
+  });
+
+  test('Pune and wider NCR (Ghaziabad, Pimpri-Chinchwad, Hinjewadi) are in the service area', async () => {
+    for (const [latitude, longitude] of [[18.52, 73.86], [18.63, 73.80], [18.59, 73.74], [28.67, 77.45], [28.41, 77.32]]) {
+      mockFetchOnce({ latitude, longitude, country_code: 'IN', ip: '1.1.1.1' });
+      expect((await checkLocationRestriction()).inServiceArea).toBe(true);
+    }
   });
 
   // UT-GEO-04
@@ -61,9 +79,9 @@ describe('geolocationService', () => {
   });
 
   // UT-GEO-05
-  test('just outside the boundary is blocked', async () => {
-    mockFetchOnce({ latitude: 28.39, longitude: 77.51, ip: '1.1.1.1' });
-    expect((await checkLocationRestriction()).allowed).toBe(false);
+  test('just outside the NCR boundary is flagged as outside the service area', async () => {
+    mockFetchOnce({ latitude: 28.15, longitude: 77.75, country_code: 'IN', ip: '1.1.1.1' });
+    expect((await checkLocationRestriction()).inServiceArea).toBe(false);
   });
 
   // UT-GEO-06
@@ -89,10 +107,11 @@ describe('geolocationService', () => {
   });
 
   // UT-GEO-08
-  test('missing/NaN lat/lng from the API blocks without crashing', async () => {
-    mockFetchOnce({ city: 'Unknown', ip: '1.1.1.1' }); // no latitude/longitude at all
+  test('missing/NaN lat/lng from the API does not crash and is outside the service area', async () => {
+    mockFetchOnce({ city: 'Unknown', country_code: 'IN', ip: '1.1.1.1' }); // no latitude/longitude at all
     const result = await checkLocationRestriction();
-    expect(result.allowed).toBe(false);
+    expect(result.allowed).toBe(true);
+    expect(result.inServiceArea).toBe(false);
   });
 
   // UT-GEO-09
@@ -161,7 +180,7 @@ describe('geolocationService', () => {
   test('getLocationRestrictedMessage returns a title, message and icon', () => {
     const msg = getLocationRestrictedMessage();
     expect(msg.title).toBeDefined();
-    expect(msg.message).toMatch(/Delhi\/NCR/);
+    expect(msg.message).toMatch(/Delhi NCR and Pune/);
     expect(msg.icon).toBeDefined();
   });
 });
