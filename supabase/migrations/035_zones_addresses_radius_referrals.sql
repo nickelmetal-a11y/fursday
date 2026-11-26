@@ -71,6 +71,10 @@ alter table public.sitter_profiles add column if not exists profile_updated_at t
 drop policy if exists "Anyone reads availability" on public.sitter_availability;
 create policy "Anyone reads availability" on public.sitter_availability for select using (true);
 create unique index if not exists sitter_availability_one_per_day on public.sitter_availability(sitter_id, date);
+-- "Use my weekly schedule again" deletes the day's row; 011 never allowed deletes.
+drop policy if exists "Sitters delete own availability" on public.sitter_availability;
+create policy "Sitters delete own availability" on public.sitter_availability for delete
+  using (sitter_id in (select id from public.sitter_profiles where user_id = auth.uid()));
 
 -- 5. Referrals: amounts live in app_settings so the admin can change them.
 insert into public.app_settings(key, value) values ('referral_reward_rs', '100'), ('referral_signup_rs', '50')
@@ -99,6 +103,14 @@ begin
 end $$;
 revoke all on function public.apply_referral_code(text) from public;
 grant execute on function public.apply_referral_code(text) to authenticated;
+
+-- Admin Referrals tab: read every credit and mark it applied (010 gave admins neither).
+drop policy if exists "Admins read bonuses" on referral_bonuses;
+create policy "Admins read bonuses" on referral_bonuses for select using (public.is_admin_user());
+drop policy if exists "Admins update bonuses" on referral_bonuses;
+create policy "Admins update bonuses" on referral_bonuses for update using (public.is_admin_user()) with check (public.is_admin_user());
+-- 010 let anyone insert credits ("with check (true)"); only apply_referral_code (security definer) should.
+drop policy if exists "System can create bonuses" on referral_bonuses;
 
 drop policy if exists "Users create own referral code" on referrals;
 create policy "Users create own referral code" on referrals for insert with check (referrer_id = auth.uid() and referred_user_id is null);

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabase';
 import { useLanguage } from './i18n';
+import { HIGHLIGHT_KEYS } from './SitterEditProfile';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
 
@@ -14,6 +16,24 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
   const price = s.price || tr('sitterProfile_priceFallback');
   const tags = s.tags || [];
   const area = s.area || city || tr('sitterProfile_areaFallback');
+  // Headline, highlights and travel radius come from sitter_profiles; fetch them
+  // when the card that opened this screen didn't carry them.
+  const [extra, setExtra] = useState(null);
+  useEffect(() => {
+    if (!s.id || s.headline !== undefined) return undefined;
+    let off = false;
+    (async () => {
+      try {
+        const { data } = await supabase.from('sitter_profiles').select('headline, highlights, service_radius_km, base_area').eq('id', s.id).maybeSingle();
+        if (!off && data) setExtra(data);
+      } catch (e) { /* display extras only */ }
+    })();
+    return () => { off = true; };
+  }, [s.id, s.headline]);
+  const headline = s.headline ?? extra?.headline;
+  const highlights = s.highlights ?? extra?.highlights ?? [];
+  const radiusKm = s.service_radius_km ?? extra?.service_radius_km;
+  const baseArea = s.base_area ?? extra?.base_area;
 
   return (
     <div style={{ ...ui.page, paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
@@ -36,9 +56,11 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
             {s.verified && <Icon name="shield" size={18} color={color.success} title={tr('sitterProfile_verifiedTitle')} />}
           </h1>
+          {headline && <div style={{ fontSize: font.md, color: color.text, marginTop: 4, lineHeight: 1.4 }}>{headline}</div>}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: font.sm, color: color.muted, marginTop: 4 }}>
-            <Icon name="pin" size={14} color={color.muted} />{area}
+            <Icon name="pin" size={14} color={color.muted} />{baseArea || area}
           </div>
+          {radiusKm && <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('sitterProfile_travelsUpTo', { n: Number(radiusKm) })}</div>}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: font.sm, fontWeight: 600, color: color.ink }}>
               <Icon name="starFilled" size={14} color={color.saffron} />{rating.toFixed(1)}
@@ -76,6 +98,19 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
                 <span style={{ fontSize: font.md, color: color.text }}>{item.text}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {highlights.length > 0 && (
+          <div style={ui.card}>
+            <h2 style={ui.sectionTitle}>{tr('sitterProfile_highlightsTitle')}</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {highlights.map(h => (
+                <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: font.sm, padding: '6px 12px', borderRadius: radius.pill, background: color.navySoft, color: color.navy, fontWeight: 600 }}>
+                  <Icon name="check" size={13} />{tr(HIGHLIGHT_KEYS[h] || h)}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

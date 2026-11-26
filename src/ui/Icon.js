@@ -57,6 +57,19 @@ const P = {
   fileText: <><path d="M14 3H6a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
   stethoscope: <><path d="M5 3v6a5 5 0 0010 0V3" /><path d="M10 14v2a5 5 0 0010 0v-2" /><circle cx="20" cy="12" r="2" /></>,
   tag: <><path d="M3 12V4a1 1 0 011-1h8l9 9-9 9z" /><circle cx="8" cy="8" r="1.5" /></>,
+  chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c1.2-3.4 3.6-5 6.5-5s5.3 1.6 6.5 5" /><path d="M16 4.6a3.5 3.5 0 010 6.8M18 15.4c1.6.7 2.8 2.2 3.5 4.6" /></>,
+  scale: <><path d="M12 3v18M7 21h10M5 7h14" /><path d="M5 7l-3 7a3 3 0 006 0zM19 7l-3 7a3 3 0 006 0z" /></>,
+  refresh: <><path d="M20 11a8 8 0 00-14.6-4.5L4 8" /><path d="M4 3v5h5" /><path d="M4 13a8 8 0 0014.6 4.5L20 16" /><path d="M20 21v-5h-5" /></>,
+  pause: <><circle cx="12" cy="12" r="9" /><path d="M10 9v6M14 9v6" /></>,
+  play: <><circle cx="12" cy="12" r="9" /><path d="M10 8.5l5 3.5-5 3.5z" /></>,
+  map: <><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></>,
+  history: <><path d="M3 12a9 9 0 103-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+  filter: <><path d="M3 5h18l-7 8v6l-4 2v-8z" /></>,
+  trendUp: <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
+  trendDown: <><path d="M3 7l6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>,
+  award: <><circle cx="12" cy="9" r="6" /><path d="M8.5 13.9L7 22l5-3 5 3-1.5-8.1" /></>,
+  inbox: <><path d="M3 13h5l2 3h4l2-3h5" /><path d="M5 5h14l2 8v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z" /></>,
 };
 
 export default function Icon({ name, size = 22, color = 'currentColor', strokeWidth = 1.75, style, title }) {

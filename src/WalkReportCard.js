@@ -49,7 +49,6 @@ const ZONES = {
 
 export default function WalkReportCard({ onBack, city, booking, mode }) {
   const { t: tr, lang } = useLanguage();
-  const isParent = mode === 'parent';
   const c = city || 'Gurgaon';
   const zones = ZONES[c] || ZONES.Gurgaon;
   const MOODS = getMoods(tr);
@@ -84,7 +83,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
     try {
       const compressed = await compressImage(file);
       const fileName = 'walk-' + (b.id || 'test') + '-' + Date.now() + '.jpg';
-      const { data, error } = await supabase.storage.from('walk-photos').upload(fileName, compressed, { contentType:'image/jpeg', upsert:true });
+      const { error } = await supabase.storage.from('walk-photos').upload(fileName, compressed, { contentType:'image/jpeg', upsert:true });
       if (error) { alert(tr('walkReport_uploadFailedPrefix') + error.message); setUploadingPhoto(false); return; }
       const { data: urlData } = supabase.storage.from('walk-photos').getPublicUrl(fileName);
       setPhotos(prev => [...prev, { url: urlData.publicUrl }]);

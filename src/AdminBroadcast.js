@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
+import { A, Field, Notice, SectionHeader } from './AdminUI';
 
-const ORANGE = '#FF6B35';
 const AUDIENCES = [
   { id: 'sitters', label: 'All active sitters' },
   { id: 'parents', label: 'All pet parents' },
@@ -47,8 +49,9 @@ export default function AdminBroadcast() {
       const { error } = await supabase.from('notifications').insert(rows.slice(i, i + 200));
       if (error) { setSending(false); setMsg({ error: true, text: 'Stopped after ' + i + ' of ' + rows.length + ': ' + error.message }); return; }
     }
+    // resource_id is a uuid column, so the audience goes in new_value.
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) await supabase.from('admin_audit_logs').insert({ admin_id: user.id, action: 'send_announcement', resource_type: 'notifications', resource_id: audience, reason: title.trim() + ' — ' + rows.length + ' people', status: 'success' });
+    if (user) await supabase.from('admin_audit_logs').insert({ admin_id: user.id, action: 'send_announcement', resource_type: 'notifications', resource_id: null, new_value: { audience, city_id: cityId || null }, reason: title.trim() + ' — ' + rows.length + ' people', status: 'success' });
     setSending(false);
     setMsg({ error: false, text: 'Sent to ' + rows.length + ' people.' });
     setTitle(''); setBody('');
@@ -57,37 +60,55 @@ export default function AdminBroadcast() {
   const ready = title.trim().length >= 3 && body.trim().length >= 5 && recipients.length > 0;
 
   return (
-    <div style={{ maxWidth: 560, background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 14, fontWeight: 700 }}>Send an announcement</div>
-      <div style={{ fontSize: 12, color: '#888', marginTop: -6 }}>Appears in the app's notification bell. Use it for new features, holiday hours, weather warnings, or policy changes.</div>
-      <div role="radiogroup" aria-label="Audience" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {AUDIENCES.map(a => (
-          <button key={a.id} role="radio" aria-checked={audience === a.id} onClick={() => setAudience(a.id)}
-            style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: audience === a.id ? ORANGE : '#F0F0F0', color: audience === a.id ? 'white' : '#555' }}>{a.label}</button>
-        ))}
-      </div>
-      <select aria-label="City" value={cityId} onChange={e => setCityId(e.target.value)} style={{ padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E0E0E0', fontSize: 14 }}>
-        <option value="">All cities</option>
-        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      <input aria-label="Title" value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="Title, e.g. Diwali week: extra sitters available"
-        style={{ padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E0E0E0', fontSize: 14 }} />
-      <textarea aria-label="Message" value={body} onChange={e => setBody(e.target.value)} maxLength={300} rows={3} placeholder="Message (300 characters max)"
-        style={{ padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E0E0E0', fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }} />
-      <div style={{ fontSize: 12, color: '#555' }}>Will reach <b>{recipients.length}</b> {recipients.length === 1 ? 'person' : 'people'}.</div>
-      {msg && <div role="status" style={{ fontSize: 13, borderRadius: 8, padding: '8px 12px', background: msg.error ? '#FCEBEB' : '#E8F5E9', color: msg.error ? '#A32D2D' : '#2E7D32' }}>{msg.text}</div>}
-      {confirming ? (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Send to {recipients.length} people? This can't be undone.</span>
-          <button onClick={send} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: 'none', background: ORANGE, color: 'white', fontWeight: 700, cursor: 'pointer' }}>Yes, send</button>
-          <button onClick={() => setConfirming(false)} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: '1px solid #DDD', background: 'white', cursor: 'pointer' }}>Cancel</button>
+    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <section style={{ ...ui.card, flex: '1 1 360px', maxWidth: 620, ...A.stack(14) }}>
+        <SectionHeader title="Send an announcement" subtitle="Appears in the app's notification bell. Use it for new features, holiday hours, weather warnings, or policy changes." />
+        <div>
+          <span style={ui.label}>Audience</span>
+          <div role="radiogroup" aria-label="Audience" style={A.row(6)}>
+            {AUDIENCES.map(a => (
+              <button key={a.id} role="radio" aria-checked={audience === a.id} onClick={() => setAudience(a.id)} style={ui.chip(audience === a.id)}>{a.label}</button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <button onClick={() => setConfirming(true)} disabled={!ready || sending}
-          style={{ alignSelf: 'flex-start', minHeight: 40, padding: '0 18px', borderRadius: 8, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 700, cursor: ready ? 'pointer' : 'not-allowed', opacity: ready && !sending ? 1 : 0.5 }}>
-          {sending ? 'Sending…' : 'Review and send'}
-        </button>
-      )}
+        <Field label="City" htmlFor="broadcast-city">
+          <select id="broadcast-city" aria-label="City" value={cityId} onChange={e => setCityId(e.target.value)} style={{ ...A.select, width: '100%' }}>
+            <option value="">All cities</option>
+            {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Title" htmlFor="broadcast-title" help={title.length + '/80'}>
+          <input id="broadcast-title" aria-label="Title" value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="Title, e.g. Diwali week: extra sitters available" style={A.input} />
+        </Field>
+        <Field label="Message" htmlFor="broadcast-body" help={body.length + '/300'}>
+          <textarea id="broadcast-body" aria-label="Message" value={body} onChange={e => setBody(e.target.value)} maxLength={300} rows={3} placeholder="Message (300 characters max)" style={A.textarea} />
+        </Field>
+        <div style={{ fontSize: font.md, color: color.text }}>Will reach <b>{recipients.length}</b> {recipients.length === 1 ? 'person' : 'people'}.</div>
+        {msg && <Notice tone={msg.error ? 'danger' : 'success'} icon={msg.error ? 'alert' : 'check'}>{msg.text}</Notice>}
+        {confirming ? (
+          <div style={{ ...A.row(8), background: color.warningSoft, borderRadius: radius.md, padding: 12 }}>
+            <span style={{ fontSize: font.md, fontWeight: 600, flex: '1 1 200px' }}>Send to {recipients.length} people? This can't be undone.</span>
+            <button onClick={send} style={A.primary}>Yes, send</button>
+            <button onClick={() => setConfirming(false)} style={A.secondary}>Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirming(true)} disabled={!ready || sending}
+            style={{ ...A.primary, alignSelf: 'flex-start', ...(ready && !sending ? null : A.disabled) }}>
+            <Icon name="send" size={18} />{sending ? 'Sending…' : 'Review and send'}
+          </button>
+        )}
+      </section>
+
+      <aside style={{ flex: '1 1 260px', maxWidth: 360, ...A.stack(8) }}>
+        <div style={{ fontSize: font.xs, fontWeight: 600, color: color.muted, letterSpacing: 0.5, textTransform: 'uppercase' }}>Preview</div>
+        <div style={{ ...ui.card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name="megaphone" size={20} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: font.md, fontWeight: 600, overflowWrap: 'anywhere' }}>{title.trim() || 'Your title'}</div>
+            <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{body.trim() || 'Your message appears here.'}</div>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

@@ -52,9 +52,11 @@ export function serviceability(address, zones, cityId) {
   if (cityZones.length === 0) return { serviceable: true, zone: null, reason: 'no_zones' };
   const pin = String(address?.pincode || '').trim();
   const point = pointFor(address);
-  const match = cityZones.find(z =>
+  const matches = cityZones.filter(z =>
     (pin && (z.pincodes || []).includes(pin)) ||
     (point && z.center_lat != null && z.radius_km && distanceKm(point, { lat: z.center_lat, lng: z.center_lng }) <= Number(z.radius_km)));
+  // Overlapping zones: any open one wins over a closed one.
+  const match = matches.find(z => z.is_open) || matches[0];
   if (!match) return { serviceable: false, zone: null, reason: 'outside' };
   if (!match.is_open) return { serviceable: false, zone: match, reason: 'closed' };
   return { serviceable: true, zone: match, reason: 'open' };

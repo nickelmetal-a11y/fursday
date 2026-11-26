@@ -43,6 +43,54 @@ export function attentionItems({ bookings = [], sitters = [], disputes = [], del
   return items.sort((a, b) => rank[a.level] - rank[b.level]);
 }
 
+// Flat 15% commission for everyone (TermsAndConditions.js #7), except the
+// first 20 launch sitters an admin has marked "Founding Sitter" — they pay
+// 0% until an admin turns it back off (see migration 025).
+export const sitterKeepRate = (sitter) => (sitter?.is_founding_sitter ? 1 : 0.85);
+// Sitters are paid on their own price (sitter_payout_paise); a parent's promo only lowers gross.
+export const payoutBaseRs = (b) => (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100;
+export const unpaidPayouts = (bookings = []) => bookings.filter(b => b.status === 'completed' && b.payout_status !== 'paid');
+
+// Unpaid completed jobs grouped per sitter, biggest amount owed first.
+export function payoutGroups(bookings = [], sitters = []) {
+  const byId = Object.fromEntries(sitters.map(s => [s.id, s]));
+  const groups = {};
+  unpaidPayouts(bookings).forEach(b => {
+    const key = b.sitter_id || 'unknown';
+    const sitter = byId[b.sitter_id] || null;
+    const g = (groups[key] = groups[key] || { sitterId: b.sitter_id || null, sitter, items: [], total: 0 });
+    const net = Math.round(payoutBaseRs(b) * sitterKeepRate(sitter));
+    g.items.push({ booking: b, net });
+    g.total += net;
+  });
+  return Object.values(groups).sort((a, b) => b.total - a.total);
+}
+
+const DAY = 24 * HOUR;
+const inWindow = (iso, from, to) => {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return t >= from && t < to;
+};
+
+// Headline numbers for the last 7 days against the 7 days before.
+export function weekOverWeek({ bookings = [], sitters = [], users = [], now = new Date() }) {
+  const t = now.getTime();
+  const sitterUserIds = new Set(sitters.map(s => s.user_id));
+  const stats = (from, to) => {
+    const created = bookings.filter(b => inWindow(b.created_at, from, to));
+    const done = bookings.filter(b => b.status === 'completed' && inWindow(b.completed_at || b.booking_date || b.created_at, from, to));
+    return {
+      bookings: created.length,
+      gmv: Math.round(done.reduce((a, b) => a + (b.gross_amount_paise || 0), 0) / 100),
+      newParents: users.filter(u => !sitterUserIds.has(u.id) && inWindow(u.created_at, from, to)).length,
+      newSitters: sitters.filter(s => s.status !== 'draft' && inWindow(s.created_at, from, to)).length,
+      cancelRate: created.length ? Math.round((created.filter(b => b.status === 'cancelled').length / created.length) * 100) : 0,
+    };
+  };
+  return { current: stats(t - 7 * DAY, t + 1), previous: stats(t - 14 * DAY, t - 7 * DAY) };
+}
+
 // Provider scorecard, the way service marketplaces track partner quality.
 export function sitterScorecard(sitter, bookings = []) {
   const mine = bookings.filter(b => b.sitter_id === sitter.id);

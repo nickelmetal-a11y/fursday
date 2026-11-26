@@ -3,7 +3,7 @@
  * declare a promo code and feature it on the app's home-screen banner.
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import AdminPromotions from './AdminPromotions';
 
 jest.mock('./supabase', () => {
@@ -43,7 +43,6 @@ beforeEach(() => {
   global.__deleteCalls = [];
   global.__insertCalls = [];
   global.__insertError = null;
-  window.confirm = jest.fn(() => true);
 });
 
 test('lists existing promo codes with discount summary and home-page badge', async () => {
@@ -99,18 +98,22 @@ test('"Show on home" un-features every other promo before featuring this one', a
   expect(global.__updateFieldsCalls[0]).toEqual({ featured_home: false });
 });
 
+// Delete confirms in an in-page dialog (was window.confirm).
 test('deleting a promo asks for confirmation and issues a delete', async () => {
   render(<AdminPromotions />);
   await screen.findByText('WELCOME100');
   fireEvent.click(screen.getAllByText('Delete')[0]);
-  expect(window.confirm).toHaveBeenCalled();
+  const dialog = screen.getByRole('alertdialog', { name: 'Delete WELCOME100?' });
+  expect(global.__deleteCalls).toHaveLength(0);
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete promo' }));
   await waitFor(() => expect(global.__deleteCalls).toContainEqual({ col: 'id', val: 'promo-1' }));
 });
 
 test('deleting is skipped if the confirmation is declined', async () => {
-  window.confirm = jest.fn(() => false);
   render(<AdminPromotions />);
   await screen.findByText('WELCOME100');
   fireEvent.click(screen.getAllByText('Delete')[0]);
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('alertdialog')).toBeNull();
   expect(global.__deleteCalls).toHaveLength(0);
 });

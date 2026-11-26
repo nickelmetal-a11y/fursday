@@ -70,9 +70,13 @@ async function walkToReview({ dayIndex = 1, time = '7:00 AM', petName = 'Bruno',
     fireEvent.click(screen.getByText('Continue →'));
   }
   await screen.findByText('Pick a time');
+  await new Promise(r => setTimeout(r, 30)); // let the sitter's calendar load
+  // Skip the sitter's weekly days off (Priya works Mon–Fri), so the suite passes on any weekday.
   const d = new Date();
   d.setDate(d.getDate() + dayIndex);
-  fireEvent.click(screen.getAllByText(String(d.getDate()))[0]);
+  const tileFor = (date) => screen.getAllByText(String(date.getDate()))[0].closest('[role="button"]');
+  while (tileFor(d).getAttribute('aria-disabled') === 'true') d.setDate(d.getDate() + 1);
+  fireEvent.click(tileFor(d));
   fireEvent.click(screen.getByText(time));
   fireEvent.click(screen.getByText('Continue →'));
   if (petName) fireEvent.click(await screen.findByText(petName));

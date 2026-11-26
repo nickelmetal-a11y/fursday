@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 import HelpScreen from './HelpScreen';
 import SosSheet from './SosSheet';
+import ReferralScreen from './ReferralScreen';
 import { color, font, radius, shadow, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
 
@@ -169,6 +170,7 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
     if (!error) setDeletion(null);
   };
 
+  if (screen === 'refer') return <ReferralScreen onBack={() => setScreen(null)} />;
   if (screen === 'help') return <HelpScreen onBack={() => setScreen(null)} city={city} isSitter={!!sitter} />;
   if (screen === 'terms') { const T = require('./TermsAndConditions').default; return <T onBack={() => setScreen(null)} city={city} />; }
   if (screen === 'privacy') { const P = require('./PrivacyPolicy').default; return <P onBack={() => setScreen(null)} city={city} />; }
@@ -399,6 +401,7 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
 
         {/* Account */}
         <div style={card}>
+          <Row icon="gift" label={tr('settings_referEarn')} onClick={() => setScreen('refer')} />
           {onSwitchRole && <Row icon="briefcase" label={switchRoleLabel} onClick={onSwitchRole} />}
           <button onClick={handleSignOut}
             style={{ width: '100%', minHeight: 56, padding: '10px 16px', background: 'none', border: 'none', borderBottom: `1px solid ${color.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer', fontSize: font.md, fontWeight: 600, fontFamily: font.family, color: color.ink }}>

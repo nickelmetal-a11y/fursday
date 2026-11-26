@@ -28,6 +28,7 @@ test('S46: an open account deletion request is shown oldest first and can be com
   expect(await screen.findByText('Account deletion requests (1)')).toBeInTheDocument();
   expect(screen.getByText(/due within 30 days/)).toBeInTheDocument();
   fireEvent.click(screen.getByText('Mark deleted'));
+  fireEvent.click(screen.getByRole('button', { name: 'Yes, mark deleted' }));
   await waitFor(() => expect(db.rows('account_deletion_requests', { user_id: IDS.rohit })[0].status).toBe('completed'));
 });
 

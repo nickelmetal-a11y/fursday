@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
-import { CheckCircle, XCircle, Award, PauseCircle, PlayCircle } from 'lucide-react';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 import AdminAuditLogs from './AdminAuditLogs';
 import AdminDisputes from './AdminDisputes';
 import AdminPromotions from './AdminPromotions';
@@ -8,71 +9,95 @@ import AdminSettings from './AdminSettings';
 import AdminUsers from './AdminUsers';
 import AdminReports from './AdminReports';
 import AdminBookings from './AdminBookings';
-import AdminAttention from './AdminAttention';
 import AdminBroadcast from './AdminBroadcast';
-import { sitterScorecard } from './adminInsights';
-import { logSitterApproved, logSitterRejected, logSitterSuspended, logSitterNeedsChanges, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
+import AdminOverview from './AdminOverview';
+import AdminPayouts from './AdminPayouts';
+import AdminZones from './AdminZones';
+import AdminReferrals from './AdminReferrals';
+import SitterDirectory, { PendingQueue, makeSitterActions } from './AdminSitters';
+import { unpaidPayouts } from './adminInsights';
+import { AdminStyles, Skeleton, Toast, A } from './AdminUI';
 
-const ORANGE = '#FF6B35';
-
-const STATUS_COLORS = {
-  draft: { bg: '#ECEFF1', color: '#546E7A' },
-  pending: { bg: '#FFF3E0', color: '#E65100' },
-  needs_changes: { bg: '#FFF3E0', color: '#E65100' },
-  active: { bg: '#E8F5E9', color: '#2E7D32' },
-  rejected: { bg: '#FCEBEB', color: '#A32D2D' },
-  suspended: { bg: '#F3E5F5', color: '#6A1B9A' },
+const SUBTITLES = {
+  overview: 'What needs you today, and how the last 7 days compare.',
+  pending: 'Sitter applications waiting for review, oldest first.',
+  sitters: 'Every sitter with a quality scorecard. Open one for documents, services and history.',
+  bookings: 'Find any booking, then cancel, reassign or add notes.',
+  payouts: 'Completed jobs not yet paid out, grouped by sitter.',
+  disputes: 'Complaints raised by parents and sitters.',
+  zones: 'Open or close areas, and see where people are waiting.',
+  promotions: 'Promo codes and the home page offer banner.',
+  referrals: 'Who referred whom, and the credits waiting to be applied.',
+  messages: 'In-app announcements to sitters and parents.',
+  users: 'Everyone on Fursday, test logins and account deletion requests.',
+  reports: 'Revenue, refunds and weekly trends.',
+  audit: 'Every admin action, newest first.',
+  settings: 'Support contacts and referral amounts.',
 };
 
-const BOOKING_COLORS = {
-  pending: { bg: '#FFF3E0', color: '#E65100' },
-  confirmed: { bg: '#E3F2FD', color: '#1565C0' },
-  active: { bg: '#E8F5E9', color: '#2E7D32' },
-  completed: { bg: '#F3E5F5', color: '#6A1B9A' },
-  cancelled: { bg: '#FCEBEB', color: '#A32D2D' },
-};
+// Sidebar colours on the navy background.
+const onNavy = { text: 'rgba(255,255,255,0.72)', faint: 'rgba(255,255,255,0.45)', active: 'rgba(255,255,255,0.14)', rule: 'rgba(255,255,255,0.1)' };
+
+function Gate({ children }) {
+  return (
+    <div className="adm-root" style={{ minHeight: '100vh', background: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: font.family, color: color.ink, boxSizing: 'border-box' }}>
+      <AdminStyles />
+      <div style={{ ...ui.card, width: '100%', maxWidth: 400, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>{children}</div>
+    </div>
+  );
+}
 
 export default function AdminPanel({ onSignOut }) {
   const [adminChecked, setAdminChecked] = useState(false);
   const [isRealAdmin, setIsRealAdmin] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
   const [tab, setTab] = useState('pending');
   const [focusBookingId, setFocusBookingId] = useState(null);
   const [sitters, setSitters] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [actionMsg, setActionMsg] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState(null);
   const [narrow, setNarrow] = useState(typeof window !== 'undefined' && window.innerWidth < 760);
+  const toastTimer = useRef(null);
 
   useEffect(() => {
     const onResize = () => setNarrow(window.innerWidth < 760);
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(toastTimer.current); };
   }, []);
 
-  const showMsg = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), 2500); };
+  const showMsg = useCallback((text, tone = 'success') => {
+    setToast({ text, tone });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), tone === 'error' ? 5000 : 2500);
+  }, []);
 
-  const loadData = async () => {
-    setLoading(true);
+  // The first load shows skeletons; later refreshes keep the page (and any open
+  // drawer or filters) in place and swap the data in when it arrives.
+  const loadData = useCallback(async () => {
+    setRefreshing(true);
     const { data: s } = await supabase
       .from('sitter_profiles')
-      .select('*, users(name), cities(name), sitter_services(service_type, price_paise)')
+      .select('*, users(name), cities(name), sitter_services(service_type, price_paise, is_active)')
       .order('created_at', { ascending: false });
-    const sittersWithContact = await Promise.all((s || []).map(async (sitter) => {
+    const withContact = await Promise.all((s || []).map(async (sitter) => {
       if (!sitter.users) return sitter;
       const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitter.user_id });
       return { ...sitter, users: { ...sitter.users, phone: contact?.[0]?.phone, email: contact?.[0]?.email } };
     }));
     const { data: pii } = await supabase.from('sitter_pii').select('sitter_id, aadhaar_number, upi_id');
     const piiBySitter = Object.fromEntries((pii || []).map(p => [p.sitter_id, p]));
-    setSitters(sittersWithContact.map(s => ({ ...s, aadhaar_number: piiBySitter[s.id]?.aadhaar_number || null, upi_id: piiBySitter[s.id]?.upi_id || null })));
     const { data: b } = await supabase
       .from('bookings')
       .select('*, cities(name), users(name)')
       .order('created_at', { ascending: false })
       .limit(500);
+    setSitters(withContact.map(x => ({ ...x, aadhaar_number: piiBySitter[x.id]?.aadhaar_number || null, upi_id: piiBySitter[x.id]?.upi_id || null })));
     setBookings(b || []);
-    setLoading(false);
-  };
+    setLoaded(true);
+    setRefreshing(false);
+  }, []);
 
   // Access is decided only by RLS on the logged-in Supabase account's
   // users.is_admin (migration 021). A client-side password was removed: any
@@ -81,581 +106,137 @@ export default function AdminPanel({ onSignOut }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsRealAdmin(false); setAdminChecked(true); return; }
+      setAdminEmail(user.email || '');
       const { data } = await supabase.rpc('is_admin_user');
       setIsRealAdmin(data === true);
       setAdminChecked(true);
     })();
   }, []);
 
-  useEffect(() => { if (isRealAdmin) loadData(); }, [isRealAdmin]);
+  useEffect(() => { if (isRealAdmin) loadData(); }, [isRealAdmin, loadData]);
 
-  const approveSitter = async (id) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const hasAadhaar = !!sitters.find(s => s.id === id)?.aadhaar_number;
-    if (!hasAadhaar) { showMsg('Aadhaar is required before approval. Use "Needs changes" to ask for it.'); return; }
-    const now = new Date().toISOString();
-    let { error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: true, approved_at: now, aadhaar_verified_at: now }).eq('id', id);
-    // Before migration 032 the two date columns don't exist yet; approve without them.
-    if (approveError && /approved_at|aadhaar_verified_at|column/i.test(approveError.message || '')) {
-      ({ error: approveError } = await supabase.from('sitter_profiles').update({ status: 'active', aadhaar_verified: true }).eq('id', id));
-    }
-    if (approveError) { showMsg('Could not approve: ' + approveError.message); return; }
-    if (user) await logSitterApproved(user.id, id);
+  const signOut = () => (onSignOut ? onSignOut() : supabase.auth.signOut());
 
-    // TIER 2: Send sitter approval notification
-    try {
-      const { data: sitterData } = await supabase
-        .from('sitter_profiles')
-        .select('users(id, name)')
-        .eq('id', id)
-        .single();
-
-      if (sitterData?.users) {
-        const { createNotification } = await import('./notificationService');
-        await createNotification(
-          sitterData.users.id,
-          'sitter_approved',
-          '🎉 Account Approved!',
-          'You are now live and can start accepting bookings'
-        );
-      }
-    } catch(notifErr) { console.error('Approval notification failed:', notifErr); }
-
-    showMsg('Sitter approved ✓');
-    loadData();
-  };
-
-  const requestChanges = async (id) => {
-    const notes = window.prompt('What does this sitter need to fix before re-review?');
-    if (!notes) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('sitter_profiles').update({ status: 'needs_changes', review_notes: notes }).eq('id', id);
-    if (error) { showMsg('Could not update: ' + error.message); return; }
-    if (user) await logSitterNeedsChanges(user.id, id, notes);
-
-    try {
-      const { data: sitterData } = await supabase.from('sitter_profiles').select('users(id)').eq('id', id).single();
-      if (sitterData?.users) {
-        const { createNotification } = await import('./notificationService');
-        await createNotification(sitterData.users.id, 'sitter_needs_changes', '⚠️ Changes needed on your profile', notes);
-      }
-    } catch (notifErr) { console.error('Needs-changes notification failed:', notifErr); }
-
-    showMsg('Sent back for changes');
-    loadData();
-  };
-
-  const rejectSitter = async (id) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('sitter_profiles').update({ status: 'rejected' }).eq('id', id);
-    if (user) await logSitterRejected(user.id, id);
-
-    // TIER 2: Send rejection notification
-    try {
-      const { data: sitterData } = await supabase
-        .from('sitter_profiles')
-        .select('users(id)')
-        .eq('id', id)
-        .single();
-
-      if (sitterData?.users) {
-        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-        const { notifySitterRejected } = await import('./notificationService');
-        await notifySitterRejected(
-          sitterData.users.id,
-          contact?.[0]?.email,
-          'Application did not meet our standards. Please reapply with improvements.'
-        );
-      }
-    } catch(notifErr) { console.error('Rejection notification failed:', notifErr); }
-
-    showMsg('Sitter rejected');
-    loadData();
-  };
-
-  const suspendSitter = async (id, currentStatus) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
-    await supabase.from('sitter_profiles').update({ status: newStatus }).eq('id', id);
-    if (user) await logSitterSuspended(user.id, id, newStatus === 'suspended');
-
-    // TIER 2: Send suspension/reinstatement notification
-    if (newStatus === 'suspended') {
-      try {
-        const { data: sitterData } = await supabase
-          .from('sitter_profiles')
-          .select('users(id)')
-          .eq('id', id)
-          .single();
-
-        if (sitterData?.users) {
-          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-          const { notifySitterSuspended } = await import('./notificationService');
-          await notifySitterSuspended(
-            sitterData.users.id,
-            contact?.[0]?.email,
-            contact?.[0]?.phone,
-            'Your account has been suspended. Please contact support for details.'
-          );
-        }
-      } catch(notifErr) { console.error('Suspension notification failed:', notifErr); }
-    }
-
-    showMsg(newStatus === 'suspended' ? 'Sitter suspended' : 'Sitter reinstated ✓');
-    loadData();
-  };
-
-  const toggleTopSitter = async (id, current) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('sitter_profiles').update({ is_top_sitter: !current }).eq('id', id);
-    if (user) await logTopSitterToggled(user.id, id, !current);
-
-    // TIER 2: Send badge award notification
-    if (!current) {
-      try {
-        const { data: sitterData } = await supabase
-          .from('sitter_profiles')
-          .select('users(id)')
-          .eq('id', id)
-          .single();
-
-        if (sitterData?.users) {
-          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-          const { notifyTopSitterAwarded } = await import('./notificationService');
-          await notifyTopSitterAwarded(
-            sitterData.users.id,
-            contact?.[0]?.email,
-            contact?.[0]?.phone
-          );
-        }
-      } catch(notifErr) { console.error('Top Sitter notification failed:', notifErr); }
-    }
-
-    showMsg(current ? 'Top Sitter badge removed' : 'Top Sitter badge awarded ⭐');
-    loadData();
-  };
-
-  const toggleFoundingSitter = async (id, current) => {
-    const { error } = await supabase.from('sitter_profiles').update({ is_founding_sitter: !current }).eq('id', id);
-    if (error) { alert('Could not update: ' + error.message); return; }
-    showMsg(current ? 'Founding Sitter perk removed' : 'Founding Sitter perk granted — 0% commission 🎉');
-    loadData();
-  };
-
-  const markPayoutPaid = async (id, amount) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', id);
-    if (user) await logPayoutMarkedPaid(user.id, id, amount);
-
-    // bookingData/sitterData are read again below (referral bonus check),
-    // so they're declared here at function scope, not inside the try block.
-    let bookingData, sitterData;
-
-    // TIER 2: Send payout notification to sitter
-    try {
-      ({ data: bookingData } = await supabase
-        .from('bookings')
-        .select('sitter_id')
-        .eq('id', id)
-        .single());
-
-      if (bookingData) {
-        ({ data: sitterData } = await supabase
-          .from('sitter_profiles')
-          .select('user_id, users(name)')
-          .eq('id', bookingData.sitter_id)
-          .single());
-
-        if (sitterData?.users) {
-          const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.user_id });
-          const { notifyPayoutMarked } = await import('./notificationService');
-          await notifyPayoutMarked(
-            sitterData.user_id, // notifications.user_id is a real users.id FK, not sitter_profiles.id
-            contact?.[0]?.email,
-            contact?.[0]?.phone,
-            amount * 100, // convert to paise
-            1, // booking count
-            new Date().toLocaleDateString('en-IN')
-          );
-        }
-      }
-    } catch(notifErr) { console.error('Payout notification failed:', notifErr); }
-
-    // TIER 3: Check for referral bonuses and send notification
-    try {
-      const { data: referralBonus } = await supabase
-        .from('referral_bonuses')
-        .select('id, amount')
-        .eq('user_id', sitterData?.user_id) // referral_bonuses.user_id is a real users.id FK, not sitter_profiles.id
-        .eq('status', 'pending')
-        .single();
-
-      if (referralBonus) {
-        const { data: contact } = sitterData?.user_id
-          ? await supabase.rpc('get_user_contact', { target_id: sitterData.user_id })
-          : { data: null };
-        const { notifyReferralBonusPaid } = await import('./notificationService');
-        await notifyReferralBonusPaid(
-          sitterData?.user_id,
-          contact?.[0]?.email,
-          contact?.[0]?.phone,
-          referralBonus.amount,
-          'Someone'
-        );
-        await supabase.from('referral_bonuses').update({ status: 'paid' }).eq('id', referralBonus.id);
-      }
-    } catch(referralErr) { console.error('Referral bonus notification failed:', referralErr); }
-
-    showMsg('Payout marked as paid ✓');
-    loadData();
-  };
-
-  const awardPerformanceBadge = async (sitterId, badgeType) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase
-      .from('sitter_profiles')
-      .update({ performance_badges: [badgeType] })
-      .eq('id', sitterId);
-
-    // TIER 3: Send performance badge notification
-    try {
-      const { data: sitterData } = await supabase
-        .from('sitter_profiles')
-        .select('users(id)')
-        .eq('id', sitterId)
-        .single();
-
-      if (sitterData?.users) {
-        const { data: contact } = await supabase.rpc('get_user_contact', { target_id: sitterData.users.id });
-        const { notifyPerformanceBadge } = await import('./notificationService');
-        await notifyPerformanceBadge(
-          sitterData.users.id,
-          contact?.[0]?.email,
-          contact?.[0]?.phone,
-          badgeType
-        );
-      }
-    } catch(badgeErr) { console.error('Performance badge notification failed:', badgeErr); }
-
-    showMsg('Performance badge awarded! 🏆');
-    loadData();
-  };
-
-  // Flat 15% commission for everyone (TermsAndConditions.js #7), except the
-  // first 20 launch sitters an admin has marked "Founding Sitter" — they pay
-  // 0% until an admin turns it back off (see migration 025).
-  const sitterRate = (sitterId) => sitters.find(s => s.id === sitterId)?.is_founding_sitter ? 1 : 0.85;
-  const foundingSitterCount = sitters.filter(s => s.is_founding_sitter).length;
-
-  const pendingSitters = sitters.filter(s => s.status === 'pending');
-  const activeSitters = sitters.filter(s => s.status === 'active');
-  const completedBookings = bookings.filter(b => b.status === 'completed');
-  const unpaidPayouts = completedBookings.filter(b => b.payout_status !== 'paid');
-  const totalGMV = completedBookings.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
-  // Sitters are paid on their own price (sitter_payout_paise); a parent's promo only lowers gross.
-  const payoutBase = (b) => (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100;
-  const totalPayoutsDue = unpaidPayouts.reduce((sum, b) => sum + payoutBase(b) * sitterRate(b.sitter_id), 0);
-
-  if (!adminChecked) return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', fontFamily: 'sans-serif' }}>
-      Checking admin access...
-    </div>
-  );
+  if (!adminChecked) return <Gate><Skeleton rows={2} label="Checking admin access..." /></Gate>;
 
   if (!isRealAdmin) return (
-    <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', fontFamily: 'sans-serif', textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Not signed in as an admin</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24, lineHeight: 1.6 }}>
-        This account doesn't have admin access. Sign in with an admin account instead.
-      </div>
-      {onSignOut && (
-        <button onClick={onSignOut}
-          style={{ padding: '12px 24px', borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-          Use a different account
-        </button>
-      )}
+    <Gate>
+      <div style={ui.iconTile}><Icon name="lock" /></div>
+      <h1 style={{ margin: 0, fontSize: font.xl, fontWeight: 700 }}>Not signed in as an admin</h1>
+      <p style={{ margin: '0 0 8px', fontSize: font.md, color: color.muted, lineHeight: 1.6 }}>This account doesn't have admin access. Sign in with an admin account instead.</p>
+      {onSignOut && <button onClick={onSignOut} style={{ ...A.primary, width: '100%' }}>Use a different account</button>}
+    </Gate>
+  );
+
+  const actions = makeSitterActions({ sitters, showMsg, reload: loadData });
+  const pendingCount = sitters.filter(s => s.status === 'pending').length;
+  const unpaidCount = unpaidPayouts(bookings).length;
+
+  const groups = [
+    { title: 'Operations', items: [
+      { id: 'overview', icon: 'chart', label: 'Overview' },
+      { id: 'pending', icon: 'clock', label: 'Pending (' + pendingCount + ')' },
+      { id: 'sitters', icon: 'users', label: 'Sitters (' + sitters.length + ')' },
+      { id: 'bookings', icon: 'calendar', label: 'Bookings (' + bookings.length + ')' },
+      { id: 'payouts', icon: 'wallet', label: 'Payouts (' + unpaidCount + ')' },
+      { id: 'disputes', icon: 'scale', label: 'Disputes' },
+    ] },
+    { title: 'Growth', items: [
+      { id: 'zones', icon: 'map', label: 'Zones' },
+      { id: 'promotions', icon: 'tag', label: 'Promotions' },
+      { id: 'referrals', icon: 'gift', label: 'Referrals' },
+      { id: 'messages', icon: 'megaphone', label: 'Messages' },
+    ] },
+    { title: 'Insights', items: [
+      { id: 'users', icon: 'user', label: 'People' },
+      { id: 'reports', icon: 'trendUp', label: 'Reports' },
+      { id: 'audit', icon: 'history', label: 'Audit' },
+    ] },
+    { title: 'System', items: [{ id: 'settings', icon: 'settings', label: 'Settings' }] },
+  ];
+  const active = groups.flatMap(g => g.items).find(n => n.id === tab);
+  const goTab = (id) => { setTab(id); setFocusBookingId(null); };
+  const openBooking = (id) => { setFocusBookingId(id); setTab('bookings'); };
+
+  const navButton = (n) => {
+    const on = tab === n.id;
+    return (
+      <button key={n.id} className="adm-nav" onClick={() => goTab(n.id)} aria-current={on ? 'page' : undefined}
+        style={{ width: narrow ? 'auto' : '100%', flexShrink: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: narrow ? '0 12px' : '0 12px', borderRadius: radius.sm, border: 'none', marginBottom: narrow ? 0 : 2, background: on ? onNavy.active : 'transparent', color: on ? color.surface : onNavy.text, fontSize: font.md, fontWeight: on ? 600 : 400, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', boxShadow: on && !narrow ? `inset 3px 0 0 ${color.saffron}` : 'none' }}>
+        <Icon name={n.icon} size={18} /><span>{n.label}</span>
+      </button>
+    );
+  };
+
+  const brand = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
+      <div style={{ width: 32, height: 32, borderRadius: radius.sm, background: color.saffron, color: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="paw" size={18} /></div>
+      <span style={{ color: color.surface, fontSize: font.lg, fontWeight: 700 }}>Fursday Admin</span>
     </div>
   );
 
-  const navItems = [
-    { id: 'overview', icon: '📊', label: 'Overview' },
-    { id: 'pending', icon: '⏳', label: 'Pending (' + pendingSitters.length + ')' },
-    { id: 'sitters', icon: '🧑‍🤝‍🧑', label: 'Sitters (' + sitters.length + ')' },
-    { id: 'bookings', icon: '📅', label: 'Bookings (' + bookings.length + ')' },
-    { id: 'payouts', icon: '💰', label: 'Payouts (' + unpaidPayouts.length + ')' },
-    { id: 'disputes', icon: '⚖️', label: 'Disputes' },
-    { id: 'promotions', icon: '🎟️', label: 'Promotions' },
-    { id: 'users', icon: '👥', label: 'People' },
-    { id: 'reports', icon: '📈', label: 'Reports' },
-    { id: 'messages', icon: '📣', label: 'Messages' },
-    { id: 'audit', icon: '📜', label: 'Audit' },
-    { id: 'settings', icon: '⚙️', label: 'Settings' },
-  ];
-  const activeNavItem = navItems.find(n => n.id === tab);
-
   return (
-    <div style={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', minHeight: '100vh', background: '#F4F5F7', fontFamily: 'sans-serif' }}>
-      {actionMsg && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#2E7D32', color: 'white', borderRadius: 12, padding: '10px 20px', fontSize: 13, fontWeight: 600, zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-          {actionMsg}
-        </div>
-      )}
+    <div className="adm-root" style={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', minHeight: '100vh', background: color.bg, fontFamily: font.family, color: color.ink }}>
+      <AdminStyles />
+      {toast && <Toast message={toast.text} tone={toast.tone} />}
 
-      {/* Sidebar */}
-      <div style={narrow
-        ? { background: '#13131F', padding: '12px 12px 8px', position: 'sticky', top: 0, zIndex: 50 }
-        : { width: 220, flexShrink: 0, background: '#13131F', display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'sticky', top: 0, height: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: narrow ? 10 : 24 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🐾</div>
-          <span style={{ color: 'white', fontSize: 16, fontWeight: 700 }}>Fursday Admin</span>
+      <nav aria-label="Admin sections" style={narrow
+        ? { background: color.navy, padding: '12px 12px 8px', position: 'sticky', top: 0, zIndex: 50 }
+        : { width: 232, flexShrink: 0, background: color.navy, display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'sticky', top: 0, height: '100vh', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: narrow ? 10 : 20 }}>
+          {brand}
+          {narrow && <button onClick={signOut} aria-label="Sign out" style={{ background: 'transparent', border: 'none', color: onNavy.text, minWidth: 40, minHeight: 40, cursor: 'pointer' }}><Icon name="logout" size={20} /></button>}
         </div>
-
         <div style={narrow ? { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 } : { flex: 1, overflowY: 'auto' }}>
-          {navItems.map(n => (
-            <button key={n.id} onClick={() => setTab(n.id)}
-              style={{ width: narrow ? 'auto' : '100%', flexShrink: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: narrow ? 6 : 10, padding: narrow ? '8px 12px' : '9px 10px', borderRadius: 8, border: 'none', marginBottom: narrow ? 0 : 2, background: tab === n.id ? ORANGE : 'transparent', color: tab === n.id ? 'white' : 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: tab === n.id ? 700 : 500, cursor: 'pointer', textAlign: 'left' }}>
-              <span>{n.icon}</span><span>{n.label}</span>
-            </button>
+          {narrow ? groups.flatMap(g => g.items).map(navButton) : groups.map(g => (
+            <div key={g.title} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: font.xs, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', color: onNavy.faint, padding: '0 12px', marginBottom: 6 }}>{g.title}</div>
+              {g.items.map(navButton)}
+            </div>
           ))}
         </div>
+        {!narrow && (
+          <div style={{ borderTop: `1px solid ${onNavy.rule}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {adminEmail && <div style={{ fontSize: font.xs, color: onNavy.faint, padding: '0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={adminEmail}>{adminEmail}</div>}
+            <button className="adm-nav" onClick={signOut} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', background: 'transparent', border: 'none', borderRadius: radius.sm, minHeight: 40, padding: '0 12px', color: onNavy.text, fontSize: font.md, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Icon name="logout" size={18} />Sign out
+            </button>
+          </div>
+        )}
+      </nav>
 
-        <div style={narrow
-          ? { display: 'flex', gap: 4, marginTop: 4 }
-          : { borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <button onClick={() => (onSignOut ? onSignOut() : supabase.auth.signOut())} style={{ textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
+      <main style={{ flex: 1, minWidth: 0, padding: narrow ? 16 : '24px 32px' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ margin: 0, fontSize: font.xxl, fontWeight: 700, color: color.ink }}>{active?.label.replace(/\s*\(\d+\)$/, '')}</h1>
+              <div style={{ fontSize: font.md, color: color.muted, marginTop: 4 }}>{SUBTITLES[tab]}</div>
+            </div>
+            <button onClick={loadData} disabled={refreshing} style={{ ...A.secondary, ...(refreshing ? { opacity: 0.6 } : null) }}>
+              <Icon name="refresh" size={18} />{refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </header>
+
+          {!loaded ? <Skeleton rows={6} /> : (
+            <>
+              {tab === 'overview' && <AdminOverview bookings={bookings} sitters={sitters} onOpenBooking={openBooking} onGoTab={goTab} />}
+              {tab === 'pending' && <PendingQueue sitters={sitters} actions={actions} />}
+              {tab === 'sitters' && <SitterDirectory sitters={sitters} bookings={bookings} actions={actions} />}
+              {tab === 'bookings' && <AdminBookings bookings={bookings} sitters={sitters} focusId={focusBookingId} onChanged={loadData} />}
+              {tab === 'payouts' && <AdminPayouts bookings={bookings} sitters={sitters} showMsg={showMsg} onChanged={loadData} />}
+              {tab === 'disputes' && <AdminDisputes />}
+              {tab === 'zones' && <AdminZones />}
+              {tab === 'promotions' && <AdminPromotions />}
+              {tab === 'referrals' && <AdminReferrals onGoTab={goTab} />}
+              {tab === 'messages' && <AdminBroadcast />}
+              {tab === 'users' && <AdminUsers />}
+              {tab === 'reports' && <AdminReports />}
+              {tab === 'audit' && <AdminAuditLogs />}
+              {tab === 'settings' && <AdminSettings />}
+            </>
+          )}
         </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, padding: narrow ? '16px' : '24px 28px', overflow: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a1a' }}>{activeNavItem?.label.replace(/\s*\(\d+\)$/, '')}</div>
-          <button onClick={loadData} style={{ background: 'white', border: '1px solid #E8E8E8', borderRadius: 8, padding: '7px 14px', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
-        </div>
-
-        {loading && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Loading...</div>}
-
-        {!loading && tab === 'overview' && (
-          <div>
-            <AdminAttention bookings={bookings} sitters={sitters}
-              onOpenBooking={(id) => { setFocusBookingId(id); setTab('bookings'); }} onGoTab={setTab} />
-            <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
-              {[
-                { label: 'Pending', val: pendingSitters.length, color: '#E65100' },
-                { label: 'Active sitters', val: activeSitters.length, color: '#2E7D32' },
-                { label: 'Bookings', val: bookings.length, color: '#1565C0' },
-                { label: 'Completed', val: completedBookings.length, color: '#6A1B9A' },
-                { label: 'GMV', val: 'Rs.' + totalGMV.toLocaleString('en-IN'), color: ORANGE },
-                { label: 'Payouts due', val: 'Rs.' + Math.round(totalPayoutsDue).toLocaleString('en-IN'), color: '#C62828' },
-              ].map((s, i) => (
-                <div key={i} style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{s.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.val}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>Recent bookings</div>
-              {bookings.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 24, color: '#888', fontSize: 13 }}>No bookings yet</div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ color: '#999', textAlign: 'left', borderBottom: '1px solid #F0F0F0' }}>
-                      <th style={{ padding: '6px 8px 6px 0', fontWeight: 600 }}>Ref</th>
-                      <th style={{ fontWeight: 600 }}>Sitter</th>
-                      <th style={{ fontWeight: 600 }}>Service</th>
-                      <th style={{ fontWeight: 600 }}>Amount</th>
-                      <th style={{ fontWeight: 600 }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.slice(0, 8).map(b => (
-                      <tr key={b.id} style={{ borderBottom: '1px solid #F8F8F8' }}>
-                        <td style={{ padding: '8px 8px 8px 0', color: '#1a1a1a' }}>{b.booking_ref}</td>
-                        <td>{sitters.find(s => s.id === b.sitter_id)?.users?.name || '—'}</td>
-                        <td>{b.service_type}</td>
-                        <td style={{ fontWeight: 600 }}>Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</td>
-                        <td>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: BOOKING_COLORS[b.status]?.bg, color: BOOKING_COLORS[b.status]?.color }}>{b.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {!loading && tab === 'pending' && (
-          <div>
-            {pendingSitters.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 40 }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#1a1a1a' }}>No pending applications</div>
-              </div>
-            )}
-            {pendingSitters.map(s => (
-              <div key={s.id} style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>{s.users?.name || 'Unknown'}</div>
-                    <div style={{ fontSize: 13, color: '#888' }}>{s.users?.phone} · {s.cities?.name}</div>
-                    {s.users?.email && <div style={{ fontSize: 12, color: '#AAA' }}>{s.users?.email}</div>}
-                  </div>
-                  <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[s.status]?.bg, color: STATUS_COLORS[s.status]?.color, fontWeight: 600 }}>{s.status}</div>
-                </div>
-                {s.profile_photo_url && <img src={s.profile_photo_url} alt={'Photo of ' + (s.users?.name || 'sitter')} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', display: 'block', marginBottom: 10 }} />}
-                {s.aadhaar_number
-                  ? <div style={{ fontSize: 12, color: '#1565C0', background: '#E3F2FD', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block' }}>🪪 Aadhaar: {s.aadhaar_number.replace(/(\d{4})(?=\d)/g, '$1 ')}</div>
-                  : <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block' }}>No Aadhaar submitted. Ask for changes before approving.</div>}
-                {s.upi_id && <div style={{ fontSize: 12, color: '#2E7D32', background: '#E8F5E9', borderRadius: 8, padding: '4px 10px', marginBottom: 8, display: 'inline-block', marginLeft: 6 }}>💳 UPI: {s.upi_id}</div>}
-                {s.bio && <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 10, padding: '8px 12px', background: '#F8F8F8', borderRadius: 10 }}>{s.bio}</div>}
-                {s.sitter_services && s.sitter_services.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {s.sitter_services.map((sv, i) => (
-                      <span key={i} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#FFF0EB', color: ORANGE, fontWeight: 500 }}>
-                        {sv.service_type} · Rs.{Math.round(sv.price_paise / 100)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 12 }}>Applied: {new Date(s.created_at).toLocaleDateString('en-IN')}</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => approveSitter(s.id)} disabled={!s.aadhaar_number} title={s.aadhaar_number ? '' : 'Aadhaar is required before approval'}
-                    style={{ flex: 2, padding: '10px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: s.aadhaar_number ? 'pointer' : 'not-allowed', opacity: s.aadhaar_number ? 1 : 0.45, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <CheckCircle size={16} /> Approve
-                  </button>
-                  <button onClick={() => requestChanges(s.id)}
-                    style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid #FFCC80', background: 'white', color: '#E65100', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    Needs changes
-                  </button>
-                  <button onClick={() => rejectSitter(s.id)}
-                    style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loading && tab === 'sitters' && (
-          <div>
-            <div style={{ background: foundingSitterCount >= 20 ? '#FCEBEB' : '#FFF0EB', borderRadius: 12, padding: '10px 14px', marginBottom: 12, fontSize: 12, fontWeight: 600, color: foundingSitterCount >= 20 ? '#A32D2D' : ORANGE }}>
-              🎉 Founding Sitters (0% commission): {foundingSitterCount}/20{foundingSitterCount >= 20 ? ' — batch full' : ''}
-            </div>
-            {sitters.map(s => (
-              <div key={s.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{s.users?.name || 'Unknown'}</div>
-                      {s.is_top_sitter && <span style={{ fontSize: 10, background: '#FFF9C4', color: '#E65100', borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>⭐ TOP</span>}
-                      {s.is_founding_sitter && <span style={{ fontSize: 10, background: '#FFF0EB', color: ORANGE, borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>🎉 FOUNDING</span>}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#888' }}>{s.users?.phone} · {s.cities?.name}</div>
-                    {(() => { const sc = sitterScorecard(s, bookings); return (
-                      <div style={{ fontSize: 11, color: '#777', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
-                        <span>{sc.completed} done</span>
-                        <span>★ {sc.rating ? sc.rating.toFixed(1) : '—'} ({sc.reviews})</span>
-                        <span>Accepts {sc.acceptanceRate == null ? '—' : sc.acceptanceRate + '%'}</span>
-                        <span>Cancels {sc.cancelRate}%</span>
-                        <span>UPI: {s.upi_id || 'not set'}</span>
-                        {sc.flags.map(f => <span key={f} style={{ color: '#A32D2D', fontWeight: 700 }}>⚠ {f}</span>)}
-                      </div>
-                    ); })()}
-                  </div>
-                  <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[s.status]?.bg, color: STATUS_COLORS[s.status]?.color, fontWeight: 600 }}>{s.status}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {(s.status === 'pending' || s.status === 'needs_changes') && (
-                    <button onClick={() => approveSitter(s.id)} disabled={!s.aadhaar_number} title={s.aadhaar_number ? '' : 'Aadhaar is required before approval'}
-                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 600, cursor: s.aadhaar_number ? 'pointer' : 'not-allowed', opacity: s.aadhaar_number ? 1 : 0.45 }}>
-                      ✓ Approve
-                    </button>
-                  )}
-                  {s.status === 'pending' && (
-                    <button onClick={() => requestChanges(s.id)}
-                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: '#FFF3E0', color: '#E65100', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      ⚠ Needs changes
-                    </button>
-                  )}
-                  {(s.status === 'active' || s.status === 'suspended') && (
-                    <button onClick={() => suspendSitter(s.id, s.status)}
-                      style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: s.status === 'suspended' ? '#E8F5E9' : '#FFF3E0', color: s.status === 'suspended' ? '#2E7D32' : '#E65100', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {s.status === 'suspended' ? <><PlayCircle size={12} /> Reinstate</> : <><PauseCircle size={12} /> Suspend</>}
-                    </button>
-                  )}
-                  <button onClick={() => toggleFoundingSitter(s.id, s.is_founding_sitter)}
-                    disabled={!s.is_founding_sitter && foundingSitterCount >= 20}
-                    style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: s.is_founding_sitter ? '#FFE0CC' : '#F5F5F5', color: s.is_founding_sitter ? ORANGE : (!s.is_founding_sitter && foundingSitterCount >= 20) ? '#CCC' : '#888', fontSize: 12, fontWeight: 600, cursor: (!s.is_founding_sitter && foundingSitterCount >= 20) ? 'not-allowed' : 'pointer' }}>
-                    {s.is_founding_sitter ? '🎉 Remove Founding (0% comm.)' : 'Make Founding Sitter'}
-                  </button>
-                  <button onClick={() => toggleTopSitter(s.id, s.is_top_sitter)}
-                    style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: s.is_top_sitter ? '#FFF9C4' : '#F5F5F5', color: s.is_top_sitter ? '#E65100' : '#888', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Award size={12} /> {s.is_top_sitter ? 'Remove Top Badge' : 'Give Top Badge'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loading && tab === 'bookings' && (
-          <AdminBookings bookings={bookings} sitters={sitters} focusId={focusBookingId} onChanged={loadData} />
-        )}
-
-        {!loading && tab === 'payouts' && (
-          <div>
-            <div style={{ background: '#FFF3E0', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#E65100' }}>{unpaidPayouts.length} payouts pending</div>
-                <div style={{ fontSize: 12, color: '#888' }}>Total due to sitters</div>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#E65100' }}>Rs.{Math.round(totalPayoutsDue).toLocaleString('en-IN')}</div>
-            </div>
-            {unpaidPayouts.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>All payouts up to date ✓</div>}
-            {unpaidPayouts.map(b => {
-              const netAmount = Math.round(payoutBase(b) * sitterRate(b.sitter_id));
-              const isFounding = sitters.find(s => s.id === b.sitter_id)?.is_founding_sitter;
-              return (
-              <div key={b.id} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{b.booking_ref}</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>{b.service_type} · Rs.{Math.round((b.gross_amount_paise || 0) / 100)}</div>
-                    <div style={{ fontSize: 11, color: '#2E7D32', fontWeight: 600 }}>Sitter gets: Rs.{netAmount}{isFounding ? ' (Founding — 0% commission)' : ''}</div>
-                  </div>
-                  <button onClick={() => markPayoutPaid(b.id, netAmount)}
-                    style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                    Mark paid
-                  </button>
-                </div>
-                <div style={{ fontSize: 11, color: '#AAA' }}>{new Date(b.created_at).toLocaleDateString('en-IN')}</div>
-              </div>
-              );
-            })}
-          </div>
-        )}
-
-        {!loading && tab === 'disputes' && <AdminDisputes />}
-
-        {!loading && tab === 'promotions' && <AdminPromotions />}
-
-        {!loading && tab === 'audit' && <AdminAuditLogs />}
-
-        {!loading && tab === 'settings' && <AdminSettings />}
-
-        {!loading && tab === 'users' && <AdminUsers />}
-
-        {!loading && tab === 'reports' && <AdminReports />}
-
-        {!loading && tab === 'messages' && <AdminBroadcast />}
-      </div>
+      </main>
     </div>
   );
 }

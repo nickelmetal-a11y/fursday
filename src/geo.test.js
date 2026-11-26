@@ -33,6 +33,8 @@ test('serviceability: open when no zones, by pincode, by radius, closed zone, ou
   expect(serviceability({ area: 'DLF Phase 1', pincode: '122002' }, zones, 'c1')).toMatchObject({ serviceable: false, reason: 'closed' });
   expect(serviceability({ area: 'Palam Vihar', pincode: '122017' }, zones, 'c1')).toMatchObject({ serviceable: false, reason: 'outside' });
   expect(serviceability({ pincode: '411045' }, zones, 'c2').serviceable).toBe(true); // other city has no zones
+  const overlap = [{ city_id: 'c1', name: 'Closed', pincodes: ['122011'], is_open: false }, { city_id: 'c1', name: 'Open', pincodes: ['122011'], is_open: true }];
+  expect(serviceability(addr, overlap, 'c1')).toMatchObject({ serviceable: true, zone: { name: 'Open' } });
 });
 
 test('sitter radius decides who travels to you; unknown base is allowed', () => {

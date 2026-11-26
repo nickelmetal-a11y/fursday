@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
+import { writeWithFallback } from './schemaFallback';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
+import ServiceAreaPicker from './ServiceAreaPicker';
+import AvailabilityCalendar from './AvailabilityCalendar';
 
 const SERVICES = [
   { id: 'walk30', nameKey: 'sitterEdit_svcWalkName', subKey: 'sitterEdit_svcWalkSub', icon: 'walk', min: 149, max: 599, step: 50 },
@@ -31,6 +34,65 @@ const ADVANCE_NOTICE_KEYS = {
   '48hrs': 'sitterEdit_notice48h', '1 week': 'sitterEdit_notice1week',
 };
 
+// Stored in English (sitter_profiles.highlights), shown translated.
+export const HIGHLIGHTS = ['Large breeds', 'Puppies', 'Senior dogs', 'First-aid trained', 'Has own transport', 'Medication', 'Multiple dogs', 'Night stays'];
+export const HIGHLIGHT_KEYS = {
+  'Large breeds': 'highlight_largeBreeds', Puppies: 'highlight_puppies', 'Senior dogs': 'highlight_seniorDogs',
+  'First-aid trained': 'highlight_firstAid', 'Has own transport': 'highlight_transport', Medication: 'highlight_medication',
+  'Multiple dogs': 'highlight_multipleDogs', 'Night stays': 'highlight_nightStays',
+};
+export const MAX_HIGHLIGHTS = 4;
+export const HEADLINE_MAX = 80;
+export const ABOUT_MIN = 120;
+export const ABOUT_MAX = 600;
+
+// Profile strength: every check a parent notices, with the tab that fixes it.
+export function profileStrength(p) {
+  const checks = [
+    { id: 'photo', labelKey: 'strength_photo', tab: 'profile', ok: !!p.photoUrl },
+    { id: 'headline', labelKey: 'strength_headline', tab: 'profile', ok: !!(p.headline || '').trim() },
+    { id: 'about', labelKey: 'strength_about', tab: 'profile', ok: (p.bio || '').trim().length >= ABOUT_MIN },
+    { id: 'highlights', labelKey: 'strength_highlights', tab: 'profile', ok: (p.highlights || []).length > 0 },
+    { id: 'portfolio', labelKey: 'strength_portfolio', tab: 'profile', ok: (p.photos || []).length > 0 },
+    { id: 'experience', labelKey: 'strength_experience', tab: 'profile', ok: !!p.experience },
+    { id: 'area', labelKey: 'strength_area', tab: 'availability', ok: !!p.baseArea },
+    { id: 'services', labelKey: 'strength_services', tab: 'services', ok: (p.activeServices || []).length > 0 },
+    { id: 'aadhaar', labelKey: 'strength_aadhaar', tab: 'profile', ok: !!p.aadhaarNumber },
+    { id: 'upi', labelKey: 'strength_upi', tab: 'payout', ok: !!(p.upiId || '').trim() },
+  ];
+  const missing = checks.filter(c => !c.ok);
+  return { pct: Math.round(((checks.length - missing.length) / checks.length) * 100), missing };
+}
+
+// One flat, comparable picture of everything the Save button writes.
+export function profileSnapshot(s) {
+  const snap = {
+    headline: (s.headline || '').trim(), bio: (s.bio || '').trim(), highlights: s.highlights || [],
+    base_area: s.area?.base_area || '', service_radius_km: Number(s.area?.service_radius_km) || 5,
+    experience: s.experience || '', languages: s.languages || [], availability_days: s.availableDays || [],
+    morning_slot: !!s.morningSlot, afternoon_slot: !!s.afternoonSlot, evening_slot: !!s.eveningSlot,
+    max_dogs: s.maxDogs || 1, advance_notice: s.advanceNotice || '', accepting: !s.isPaused,
+    profile_photo: s.photoUrl || '', portfolio: (s.photos || []).length, upi: (s.upiId || '').trim(),
+  };
+  SERVICES.forEach(svc => { snap['svc_' + svc.id] = (s.activeServices || []).includes(svc.id) ? (s.prices?.[svc.id] || 299) : null; });
+  return snap;
+}
+
+// Field-by-field differences between two snapshots, in snapshot key order.
+export function diffProfile(before, after) {
+  const empty = (v) => v == null || v === '';
+  return Object.keys(after).flatMap(field => {
+    const from = before?.[field], to = after[field];
+    if (Array.isArray(to) || Array.isArray(from)) {
+      const a = from || [], b = to || [];
+      const added = b.filter(x => !a.includes(x)), removed = a.filter(x => !b.includes(x));
+      return added.length || removed.length ? [{ field, from: a, to: b, added, removed }] : [];
+    }
+    if ((empty(from) && empty(to)) || from === to) return [];
+    return [{ field, from, to }];
+  });
+}
+
 
 const compressImage = (file) => new Promise((resolve) => {
   const reader = new FileReader();
@@ -51,7 +113,7 @@ const compressImage = (file) => new Promise((resolve) => {
   reader.readAsDataURL(file);
 });
 export default function SitterEditProfile({ onBack, city }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [tab, setTab] = useState('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,8 +138,16 @@ export default function SitterEditProfile({ onBack, city }) {
   const [advanceNotice, setAdvanceNotice] = useState('24hrs');
   const [activeServices, setActiveServices] = useState([]);
   const [prices, setPrices] = useState({});
+  const [headline, setHeadline] = useState('');
+  const [highlights, setHighlights] = useState([]);
+  const [area, setArea] = useState({ base_area: '', base_pincode: '', lat: null, lng: null, service_radius_km: 5 });
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [changes, setChanges] = useState(null);
+  const savedSnapshot = useRef(null);
+  const changesRef = useRef(null);
 
   useEffect(() => { loadProfile(); }, []);
+  useEffect(() => { if (changes && changesRef.current?.scrollIntoView) changesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [changes]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -100,18 +170,29 @@ export default function SitterEditProfile({ onBack, city }) {
       setEveningSlot(profile.evening_slot !== false);
       setMaxDogs(profile.max_dogs || 1);
       setAdvanceNotice(profile.advance_notice || '24hrs');
-      // Load sitter profile photos
+      setHeadline(profile.headline || '');
+      setHighlights(profile.highlights || []);
+      const loadedArea = { base_area: profile.base_area || '', base_pincode: profile.base_pincode || '', lat: profile.lat ?? null, lng: profile.lng ?? null, service_radius_km: Number(profile.service_radius_km) || 5 };
+      setArea(loadedArea);
       const { data: photoData } = await supabase.from('sitter_profile_photos').select('*').eq('sitter_id', profile.id).order('display_order');
-      if (photoData && photoData.length > 0) {
-        setPhotos(photoData.map(p => ({ id: p.id, url: p.photo_url })));
-      }
+      const loadedPhotos = (photoData || []).map(p => ({ id: p.id, url: p.photo_url }));
+      if (loadedPhotos.length > 0) setPhotos(loadedPhotos);
       const { data: services } = await supabase.from('sitter_services').select('*').eq('sitter_id', profile.id);
+      const priceMap = {};
+      (services || []).forEach(s => { priceMap[s.service_type] = Math.round(s.price_paise / 100); });
       if (services && services.length > 0) {
         setActiveServices(services.map(s => s.service_type));
-        const priceMap = {};
-        services.forEach(s => { priceMap[s.service_type] = Math.round(s.price_paise / 100); });
         setPrices(priceMap);
       }
+      savedSnapshot.current = profileSnapshot({
+        headline: profile.headline, bio: profile.bio, highlights: profile.highlights, area: loadedArea,
+        experience: profile.experience_text || (profile.experience_years ? profile.experience_years + ' years' : ''),
+        languages: profile.languages || ['Hindi', 'English'], availableDays: profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        morningSlot: profile.morning_slot !== false, afternoonSlot: profile.afternoon_slot || false, eveningSlot: profile.evening_slot !== false,
+        maxDogs: profile.max_dogs || 1, advanceNotice: profile.advance_notice || '24hrs', isPaused: profile.is_paused || false,
+        photoUrl: profile.profile_photo_url, photos: loadedPhotos, activeServices: (services || []).map(s => s.service_type), prices: priceMap,
+        upiId: piiData?.upi_id || '',
+      });
       const { data: bookings } = await supabase.from('bookings').select('gross_amount_paise, pet_parent_id, status').eq('sitter_id', profile.id);
       if (bookings) {
         const completed = bookings.filter(b => b.status === 'completed');
@@ -171,18 +252,28 @@ export default function SitterEditProfile({ onBack, city }) {
     }
   };
 
+  const currentSnapshot = () => profileSnapshot({
+    headline, bio, highlights, area, experience, languages, availableDays, morningSlot, afternoonSlot, eveningSlot,
+    maxDogs, advanceNotice, isPaused, photoUrl, photos, activeServices, prices, upiId,
+  });
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const after = currentSnapshot();
       const updateData = {
         bio, experience_years: parseInt(experience) || 0, experience_text: experience || null, languages,
         is_paused: isPaused, profile_photo_url: photoUrl,
         availability_days: availableDays, morning_slot: morningSlot,
         afternoon_slot: afternoonSlot, evening_slot: eveningSlot,
         max_dogs: maxDogs, advance_notice: advanceNotice,
+        headline: headline.trim() || null, highlights,
+        base_area: area.base_area || null, base_pincode: area.base_pincode || null,
+        lat: area.lat ?? null, lng: area.lng ?? null, service_radius_km: Number(area.service_radius_km) || 5,
+        profile_updated_at: new Date().toISOString(),
       };
-      const { error: profileError } = await supabase.from('sitter_profiles').update(updateData).eq('user_id', user.id);
+      const { error: profileError } = await writeWithFallback(row => supabase.from('sitter_profiles').update(row).eq('user_id', user.id), updateData);
       if (profileError) throw profileError;
 
       if (sitterProfile) {
@@ -212,18 +303,54 @@ export default function SitterEditProfile({ onBack, city }) {
           if (photoError) throw photoError;
         }
       }
+      setChanges({ list: diffProfile(savedSnapshot.current || {}, after), at: new Date() });
+      savedSnapshot.current = after;
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) { alert(t('sitterEdit_saveFailed', { error: e.message })); }
     setSaving(false);
   };
 
-  const completeness = () => {
-    const checks = [!!photoUrl, bio.length > 30, !!upiId, activeServices.length > 0, languages.length > 0, !!experience, !!sitterProfile?.aadhaar_number];
-    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  };
+  const strength = profileStrength({
+    photoUrl, headline, bio, highlights, photos, experience, baseArea: area.base_area,
+    activeServices, aadhaarNumber: sitterProfile?.aadhaar_number, upiId,
+  });
+  const pct = strength.pct;
+  const strengthWord = pct === 100 ? t('strength_levelComplete') : pct >= 70 ? t('strength_levelGood') : pct >= 40 ? t('strength_levelFair') : t('strength_levelWeak');
 
-  const pct = completeness();
+  // "What changed" lines, e.g. "Headline: (empty) → 'Calm walker for big dogs'".
+  const FIELD_KEYS = {
+    headline: 'changes_headline', bio: 'changes_about', highlights: 'changes_highlights', base_area: 'changes_baseArea',
+    service_radius_km: 'changes_radius', experience: 'changes_experience', languages: 'changes_languages',
+    availability_days: 'changes_days', morning_slot: 'sitterEdit_morning', afternoon_slot: 'sitterEdit_afternoon',
+    evening_slot: 'sitterEdit_evening', max_dogs: 'changes_maxDogs', advance_notice: 'changes_notice', accepting: 'changes_accepting',
+    profile_photo: 'changes_profilePhoto', portfolio: 'changes_portfolio', upi: 'changes_upi',
+    svc_walk30: 'sitterEdit_svcWalkName', svc_boarding: 'sitterEdit_svcBoardingName', svc_daycare: 'sitterEdit_svcDaycareName',
+  };
+  const listLabel = (field, v) => field === 'highlights' ? t(HIGHLIGHT_KEYS[v] || v) : field === 'languages' ? t(LANGUAGE_KEYS[v] || v) : field === 'availability_days' ? t(DAY_KEYS[v] || v) : v;
+  const clip = (s) => (s.length > 60 ? s.slice(0, 57) + '…' : s);
+  const fmtValue = (field, v) => {
+    if (v == null || v === '') return field.startsWith('svc_') ? t('changes_off') : t('changes_empty');
+    if (typeof v === 'boolean') return v ? t('changes_on') : t('changes_off');
+    if (field === 'service_radius_km') return t('area_km', { n: v });
+    if (field.startsWith('svc_')) return t('sitterEdit_currencyPrefix') + v;
+    if (field === 'experience') return t(EXPERIENCE_KEYS[v] || v);
+    if (field === 'advance_notice') return t(ADVANCE_NOTICE_KEYS[v] || v);
+    if (typeof v === 'number') return String(v);
+    return "'" + clip(String(v)) + "'";
+  };
+  const changeLine = (c) => {
+    const label = t(FIELD_KEYS[c.field] || c.field);
+    if (c.added || c.removed) {
+      const parts = [];
+      if (c.added.length) parts.push(t('changes_added', { items: c.added.map(v => listLabel(c.field, v)).join(', ') }));
+      if (c.removed.length) parts.push(t('changes_removed', { items: c.removed.map(v => listLabel(c.field, v)).join(', ') }));
+      return label + ': ' + parts.join('; ');
+    }
+    if (c.field === 'profile_photo') return label + ': ' + (!c.from ? t('changes_photoAdded') : !c.to ? t('changes_photoRemoved') : t('changes_photoReplaced'));
+    if (c.field === 'upi') return label + ': ' + t('changes_updated');
+    return label + ': ' + fmtValue(c.field, c.from) + ' → ' + fmtValue(c.field, c.to);
+  };
 
   const card = { ...ui.card, marginBottom: 12 };
   const cardTitle = { fontSize: font.md, fontWeight: 600, color: color.ink, marginBottom: 10 };
@@ -261,10 +388,36 @@ export default function SitterEditProfile({ onBack, city }) {
     </div>
   );
 
+  if (showCalendar && sitterProfile?.id) return (
+    <AvailabilityCalendar sitterId={sitterProfile.id} onBack={() => setShowCalendar(false)}
+      weekly={{ availability_days: availableDays, morning_slot: morningSlot, afternoon_slot: afternoonSlot, evening_slot: eveningSlot }} />
+  );
+
   return (
     <div style={{ ...ui.page, paddingBottom: navPadding }}>
       {header}
       <div style={{ padding: 16 }}>
+        {changes && (
+          <div ref={changesRef} role="status" aria-label={t('changes_title')} style={{ ...card, border: `1px solid ${color.success}`, background: color.successSoft }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <Icon name="check" size={20} color={color.success} style={{ marginTop: 1 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: font.md, fontWeight: 700, color: color.ink }}>{t('changes_title')}</div>
+                <div style={{ fontSize: font.xs, color: color.muted, marginBottom: 6 }}>
+                  {t('changes_savedAt', { time: changes.at.toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour: 'numeric', minute: '2-digit' }) })}
+                </div>
+                {changes.list.length === 0 ? (
+                  <div style={{ fontSize: font.sm, color: color.text }}>{t('changes_none')}</div>
+                ) : (
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: font.sm, color: color.text, lineHeight: 1.6 }}>
+                    {changes.list.map(c => <li key={c.field} style={{ overflowWrap: 'anywhere' }}>{changeLine(c)}</li>)}
+                  </ul>
+                )}
+              </div>
+              <button type="button" onClick={() => setChanges(null)} aria-label={t('common_close')} style={{ ...ui.backButton, width: 32, height: 32, background: color.surface }}><Icon name="close" size={14} /></button>
+            </div>
+          </div>
+        )}
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -293,15 +446,29 @@ export default function SitterEditProfile({ onBack, city }) {
           </div>
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${color.line}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: font.sm, fontWeight: 600, color: color.text }}>{t('sitterEdit_completenessLabel')}</span>
+              <span style={{ fontSize: font.sm, fontWeight: 600, color: color.text }}>{t('strength_title')} · {strengthWord}</span>
               <span style={{ fontSize: font.sm, fontWeight: 700, color: pct === 100 ? color.success : color.navy, fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
             </div>
-            <div style={{ background: color.tile, borderRadius: radius.pill, height: 6 }}>
-              <div style={{ background: pct === 100 ? color.success : color.navy, borderRadius: radius.pill, height: 6, width: pct + '%', transition: 'width 0.3s' }} />
+            <div role="meter" aria-label={t('strength_title')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} style={{ background: color.tile, borderRadius: radius.pill, height: 6 }}>
+              <div style={{ background: pct === 100 ? color.success : pct >= 70 ? color.navy : color.saffron, borderRadius: radius.pill, height: 6, width: pct + '%', transition: 'width 0.3s' }} />
             </div>
-            {pct < 100 && <div style={{ color: color.muted, fontSize: font.xs, marginTop: 8, lineHeight: 1.5 }}>
-              {!photoUrl && t('sitterEdit_hintPhoto')}{bio.length < 30 && t('sitterEdit_hintBio')}{!upiId && t('sitterEdit_hintUpi')}
-            </div>}
+            {strength.missing.length > 0 ? (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: font.xs, fontWeight: 600, color: color.muted, marginBottom: 6 }}>{t('strength_missingTitle', { n: strength.missing.length })}</div>
+                <ul aria-label={t('strength_missingTitle', { n: strength.missing.length })} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {strength.missing.map(m => (
+                    <li key={m.id}>
+                      <button type="button" onClick={() => setTab(m.tab)}
+                        style={{ minHeight: 32, padding: '0 10px', borderRadius: radius.pill, border: `1px dashed ${color.faint}`, background: color.surface, color: color.text, fontSize: font.sm, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="plus" size={13} />{t(m.labelKey)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: color.success, fontSize: font.sm, marginTop: 8 }}><Icon name="check" size={15} />{t('strength_allDone')}</div>
+            )}
           </div>
         </div>
 
@@ -361,7 +528,41 @@ export default function SitterEditProfile({ onBack, city }) {
               </div>
             </div>
             <div style={card}>
+              <label htmlFor="sitter-edit-headline" style={{ ...cardTitle, display: 'block', marginBottom: 4 }}>{t('sitterEdit_headlineLabel')}</label>
+              <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 8 }}>{t('sitterEdit_headlineHint')}</div>
+              <input id="sitter-edit-headline" value={headline} maxLength={HEADLINE_MAX} onChange={e => setHeadline(e.target.value.slice(0, HEADLINE_MAX))}
+                placeholder={t('sitterEdit_headlinePlaceholder')} style={ui.input} />
+              <div style={{ fontSize: font.xs, color: color.faint, textAlign: 'right', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{headline.length}/{HEADLINE_MAX}</div>
+            </div>
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                <div style={{ ...cardTitle, marginBottom: 0 }}>{t('sitterEdit_highlightsLabel')}</div>
+                <span style={{ fontSize: font.xs, color: color.muted, fontVariantNumeric: 'tabular-nums' }}>{highlights.length}/{MAX_HIGHLIGHTS}</span>
+              </div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 10 }}>{t('sitterEdit_highlightsHint', { n: MAX_HIGHLIGHTS })}</div>
+              <div style={chipRow}>
+                {HIGHLIGHTS.map(h => {
+                  const on = highlights.includes(h);
+                  const full = !on && highlights.length >= MAX_HIGHLIGHTS;
+                  return (
+                    <button key={h} type="button" aria-pressed={on} disabled={full}
+                      onClick={() => setHighlights(prev => on ? prev.filter(x => x !== h) : prev.length >= MAX_HIGHLIGHTS ? prev : [...prev, h])}
+                      style={{ ...ui.chip(on), opacity: full ? 0.45 : 1, cursor: full ? 'not-allowed' : 'pointer' }}>
+                      {t(HIGHLIGHT_KEYS[h])}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={card}>
               <div style={cardTitle}>{t('sitterEdit_portfolioLabel')}</div>
+              <div style={{ background: color.navySoft, borderRadius: radius.md, padding: '10px 12px', marginBottom: 12, display: 'flex', gap: 8 }}>
+                <Icon name="camera" size={16} color={color.navy} style={{ marginTop: 2 }} />
+                <div style={{ fontSize: font.sm, color: color.text, lineHeight: 1.5 }}>
+                  <div>{t('sitterEdit_photoTipFace')}</div>
+                  <div>{t('sitterEdit_photoTipDogs')}</div>
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {photos.map((photo, i) => (
                   <div key={i} style={{ position: 'relative', aspectRatio: '1' }}>
@@ -383,11 +584,17 @@ export default function SitterEditProfile({ onBack, city }) {
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display: 'none' }} />
             </div>
             <div style={card}>
-              <label style={{ ...cardTitle, display: 'block', marginBottom: 8 }} htmlFor="sitter-edit-bio">{t('sitterEdit_bioLabel')}</label>
-              <textarea id="sitter-edit-bio" value={bio} onChange={e => setBio(e.target.value)} maxLength={300}
+              <label style={{ ...cardTitle, display: 'block', marginBottom: 4 }} htmlFor="sitter-edit-bio">{t('sitterEdit_aboutLabel')}</label>
+              <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 8 }}>{t('sitterEdit_aboutHint')}</div>
+              <textarea id="sitter-edit-bio" value={bio} onChange={e => setBio(e.target.value)} maxLength={ABOUT_MAX}
                 placeholder={t('sitterEdit_bioPlaceholder')}
-                style={{ ...ui.input, fontSize: font.md, resize: 'none', minHeight: 100, lineHeight: 1.6 }} />
-              <div style={{ fontSize: font.xs, color: color.faint, textAlign: 'right', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{bio.length}/300</div>
+                style={{ ...ui.input, fontSize: font.md, resize: 'vertical', minHeight: 140, lineHeight: 1.6 }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+                <span aria-live="polite" style={{ fontSize: font.xs, color: bio.trim().length >= ABOUT_MIN ? color.success : color.warning }}>
+                  {bio.trim().length >= ABOUT_MIN ? t('sitterEdit_aboutEnough') : t('sitterEdit_aboutMore', { n: ABOUT_MIN - bio.trim().length, min: ABOUT_MIN })}
+                </span>
+                <span style={{ fontSize: font.xs, color: color.faint, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{bio.length}/{ABOUT_MAX}</span>
+              </div>
             </div>
             <div style={card}>
               <div style={cardTitle}>{t('sitterEdit_experienceLabel')}</div>
@@ -454,6 +661,22 @@ export default function SitterEditProfile({ onBack, city }) {
         )}
         {tab === 'availability' && (
           <div>
+            <div style={card}>
+              <div style={{ ...cardTitle, marginBottom: 4 }}>{t('area_title')}</div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 12 }}>{t('area_subtitle')}</div>
+              <ServiceAreaPicker city={city} value={area} onChange={patch => setArea(prev => ({ ...prev, ...patch }))} />
+            </div>
+            <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ ...ui.iconTile, width: 44, height: 44 }}><Icon name="calendar" /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{t('sitterEdit_calendarTitle')}</div>
+                <div style={{ fontSize: font.sm, color: color.muted }}>{t('sitterEdit_calendarSub')}</div>
+              </div>
+              <button type="button" onClick={() => setShowCalendar(true)} disabled={!sitterProfile?.id}
+                style={{ ...ui.secondaryButton, minHeight: 44, padding: '0 14px', fontSize: font.md, flexShrink: 0 }}>
+                {t('sitterEdit_calendarOpen')}
+              </button>
+            </div>
             <div style={card}>
               <div style={cardTitle}>{t('sitterEdit_availableDaysLabel')}</div>
               <div style={{ ...chipRow, marginBottom: 12 }}>

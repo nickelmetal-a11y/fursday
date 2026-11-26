@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
+import { color, font, ui } from './theme';
+import Icon from './ui/Icon';
+import { A, Badge, ChipGroup, ConfirmDialog, DataTable, EmptyState, LoadMore, Notice, SearchBox, SectionHeader, Skeleton, Toolbar, fmtDate, usePaged } from './AdminUI';
 
-const ORANGE = '#FF6B35';
 const LINKS_API = 'https://fursday.vercel.app/api/test-login-links';
 
 export const whatsappMessage = (a) => [
@@ -38,39 +40,79 @@ function TestLogins() {
   const all = (accounts || []).filter(a => a.link).map(whatsappMessage).join('\n\n────────\n\n');
 
   return (
-    <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>Test logins</div>
-          <div style={{ fontSize: 12, color: '#888' }}>One-time links for the TEST accounts only. Each works once and expires in 24 hours (Supabase Email OTP Expiration = 86400).</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {accounts && accounts.length > 0 && <button onClick={() => copy(all, 'all')} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: '1px solid #DDD', background: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{copied === 'all' ? 'Copied ✓' : 'Copy all messages'}</button>}
-          <button onClick={generate} disabled={busy} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>{busy ? 'Creating links…' : accounts ? 'Make fresh links' : 'Make login links'}</button>
-        </div>
-      </div>
-      {error && <div role="alert" style={{ marginTop: 10, fontSize: 13, color: '#A32D2D', background: '#FCEBEB', borderRadius: 8, padding: '8px 12px' }}>{error}</div>}
-      {accounts && accounts.length === 0 && <div style={{ marginTop: 10, fontSize: 13, color: '#888' }}>No test accounts found.</div>}
-      {accounts && accounts.map(a => (
-        <div key={a.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: '1px solid #F2F2F2', marginTop: 10, flexWrap: 'wrap' }}>
+    <section style={ui.card}>
+      <SectionHeader title="Test logins"
+        subtitle="One-time links for the TEST accounts only. Each works once and expires in 24 hours (Supabase Email OTP Expiration = 86400)."
+        action={<>
+          {accounts && accounts.length > 0 && <button onClick={() => copy(all, 'all')} style={A.small}>{copied === 'all' ? 'Copied ✓' : 'Copy all messages'}</button>}
+          <button onClick={generate} disabled={busy} style={{ ...A.smallPrimary, ...(busy ? { opacity: 0.6 } : null) }}>{busy ? 'Creating links…' : accounts ? 'Make fresh links' : 'Make login links'}</button>
+        </>} />
+      {error && <Notice tone="danger" icon="alert">{error}</Notice>}
+      {accounts && accounts.length === 0 && <div style={A.muted}>No test accounts found.</div>}
+      {accounts && accounts.map((a, i) => (
+        <div key={a.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none', flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{a.name}</div>
-            <div style={{ fontSize: 12, color: '#888' }}>{a.role === 'sitter' ? 'Sitter' + (a.sitterStatus ? ' · ' + a.sitterStatus : '') : 'Pet parent'} · {a.email}</div>
-            {a.error && <div style={{ fontSize: 12, color: '#A32D2D' }}>{a.error}</div>}
+            <div style={{ fontSize: font.md, fontWeight: 600 }}>{a.name}</div>
+            <div style={A.muted}>{a.role === 'sitter' ? 'Sitter' + (a.sitterStatus ? ' · ' + a.sitterStatus : '') : 'Pet parent'} · {a.email}</div>
+            {a.error && <div style={{ fontSize: font.sm, color: color.danger }}>{a.error}</div>}
           </div>
           {a.link && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => copy(whatsappMessage(a), a.email)} style={{ minHeight: 34, padding: '0 10px', borderRadius: 8, border: '1px solid #DDD', background: 'white', fontSize: 12, cursor: 'pointer' }}>{copied === a.email ? 'Copied ✓' : 'Copy message'}</button>
+            <div style={A.row(6)}>
+              <button onClick={() => copy(whatsappMessage(a), a.email)} style={A.small}>{copied === a.email ? 'Copied ✓' : 'Copy message'}</button>
               <a href={'https://wa.me/?text=' + encodeURIComponent(whatsappMessage(a))} target="_blank" rel="noreferrer"
-                style={{ minHeight: 34, padding: '0 10px', borderRadius: 8, background: '#25D366', color: 'white', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>WhatsApp</a>
+                style={{ ...A.smallPrimary, background: color.success, textDecoration: 'none' }}><Icon name="send" size={14} />WhatsApp</a>
             </div>
           )}
         </div>
       ))}
-    </div>
+    </section>
   );
 }
-const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+
+const SEED_API = 'https://fursday.vercel.app/api/seed-test-data';
+
+// Fills the live database with TEST data (see api/seed-test-data.js): only
+// @example.com accounts are ever created or changed. Safe to run again.
+export function TestData() {
+  const [busy, setBusy] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  const run = async (step) => {
+    setBusy(step); setError(''); setResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch(SEED_API, { method: 'POST', headers: { Authorization: 'Bearer ' + (session?.access_token || ''), 'Content-Type': 'application/json' }, body: JSON.stringify({ step }) });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || 'Request failed');
+      setResult(body);
+    } catch (e) { setError(e.message); }
+    setBusy(null);
+  };
+
+  return (
+    <section style={ui.card}>
+      <SectionHeader title="Test data"
+        subtitle="Creates or completes TEST accounts only (@example.com). Running it again reuses what exists."
+        action={<>
+          <button onClick={() => run('pune')} disabled={!!busy} style={{ ...A.small, ...(busy ? { opacity: 0.6 } : null) }}>{busy === 'pune' ? 'Creating…' : 'Create Pune test accounts'}</button>
+          <button onClick={() => run('profiles')} disabled={!!busy} style={{ ...A.smallPrimary, ...(busy ? { opacity: 0.6 } : null) }}>{busy === 'profiles' ? 'Filling profiles…' : 'Complete test sitter profiles'}</button>
+        </>} />
+      {error && <Notice tone="danger" icon="alert">{error}</Notice>}
+      {result && (
+        <div>
+          {result.notes?.map(n => <Notice key={n} tone="warning" icon="info">{n}</Notice>)}
+          {result.report.length === 0 && <div style={A.muted}>Nothing to do.</div>}
+          {result.report.map((line, i) => (
+            <div key={i} style={{ fontSize: font.sm, padding: '6px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>{line}</div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const daysOpen = (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000);
 
 // People on the platform, plus the account deletion queue (Apple 5.1.1 / DPDP:
 // a request must be acted on within 30 days, so the oldest is shown first).
@@ -84,6 +126,7 @@ export default function AdminUsers() {
   const [role, setRole] = useState('all');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [confirm, setConfirm] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -109,7 +152,7 @@ export default function AdminUsers() {
   };
 
   const completeDeletion = async (req) => {
-    if (!window.confirm('Mark this deletion as done? Do this only after the personal data has been removed.')) return;
+    setConfirm(null);
     const { error } = await supabase.from('account_deletion_requests').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', req.id);
     if (error) { setMsg('Could not update: ' + error.message); return; }
     setMsg('Deletion marked as completed');
@@ -117,82 +160,72 @@ export default function AdminUsers() {
   };
 
   const nameById = useMemo(() => Object.fromEntries(users.map(u => [u.id, u.name])), [users]);
+  const q = query.trim().toLowerCase();
   const filtered = users.filter(u => {
     const isSitter = !!sitterByUser[u.id];
     if (role === 'sitter' && !isSitter) return false;
     if (role === 'parent' && isSitter) return false;
-    const q = query.trim().toLowerCase();
     return !q || (u.name || '').toLowerCase().includes(q) || (contacts[u.id]?.email || '').toLowerCase().includes(q);
   });
+  const paged = usePaged(filtered, 50, role + '|' + q);
 
-  if (loading) return <div style={{ color: '#888', fontSize: 14 }}>Loading people...</div>;
+  if (loading) return <Skeleton rows={6} label="Loading people..." />;
 
-  const daysOpen = (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000);
+  const columns = [
+    { key: 'name', label: 'Name', render: u => <span style={{ fontWeight: 600 }}>{u.name || '—'}</span> },
+    { key: 'role', label: 'Role', nowrap: true, render: u => (sitterByUser[u.id] ? <span>{'Sitter · ' + sitterByUser[u.id].status}</span> : <span>Pet parent</span>) },
+    { key: 'joined', label: 'Joined', nowrap: true, render: u => fmtDate(u.created_at) },
+    { key: 'bookings', label: 'Bookings', align: 'right', render: u => bookingCounts[u.id] || 0 },
+    { key: 'contact', label: 'Contact', render: u => {
+      const c = contacts[u.id];
+      return c ? <span style={{ fontSize: font.sm }}>{c.phone || 'no phone'} · {c.email || 'no email'}</span>
+        : <button onClick={() => showContact(u.id)} style={A.small}><Icon name="eye" size={14} />Show</button>;
+    } },
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {msg && <div role="status" style={{ background: '#E8F5E9', color: '#2E7D32', borderRadius: 10, padding: '8px 12px', fontSize: 13 }}>{msg}</div>}
+    <div style={A.stack(16)}>
+      {msg && <Notice tone={msg.startsWith('Could not') ? 'danger' : 'success'} icon="check">{msg}</Notice>}
 
-      <TestLogins />
-
-      <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 10 }}>Account deletion requests ({deletions.length})</div>
-        {deletions.length === 0 && <div style={{ fontSize: 13, color: '#888' }}>No open requests.</div>}
-        {deletions.map(d => {
+      <section style={ui.card}>
+        <SectionHeader title={'Account deletion requests (' + deletions.length + ')'} subtitle="Must be completed within 30 days of the request. Oldest first." />
+        {deletions.length === 0 && <div style={A.muted}>No open requests.</div>}
+        {deletions.map((d, i) => {
           const age = daysOpen(d.requested_at);
           return (
-            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: '1px solid #F2F2F2', flexWrap: 'wrap' }}>
+            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${color.line}` : 'none', flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{nameById[d.user_id] || d.user_id}</div>
-                <div style={{ fontSize: 12, color: age >= 25 ? '#C62828' : '#888' }}>Requested {fmt(d.requested_at)} · {age} days ago{age >= 25 ? ' · due within 30 days' : ''}</div>
-                {d.reason && <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>“{d.reason}”</div>}
+                <div style={{ ...A.row(6), fontSize: font.md, fontWeight: 600 }}>{nameById[d.user_id] || d.user_id}{age >= 25 && <Badge tone="danger" icon="clock">Due soon</Badge>}</div>
+                <div style={{ fontSize: font.sm, color: age >= 25 ? color.danger : color.muted }}>Requested {fmtDate(d.requested_at)} · {age} days ago{age >= 25 ? ' · due within 30 days' : ''}</div>
+                {d.reason && <div style={{ fontSize: font.sm, color: color.text, marginTop: 2 }}>“{d.reason}”</div>}
               </div>
-              <button onClick={() => completeDeletion(d)} style={{ minHeight: 36, padding: '0 14px', borderRadius: 8, border: 'none', background: '#FCEBEB', color: '#A32D2D', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Mark deleted</button>
+              <button onClick={() => setConfirm(d)} style={A.smallDanger}>Mark deleted</button>
             </div>
           );
         })}
-      </div>
+      </section>
 
-      <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-          <input aria-label="Search people" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by name"
-            style={{ flex: 1, minWidth: 180, padding: '10px 12px', borderRadius: 8, border: '1.5px solid #E0E0E0', fontSize: 14 }} />
-          {['all', 'parent', 'sitter'].map(r => (
-            <button key={r} onClick={() => setRole(r)} aria-pressed={role === r}
-              style={{ minHeight: 40, padding: '0 14px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: role === r ? ORANGE : '#F0F0F0', color: role === r ? 'white' : '#555' }}>
-              {r === 'all' ? 'Everyone' : r === 'parent' ? 'Pet parents' : 'Sitters'}
-            </button>
-          ))}
-        </div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{filtered.length} of {users.length} people</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: '#888', fontSize: 11, textTransform: 'uppercase' }}>
-                <th style={{ padding: '6px 8px' }}>Name</th><th style={{ padding: '6px 8px' }}>Role</th><th style={{ padding: '6px 8px' }}>Joined</th><th style={{ padding: '6px 8px' }}>Bookings</th><th style={{ padding: '6px 8px' }}>Contact</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(u => {
-                const sp = sitterByUser[u.id];
-                const c = contacts[u.id];
-                return (
-                  <tr key={u.id} style={{ borderTop: '1px solid #F2F2F2' }}>
-                    <td style={{ padding: '8px', fontWeight: 600 }}>{u.name || '—'}</td>
-                    <td style={{ padding: '8px' }}>{sp ? 'Sitter · ' + sp.status : 'Pet parent'}</td>
-                    <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{fmt(u.created_at)}</td>
-                    <td style={{ padding: '8px', fontVariantNumeric: 'tabular-nums' }}>{bookingCounts[u.id] || 0}</td>
-                    <td style={{ padding: '8px' }}>
-                      {c ? <span style={{ fontSize: 12 }}>{c.phone || 'no phone'} · {c.email || 'no email'}</span>
-                        : <button onClick={() => showContact(u.id)} style={{ minHeight: 30, padding: '0 10px', borderRadius: 6, border: '1px solid #DDD', background: 'white', fontSize: 12, cursor: 'pointer' }}>Show</button>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <section>
+        <SectionHeader title="People" />
+        <Toolbar>
+          <SearchBox label="Search people" value={query} onChange={setQuery} placeholder="Search by name" />
+          <ChipGroup label="Filter by role" value={role} onChange={setRole}
+            options={[{ id: 'all', label: 'Everyone' }, { id: 'parent', label: 'Pet parents' }, { id: 'sitter', label: 'Sitters' }]} />
+        </Toolbar>
+        {filtered.length === 0 ? <EmptyState icon="users" title="Nobody matches" /> : <>
+          <DataTable label="People" columns={columns} rows={paged.visible} />
+          <LoadMore paged={paged} total={filtered.length} />
+        </>}
+      </section>
+
+      <TestLogins />
+      <TestData />
+
+      {confirm && (
+        <ConfirmDialog title="Mark this deletion as done?" tone="danger" confirmLabel="Yes, mark deleted" onCancel={() => setConfirm(null)} onConfirm={() => completeDeletion(confirm)}>
+          Do this only after {nameById[confirm.user_id] || 'this person'}'s personal data has been removed.
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

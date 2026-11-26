@@ -1,9 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from './supabase';
+import { writeWithFallback } from './schemaFallback';
 import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
+import ServiceAreaPicker from './ServiceAreaPicker';
+import { nearestLocality } from './geo';
 
 
 const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
@@ -105,8 +108,7 @@ export default function SitterOnboarding({ onDone, city }) {
   const [maxDogs, setMaxDogs] = useState('1');
   const [advanceNotice, setAdvanceNotice] = useState('24hrs');
   const [saving, setSaving] = useState(false);
-  const [sitterLat, setSitterLat] = useState(null);
-  const [sitterLng, setSitterLng] = useState(null);
+  const [area, setArea] = useState({ base_area: '', base_pincode: '', lat: null, lng: null, service_radius_km: 5 });
   const [photoUrl, setPhotoUrl] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [draftSitterId, setDraftSitterId] = useState(null);
@@ -134,6 +136,7 @@ export default function SitterOnboarding({ onDone, city }) {
           if (draft.max_dogs) setMaxDogs(String(draft.max_dogs));
           if (draft.advance_notice) setAdvanceNotice(draft.advance_notice);
           if (draft.profile_photo_url) setPhotoUrl(draft.profile_photo_url);
+          if (draft.base_area || draft.service_radius_km) setArea({ base_area: draft.base_area || '', base_pincode: draft.base_pincode || '', lat: draft.lat ?? null, lng: draft.lng ?? null, service_radius_km: Number(draft.service_radius_km) || 5 });
 
           const { data: userRow } = await supabase.from('users').select('name').eq('id', user.id).single();
           if (userRow?.name && userRow.name.toLowerCase() !== user.email?.toLowerCase()) setName(userRow.name);
@@ -166,14 +169,14 @@ export default function SitterOnboarding({ onDone, city }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
-      const { data: draft, error } = await supabase.from('sitter_profiles').upsert({
+      const { data: draft, error } = await writeWithFallback(row => supabase.from('sitter_profiles').upsert(row, { onConflict: 'user_id' }).select().single(), {
         user_id: user.id, city_id: cityRow?.id, status: 'draft', onboarding_step: step,
         bio, experience_years: parseInt(experience) || 0, experience_text: experience || null,
         languages, availability_days: availableDays, morning_slot: morningSlot,
         afternoon_slot: afternoonSlot, evening_slot: eveningSlot, max_dogs: parseInt(maxDogs) || 1,
-        advance_notice: advanceNotice, profile_photo_url: photoUrl,
+        advance_notice: advanceNotice, profile_photo_url: photoUrl, ...areaFields(),
         ...extra,
-      }, { onConflict: 'user_id' }).select().single();
+      });
       if (error) { console.log('Draft save error:', error.message); return draftSitterId; }
       setDraftSitterId(draft.id);
       return draft.id;
@@ -208,14 +211,25 @@ export default function SitterOnboarding({ onDone, city }) {
     setUploadingPhoto(false);
   };
 
+  // A GPS fix pre-fills the base area (the sitter can still change it on the
+  // availability step); a draft restored later or a manual pick always wins.
   React.useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        pos => { setSitterLat(pos.coords.latitude); setSitterLng(pos.coords.longitude); },
+        pos => {
+          const loc = nearestLocality(pos.coords.latitude, pos.coords.longitude, city);
+          if (loc) setArea(prev => (prev.base_area ? prev : { ...prev, base_area: loc.name, base_pincode: loc.pincode, lat: loc.lat, lng: loc.lng }));
+        },
         () => {}
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const areaFields = () => ({
+    base_area: area.base_area || null, base_pincode: area.base_pincode || null,
+    lat: area.lat ?? null, lng: area.lng ?? null, service_radius_km: Number(area.service_radius_km) || 5,
+  });
 
   const cityInfo = CITY_DATA[city];
   const activeServices = SERVICES.filter(s => services.includes(s.id));
@@ -260,7 +274,7 @@ export default function SitterOnboarding({ onDone, city }) {
       );
       if (userError) { alert(tr('sitterOnboarding_couldNotSaveDetails', { error: userError.message })); setSaving(false); return; }
 
-      const { data: sitter, error: sitterError } = await supabase.from('sitter_profiles').upsert({
+      const { data: sitter, error: sitterError } = await writeWithFallback(row => supabase.from('sitter_profiles').upsert(row, { onConflict: 'user_id' }).select().single(), {
         user_id: currentUser.id, city_id: cityRow.id,
         bio, experience_years: parseInt(experience) || 0,
         experience_text: experience || null,
@@ -272,7 +286,8 @@ export default function SitterOnboarding({ onDone, city }) {
         max_dogs: parseInt(maxDogs) || 1,
         advance_notice: advanceNotice,
         profile_photo_url: photoUrl,
-      }, { onConflict: 'user_id' }).select().single();
+        ...areaFields(),
+      });
       if (sitterError) { alert(tr('sitterOnboarding_couldNotSaveSitterProfile', { error: sitterError.message })); setSaving(false); return; }
 
       // Replace any previous services (re-running onboarding shouldn't duplicate rows)
@@ -607,6 +622,12 @@ export default function SitterOnboarding({ onDone, city }) {
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_yourAvailability')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_setScheduleChangeAnytime')}</p>
+
+        <div style={card}>
+          <div style={{ ...cardTitle, marginBottom: 4 }}>{tr('area_title')}</div>
+          <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 12 }}>{tr('area_subtitle')}</div>
+          <ServiceAreaPicker city={city} value={area} onChange={patch => setArea(prev => ({ ...prev, ...patch }))} />
+        </div>
 
         <div style={card}>
           <div style={cardTitle}>{tr('sitterOnboarding_availableDays')}</div>

@@ -391,7 +391,7 @@ describe('Admin trust & safety scenarios', () => {
     fireEvent.change(screen.getByPlaceholderText('Refund amount (Rs.)'), { target: { value: '200' } });
     fireEvent.change(screen.getByPlaceholderText('Admin notes...'), { target: { value: 'GPS shows a 10 minute walk.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Resolve Dispute' }));
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Dispute resolved!'));
+    expect(await screen.findByText('Dispute resolved!')).toBeInTheDocument();
   }
 
   test('S39: Admin resolves a dispute on bk-done with a refund — row resolved with refund and notes', async () => {

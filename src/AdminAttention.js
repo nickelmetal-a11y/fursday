@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { color, font, ui } from './theme';
+import Icon from './ui/Icon';
 import { attentionItems } from './adminInsights';
+import { Badge, SectionHeader } from './AdminUI';
 
 const LEVEL = {
-  critical: { bg: '#FCEBEB', fg: '#A32D2D', label: 'Urgent' },
-  warning: { bg: '#FFF3E0', fg: '#E65100', label: 'Today' },
-  info: { bg: '#E3F2FD', fg: '#1565C0', label: 'Soon' },
+  critical: { tone: 'danger', label: 'Urgent', icon: 'alert' },
+  warning: { tone: 'warning', label: 'Today', icon: 'clock' },
+  info: { tone: 'info', label: 'Soon', icon: 'info' },
 };
 
 export default function AdminAttention({ bookings, sitters, onOpenBooking, onGoTab }) {
@@ -32,22 +35,25 @@ export default function AdminAttention({ bookings, sitters, onOpenBooking, onGoT
   };
 
   return (
-    <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>Needs attention</div>
-        <div style={{ fontSize: 12, color: '#888' }}>{items.length ? items.length + ' item' + (items.length > 1 ? 's' : '') : ''}</div>
-      </div>
-      {items.length === 0 && <div style={{ fontSize: 13, color: '#2E7D32' }}>✓ Nothing needs you right now.</div>}
+    <section style={ui.card}>
+      <SectionHeader title="Needs attention" subtitle="Most urgent first. Open an item to act on it."
+        action={items.length ? <Badge tone={items.some(i => i.level === 'critical') ? 'danger' : 'warning'}>{items.length + ' item' + (items.length > 1 ? 's' : '')}</Badge> : null} />
+      {items.length === 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: font.md, color: color.success }}>
+          <Icon name="check" size={18} />Nothing needs you right now.
+        </div>
+      )}
       {items.map((it, i) => (
         <button key={i} onClick={() => open(it)}
-          style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', border: 'none', borderTop: i ? '1px solid #F2F2F2' : 'none', background: 'none', cursor: 'pointer' }}>
-          <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 10, background: LEVEL[it.level].bg, color: LEVEL[it.level].fg, flexShrink: 0, marginTop: 1 }}>{LEVEL[it.level].label}</span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{it.title}</span>
-            <span style={{ display: 'block', fontSize: 12, color: '#666' }}>{it.detail}</span>
+          style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 0', border: 'none', borderTop: i ? `1px solid ${color.line}` : 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', color: color.ink }}>
+          <span style={{ flexShrink: 0, marginTop: 1 }}><Badge tone={LEVEL[it.level].tone} icon={LEVEL[it.level].icon}>{LEVEL[it.level].label}</Badge></span>
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span style={{ display: 'block', fontSize: font.md, fontWeight: 600 }}>{it.title}</span>
+            <span style={{ display: 'block', fontSize: font.sm, color: color.muted, lineHeight: 1.5 }}>{it.detail}</span>
           </span>
+          <Icon name="chevronRight" size={18} color={color.faint} style={{ marginTop: 2 }} />
         </button>
       ))}
-    </div>
+    </section>
   );
 }

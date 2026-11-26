@@ -136,7 +136,8 @@ describe('AdminPanel access gate', () => {
   test('a real is_admin account goes straight to the dashboard', async () => {
     renderAdminPanel();
     expect(await screen.findByText('Fursday Admin')).toBeInTheDocument();
-    expect(screen.getByText('No pending applications')).toBeInTheDocument();
+    // The queue shows skeletons until the first load finishes.
+    expect(await screen.findByText('No pending applications')).toBeInTheDocument();
   });
 });
 
@@ -180,7 +181,7 @@ describe('AdminPanel sitter actions', () => {
     expect(screen.getByText('Approve').closest('button')).toBeDisabled();
   });
 
-  test('marking a payout paid resolves the sitter real users.id for both the payout and any pending referral bonus', async () => {
+  test('marking a payout paid resolves the sitter real users.id for the payout and leaves referral credits alone', async () => {
     global.__unpaidBookings = [{
       id: 'booking-1',
       booking_ref: 'FUR123456',
@@ -203,10 +204,9 @@ describe('AdminPanel sitter actions', () => {
     await waitFor(() => expect(notifyPayoutMarked).toHaveBeenCalledWith(
       'sitter-user-9', 'sitter@test.com', '9111111111', 29700, 1, expect.any(String)
     ));
-    await waitFor(() => expect(notifyReferralBonusPaid).toHaveBeenCalledWith(
-      'sitter-user-9', 'sitter@test.com', '9111111111', 100, 'Someone'
-    ));
     expect(updateCalls).toContainEqual({ table: 'bookings', fields: { payout_status: 'paid' } });
-    expect(updateCalls).toContainEqual({ table: 'referral_bonuses', fields: { status: 'paid' } });
+    // Referral credits are applied from the Referrals tab, never as a side effect of a payout.
+    expect(notifyReferralBonusPaid).not.toHaveBeenCalled();
+    expect(updateCalls.some(c => c.table === 'referral_bonuses')).toBe(false);
   });
 });

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { color, radius } from './theme';
+import Icon from './ui/Icon';
+import { A, ChipGroup, DataTable, EmptyState, KpiTile, SectionHeader, Skeleton } from './AdminUI';
 
-const ORANGE = '#FF6B35';
 const rupees = (paise) => Math.round((paise || 0) / 100);
 const inr = (n) => 'Rs.' + Math.round(n).toLocaleString('en-IN');
 
@@ -24,9 +26,10 @@ export const toCsv = (rows) => {
 };
 
 export default function AdminReports() {
-  const [bookings, setBookings] = useState([]);
+  const [all, setAll] = useState([]);
   const [founding, setFounding] = useState({});
   const [loading, setLoading] = useState(true);
+  const [city, setCity] = useState('all');
 
   useEffect(() => {
     (async () => {
@@ -34,14 +37,16 @@ export default function AdminReports() {
         supabase.from('bookings').select('*, cities(name)').order('created_at', { ascending: false }),
         supabase.from('sitter_profiles').select('id, is_founding_sitter'),
       ]);
-      setBookings(b || []);
+      setAll(b || []);
       setFounding(Object.fromEntries((sp || []).map(s => [s.id, !!s.is_founding_sitter])));
       setLoading(false);
     })();
   }, []);
 
-  if (loading) return <div style={{ color: '#888', fontSize: 14 }}>Loading reports...</div>;
+  if (loading) return <Skeleton rows={5} label="Loading reports..." />;
 
+  const cities = [...new Set(all.map(b => b.cities?.name).filter(Boolean))].sort();
+  const bookings = city === 'all' ? all : all.filter(b => b.cities?.name === city);
   const rate = (b) => (founding[b.sitter_id] ? 0 : 0.15);
   const completed = bookings.filter(b => b.status === 'completed');
   const cancelled = bookings.filter(b => b.status === 'cancelled');
@@ -57,64 +62,50 @@ export default function AdminReports() {
     weeks[k].bookings += 1;
     if (b.status === 'completed') { weeks[k].completed += 1; weeks[k].gmv += rupees(b.gross_amount_paise); weeks[k].take += platformTake(b, rate(b)) / 100; }
   });
-  const weekRows = Object.entries(weeks).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 12);
-  const maxGmv = Math.max(1, ...weekRows.map(([, w]) => w.gmv));
+  const weekRows = Object.entries(weeks).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 12).map(([wk, w]) => ({ id: wk, ...w }));
+  const maxGmv = Math.max(1, ...weekRows.map(w => w.gmv));
 
   const download = () => {
     const blob = new Blob([toCsv(bookings)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'fursday-bookings-' + new Date().toISOString().split('T')[0] + '.csv';
+    a.download = 'fursday-bookings-' + (city === 'all' ? '' : city.toLowerCase() + '-') + new Date().toISOString().split('T')[0] + '.csv';
     a.click();
   };
 
-  const tile = (label, value, color) => (
-    <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    </div>
-  );
+  const columns = [
+    { key: 'week', label: 'Week of', nowrap: true, render: w => new Date(w.id).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+    { key: 'bookings', label: 'Bookings', align: 'right' },
+    { key: 'completed', label: 'Completed', align: 'right' },
+    { key: 'gmv', label: 'GMV', align: 'right', render: w => (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minWidth: 160 }}>
+        <div aria-hidden="true" style={{ height: 8, borderRadius: radius.sm, background: color.navy, width: Math.max(2, (w.gmv / maxGmv) * 90) + 'px' }} />
+        <span>{inr(w.gmv)}</span>
+      </div>
+    ) },
+    { key: 'take', label: 'Revenue', align: 'right', render: w => inr(w.take) },
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-        {tile('Completed bookings', completed.length, '#6A1B9A')}
-        {tile('GMV (completed)', inr(gmv), ORANGE)}
-        {tile('Fursday revenue', inr(take), '#2E7D32')}
-        {tile('Refunded', inr(refunds), '#C62828')}
-        {tile('Cancellation rate', cancelRate + '%', '#E65100')}
+    <div style={A.stack(16)}>
+      {cities.length > 1 && (
+        <ChipGroup label="Filter reports by city" value={city} onChange={setCity} options={[{ id: 'all', label: 'All cities' }, ...cities.map(c => ({ id: c, label: c }))]} />
+      )}
+      <div style={A.grid(170)}>
+        <KpiTile label="Completed bookings" value={completed.length} />
+        <KpiTile label="GMV (completed)" value={inr(gmv)} />
+        <KpiTile label="Fursday revenue" value={inr(take)} tone={take < 0 ? 'danger' : 'success'} />
+        <KpiTile label="Refunded" value={inr(refunds)} />
+        <KpiTile label="Cancellation rate" value={cancelRate + '%'} tone={cancelRate >= 20 ? 'danger' : undefined} />
       </div>
 
-      <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>By week (last 12)</div>
-          <button onClick={download} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Download all bookings (CSV)</button>
-        </div>
-        {weekRows.length === 0 && <div style={{ fontSize: 13, color: '#888' }}>No bookings yet.</div>}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
-            <thead><tr style={{ textAlign: 'left', color: '#888', fontSize: 11, textTransform: 'uppercase' }}>
-              <th style={{ padding: '6px 8px' }}>Week of</th><th style={{ padding: '6px 8px' }}>Bookings</th><th style={{ padding: '6px 8px' }}>Completed</th><th style={{ padding: '6px 8px', minWidth: 160 }}>GMV</th><th style={{ padding: '6px 8px' }}>Revenue</th>
-            </tr></thead>
-            <tbody>
-              {weekRows.map(([wk, w]) => (
-                <tr key={wk} style={{ borderTop: '1px solid #F2F2F2' }}>
-                  <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{new Date(wk).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
-                  <td style={{ padding: 8 }}>{w.bookings}</td>
-                  <td style={{ padding: 8 }}>{w.completed}</td>
-                  <td style={{ padding: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ height: 8, borderRadius: 4, background: ORANGE, width: Math.max(2, (w.gmv / maxGmv) * 100) + 'px' }} />
-                      {inr(w.gmv)}
-                    </div>
-                  </td>
-                  <td style={{ padding: 8 }}>{inr(w.take)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <section>
+        <SectionHeader title="By week (last 12)" subtitle="Revenue is Fursday's commission after Founding Sitter and promo costs."
+          action={<button onClick={download} style={A.primary}><Icon name="download" size={18} />Download bookings (CSV)</button>} />
+        {weekRows.length === 0
+          ? <EmptyState icon="chart" title="No bookings yet." />
+          : <DataTable label="Bookings by week" columns={columns} rows={weekRows} />}
+      </section>
     </div>
   );
 }

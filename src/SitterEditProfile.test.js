@@ -7,7 +7,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import SitterEditProfile from './SitterEditProfile';
+import SitterEditProfile, { profileStrength, profileSnapshot, diffProfile } from './SitterEditProfile';
 
 let deleteCalls, insertCalls, updateCalls;
 
@@ -117,5 +117,37 @@ describe('SitterEditProfile', () => {
     fireEvent.click(screen.getByText('Payout'));
     fireEvent.change(screen.getByPlaceholderText('e.g. yourname@paytm'), { target: { value: 'priya@paytm' } });
     expect(await screen.findByText('UPI ID looks good')).toBeInTheDocument();
+  });
+});
+
+describe('profile strength and change summary helpers', () => {
+  const full = {
+    photoUrl: 'x.jpg', headline: 'Calm walker', bio: 'a'.repeat(120), highlights: ['Puppies'], photos: [{ url: 'p.jpg' }],
+    experience: '3-5 years', baseArea: 'Baner', activeServices: ['walk30'], aadhaarNumber: '123412341234', upiId: 'me@upi',
+  };
+
+  test('a complete profile is 100% with nothing missing', () => {
+    expect(profileStrength(full)).toEqual({ pct: 100, missing: [] });
+  });
+
+  test('lists exactly what is missing, with the tab that fixes it', () => {
+    const r = profileStrength({ ...full, headline: '  ', bio: 'a'.repeat(119), baseArea: '', upiId: '' });
+    expect(r.pct).toBe(60);
+    expect(r.missing.map(m => [m.id, m.tab])).toEqual([['headline', 'profile'], ['about', 'profile'], ['area', 'availability'], ['upi', 'payout']]);
+  });
+
+  test('diffProfile reports text, number, list and service changes only', () => {
+    const base = { headline: '', bio: 'Old', highlights: ['Puppies'], area: { base_area: '', service_radius_km: 5 }, activeServices: ['walk30'], prices: { walk30: 400 }, languages: ['Hindi'] };
+    const before = profileSnapshot(base);
+    const after = profileSnapshot({ ...base, headline: 'Calm walker', highlights: ['Large breeds'], area: { base_area: 'Baner', service_radius_km: 8 }, activeServices: ['walk30', 'boarding'], prices: { walk30: 450, boarding: 1200 } });
+    expect(diffProfile(before, after)).toEqual([
+      { field: 'headline', from: '', to: 'Calm walker' },
+      { field: 'highlights', from: ['Puppies'], to: ['Large breeds'], added: ['Large breeds'], removed: ['Puppies'] },
+      { field: 'base_area', from: '', to: 'Baner' },
+      { field: 'service_radius_km', from: 5, to: 8 },
+      { field: 'svc_walk30', from: 400, to: 450 },
+      { field: 'svc_boarding', from: null, to: 1200 },
+    ]);
+    expect(diffProfile(before, before)).toEqual([]);
   });
 });

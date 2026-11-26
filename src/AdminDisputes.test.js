@@ -1,5 +1,6 @@
 /**
- * Unit tests for AdminDisputes.js. Before this session, `disputes` had no
+ * Unit tests for AdminDisputes.js. Outcomes now show inline in the page
+ * (they used window.alert before the admin redesign). Before this session, `disputes` had no
  * UPDATE policy at all, so resolveDispute()'s update was silently denied by
  * RLS while the UI still said "Dispute resolved!" — the unchecked error was
  * fixed to throw/surface instead. See CLAUDE.md Session 10.
@@ -8,7 +9,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AdminDisputes from './AdminDisputes';
 
-let updateCalls, updateError, rpcCalls;
+let updateCalls, rpcCalls;
 let notifyDisputeResolvedMock;
 
 jest.mock('./notificationService', () => ({
@@ -97,7 +98,7 @@ describe('AdminDisputes', () => {
     await waitFor(() => screen.getByText(/Dog came back dirty/));
     fireEvent.click(screen.getByText(/Dog came back dirty/));
     fireEvent.click(screen.getByText('Resolve Dispute'));
-    expect(window.alert).toHaveBeenCalledWith('Please select a resolution');
+    expect(screen.getByText('Please select a resolution')).toBeInTheDocument();
     expect(updateCalls).toHaveLength(0);
   });
 
@@ -117,7 +118,7 @@ describe('AdminDisputes', () => {
     expect(notifyDisputeResolvedMock).toHaveBeenCalledWith('parent-user-1', expect.anything(), expect.anything(), 'Fursday', 'refund_full', 34900);
     expect(notifyDisputeResolvedMock).toHaveBeenCalledWith('sitter-user-9', 'sitter@test.com', '9111111111', 'Fursday', 'refund_full', 0);
     expect(rpcCalls.map(c => c.args.target_id)).toEqual(['parent-user-1', 'sitter-user-9']);
-    expect(window.alert).toHaveBeenCalledWith('Dispute resolved!');
+    expect(await screen.findByText('Dispute resolved!')).toBeInTheDocument();
   });
 
   test('if the update is denied by RLS, the error surfaces instead of claiming success', async () => {
@@ -129,7 +130,7 @@ describe('AdminDisputes', () => {
     fireEvent.click(screen.getByDisplayValue('no_refund'));
     fireEvent.click(screen.getByText('Resolve Dispute'));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Error resolving dispute: permission denied'));
-    expect(window.alert).not.toHaveBeenCalledWith('Dispute resolved!');
+    expect(await screen.findByText('Error resolving dispute: permission denied')).toBeInTheDocument();
+    expect(screen.queryByText('Dispute resolved!')).toBeNull();
   });
 });

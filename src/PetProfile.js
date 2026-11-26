@@ -35,7 +35,6 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
-  const [loading, setLoading] = useState(petId ? true : false);
 
   const [pet, setPet] = useState({
     name: '', breed: '', age: '', weight: '', gender: '',
@@ -57,7 +56,6 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
           });
           if (data.photo_url) setPhotos([data.photo_url]);
         }
-        setLoading(false);
       };
       loadPet();
     }
@@ -99,7 +97,7 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
         notes: pet.notes || '',
         photo_url: photos[0] || null,
       };
-      const { data, error } = petId
+      const { error } = petId
         ? await supabase.from('pet_profiles').update(insertData).eq('id', petId)
         : await supabase.from('pet_profiles').insert(insertData);
       if (error) { alert(tr('pet_errorSaving') + error.message); setSaving(false); return; }

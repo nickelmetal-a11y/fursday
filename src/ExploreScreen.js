@@ -3,6 +3,9 @@ import { supabase } from './supabase';
 import { useLanguage, translate } from './i18n';
 import { color, font, radius, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
+import { distanceKm, formatKm, nearestLocality, pointFor, sitterCovers } from './geo';
+import { LOCALITIES } from './data/localities';
+import { loadSavedAddresses, addressLabelText } from './AddressBook';
 
 const SERVICES = [
   { id: 'all', key: 'explore_filterAll', icon: 'paw' },
@@ -17,28 +20,35 @@ const SERVICE_NAME_KEYS = {
   daycare: 'service_daycare', dropin: 'service_dropin', housesit: 'service_housesit',
 };
 
-const getDistanceKm = (lat1, lon1, lat2, lon2) => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-};
-
 const srOnly = { position:'absolute', width:1, height:1, overflow:'hidden', clip:'rect(0 0 0 0)', whiteSpace:'nowrap' };
 
 export default function ExploreScreen({ onBack, city, userLocation, onBook, onNav }) {
   const { t: tr } = useLanguage();
   const [sitters, setSitters] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeService, setActiveService] = useState('all');
-  const [sortBy, setSortBy] = useState('distance');
+  const [sortBy, setSortBy] = useState(null);
   const [favorites, setFavorites] = useState([]);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [cityId, setCityId] = useState(null);
+  const [onlyMyArea, setOnlyMyArea] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSavedAddresses().then(list => { if (!cancelled) setAddresses(list); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Reference point: the default saved address in this city, else GPS when it
+  // is inside this city, else none.
+  const refAddress = addresses.find(a => (!a.city_id || !cityId || a.city_id === cityId) && pointFor(a)) || null;
+  const gpsInCity = !!userLocation && LOCALITIES.some(l => l.city === city && distanceKm(userLocation, l) < 50);
+  const refPoint = refAddress ? pointFor(refAddress) : gpsInCity ? userLocation : null;
+  const refLabel = refAddress
+    ? [addressLabelText(tr, refAddress.label), refAddress.area].filter(Boolean).join(' · ')
+    : refPoint ? (nearestLocality(refPoint.lat, refPoint.lng, city)?.name || tr('explore_yourLocation')) : '';
+  const effectiveSort = sortBy || (refPoint ? 'distance' : 'rating');
 
   const loadFavorites = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -66,6 +76,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
       setLoading(true);
       await loadFavorites();
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
+      setCityId(cityRow?.id || null);
       if (cityRow) {
         const { data } = await supabase
           .from('sitter_profiles')
@@ -84,30 +95,31 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
               : 299,
             bio: s.bio || '',
             lat: s.lat, lng: s.lng,
-            distance: userLocation && s.lat && s.lng
-              ? getDistanceKm(userLocation.lat, userLocation.lng, s.lat, s.lng)
-              : null,
+            base_area: s.base_area || null,
+            base_pincode: s.base_pincode || null,
+            service_radius_km: s.service_radius_km || null,
             emoji: (s.users?.name || 'S')[0].toUpperCase(),
           }));
           setSitters(mapped);
-          setFiltered(mapped);
         }
       }
       setLoading(false);
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
 
-  useEffect(() => {
-    let result = [...sitters];
-    if (search) result = result.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
-    if (activeService === 'favorites') result = result.filter(s => favorites.includes(s.id));
-    else if (activeService !== 'all') result = result.filter(s => s.services.some(sv => sv.service_type === activeService));
-    if (sortBy === 'distance') result.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
-    else if (sortBy === 'rating') result.sort((a, b) => b.rating - a.rating);
-    else if (sortBy === 'price') result.sort((a, b) => a.minPrice - b.minPrice);
-    setFiltered(result);
-  }, [search, activeService, sortBy, sitters, favorites]);
+  let filtered = sitters.map(s => {
+    const reach = sitterCovers(s, refPoint);
+    return { ...s, distance: reach.km, covers: reach.covers };
+  });
+  if (search) filtered = filtered.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  if (activeService === 'favorites') filtered = filtered.filter(s => favorites.includes(s.id));
+  else if (activeService !== 'all') filtered = filtered.filter(s => s.services.some(sv => sv.service_type === activeService));
+  if (refPoint && onlyMyArea) filtered = filtered.filter(s => s.covers);
+  if (effectiveSort === 'distance') filtered.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+  else if (effectiveSort === 'rating') filtered.sort((a, b) => b.rating - a.rating);
+  else if (effectiveSort === 'price') filtered.sort((a, b) => a.minPrice - b.minPrice);
 
   return (
     <div style={{ ...ui.page, paddingBottom: navPadding }}>
@@ -116,7 +128,15 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           <button type="button" onClick={onBack} aria-label={tr('common_back')} style={ui.backButton}>
             <Icon name="arrowLeft" size={20} />
           </button>
-          <h1 style={ui.headerTitle}>{tr('explore_title', { city })}</h1>
+          <div style={{ minWidth:0 }}>
+            <h1 style={ui.headerTitle}>{tr('explore_title', { city })}</h1>
+            {refLabel && (
+              <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:font.sm, color:color.muted, marginTop:2, overflow:'hidden', whiteSpace:'nowrap' }}>
+                <Icon name="pin" size={13} color={color.navy} />
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{refLabel}</span>
+              </div>
+            )}
+          </div>
         </div>
         <label style={{ display:'flex', alignItems:'center', gap:10, padding:'0 14px', height:46, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg }}>
           <Icon name="search" size={18} color={color.muted} />
@@ -142,15 +162,26 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
         <div style={{ display:'flex', gap:6, marginBottom:16, alignItems:'center', flexWrap:'wrap' }}>
           <span style={{ fontSize:font.sm, color:color.muted, marginRight:2 }}>{tr('explore_sortLabel')}</span>
           {[['distance','explore_sortNearest'],['rating','explore_sortTopRated'],['price','explore_sortLowestPrice']].map(([val,labelKey]) => {
-            const on = sortBy === val;
+            const on = effectiveSort === val;
+            const off = val === 'distance' && !refPoint;
             return (
-              <button key={val} type="button" onClick={() => setSortBy(val)} aria-pressed={on}
-                style={{ minHeight:32, padding:'0 12px', borderRadius:radius.pill, border:`1px solid ${on ? color.navy : color.line}`, background:on ? color.navySoft : color.surface, color:on ? color.navy : color.text, fontSize:font.sm, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              <button key={val} type="button" onClick={() => setSortBy(val)} aria-pressed={on} disabled={off}
+                style={{ minHeight:36, padding:'0 12px', borderRadius:radius.pill, border:`1px solid ${on ? color.navy : color.line}`, background:on ? color.navySoft : color.surface, color:on ? color.navy : off ? color.faint : color.text, fontSize:font.sm, fontWeight:600, cursor:off ? 'default' : 'pointer', fontFamily:'inherit' }}>
                 {tr(labelKey)}
               </button>
             );
           })}
         </div>
+
+        {refPoint && (
+          <button type="button" role="switch" aria-checked={onlyMyArea} onClick={() => setOnlyMyArea(v => !v)}
+            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, minHeight:44, padding:'0 2px', marginBottom:14, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', textAlign:'left' }}>
+            <span style={{ fontSize:font.md, color:color.text, fontWeight:600 }}>{tr('explore_onlyMyArea')}</span>
+            <span aria-hidden="true" style={{ width:40, height:24, borderRadius:radius.pill, background:onlyMyArea ? color.navy : color.line, position:'relative', flexShrink:0, transition:'background 0.15s' }}>
+              <span style={{ position:'absolute', top:3, left:onlyMyArea ? 19 : 3, width:18, height:18, borderRadius:radius.pill, background:color.surface, transition:'left 0.15s' }} />
+            </span>
+          </button>
+        )}
 
         {loading && (
           <div aria-busy="true">
@@ -202,10 +233,10 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                       <span style={{ fontWeight:600, color:color.ink }}>{s.rating}</span>
                       <span>({s.reviews})</span>
                     </span>
-                    {s.distance !== null && s.distance !== undefined && (
-                      <span style={{ display:'flex', alignItems:'center', gap:3 }}>
+                    {s.distance != null && (
+                      <span style={{ display:'flex', alignItems:'center', gap:3, fontVariantNumeric:'tabular-nums' }}>
                         <Icon name="pin" size={13} color={color.muted} />
-                        {tr('explore_distanceKm', { km: s.distance.toFixed(1) })}
+                        {tr('explore_kmAway', { km: formatKm(s.distance) })}
                       </span>
                     )}
                   </div>

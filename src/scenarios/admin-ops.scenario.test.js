@@ -62,6 +62,9 @@ describe('Booking tools', () => {
     fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: 'Rohit' } });
     fireEvent.click(screen.getByText(/FUR-SOON/));
     fireEvent.click(await screen.findByText('Cancel with full refund'));
+    // The reason is typed into an in-page dialog (was window.prompt).
+    fireEvent.change(screen.getByLabelText('Reason for cancelling'), { target: { value: 'Sitter unwell' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking' }));
     await waitFor(() => expect(db.one('bookings', { id: 'bk-soon' }).status).toBe('cancelled'));
     expect(db.one('bookings', { id: 'bk-soon' })).toMatchObject({ refund_percentage: 100, refund_amount_paise: 40000, cancellation_reason: 'Fursday: Sitter unwell' });
     expect(db.rows('notifications', { user_id: IDS.rohit })).toHaveLength(1);
@@ -73,6 +76,7 @@ describe('Booking tools', () => {
     render(<AdminBookings bookings={bookingsWithNames()} sitters={sittersWithNames()} focusId="bk-pending" onChanged={() => {}} />);
     fireEvent.change(await screen.findByLabelText('Reassign to'), { target: { value: IDS.priya } });
     fireEvent.click(screen.getByText('Reassign'));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reassign' }));
     await waitFor(() => expect(db.one('bookings', { id: 'bk-pending' }).sitter_id).toBe(IDS.priya));
     expect(db.rows('notifications', { user_id: IDS.priyaUser, type: 'booking_request' })).toHaveLength(1);
     expect(db.rows('notifications', { user_id: IDS.meera, type: 'booking_reassigned' })).toHaveLength(1);

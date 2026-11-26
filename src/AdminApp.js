@@ -1,11 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { color, font, radius, ui } from './theme';
+import Icon from './ui/Icon';
 import AdminPanel from './AdminPanel';
+import { A, AdminStyles, Notice, Skeleton } from './AdminUI';
 
-const ORANGE = '#FF6B35';
-const page = { maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#0f0f1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', fontFamily: '-apple-system, sans-serif', boxSizing: 'border-box' };
-const input = { width: '100%', padding: '14px 16px', borderRadius: 14, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 15, color: 'white', outline: 'none', marginBottom: 12, boxSizing: 'border-box' };
-const button = { width: '100%', padding: 16, borderRadius: 14, border: 'none', background: ORANGE, color: 'white', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+// Signed-out screens: one centred white card on the cream page.
+function Shell({ icon = 'paw', title, subtitle, children }) {
+  return (
+    <div className="adm-root" style={{ minHeight: '100vh', background: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box', fontFamily: font.family, color: color.ink }}>
+      <AdminStyles />
+      <div style={{ ...ui.card, width: '100%', maxWidth: 400, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 48, height: 48, borderRadius: radius.md, background: color.navy, color: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={24} /></div>
+        {title && <h1 style={{ margin: 0, fontSize: font.xl, fontWeight: 700, textAlign: 'center' }}>{title}</h1>}
+        {subtitle && <div style={{ fontSize: font.md, color: color.muted, textAlign: 'center', lineHeight: 1.6, marginBottom: 4 }}>{subtitle}</div>}
+        {children}
+      </div>
+    </div>
+  );
+}
+const field = { ...A.input, fontSize: font.lg, minHeight: 48 };
+const button = { ...ui.primaryButton, width: '100%' };
+const linkButton = { background: 'transparent', border: 'none', color: color.navy, fontSize: font.md, fontWeight: 600, cursor: 'pointer', minHeight: 40, fontFamily: 'inherit' };
+const Loading = ({ label }) => <Shell><div style={{ width: '100%' }}><Skeleton rows={2} label={label} /></div></Shell>;
 
 function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -33,26 +50,21 @@ function AdminLogin() {
   };
 
   return (
-    <div style={page}>
-      <div style={{ fontSize: 40, marginBottom: 16 }}>🐾</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 8 }}>Fursday Admin</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 28, textAlign: 'center' }}>
-        {step === 'email' ? 'Sign in with your admin email' : 'We emailed a 6-digit code to ' + email}
-      </div>
-      {error && <div role="alert" style={{ background: '#FCEBEB', borderRadius: 10, padding: '8px 14px', marginBottom: 12, fontSize: 13, color: '#A32D2D', width: '100%', boxSizing: 'border-box' }}>{error}</div>}
+    <Shell title="Fursday Admin" subtitle={step === 'email' ? 'Sign in with your admin email' : 'We emailed a 6-digit code to ' + email}>
+      {error && <div style={{ width: '100%' }}><Notice tone="danger" icon="alert">{error}</Notice></div>}
       {step === 'email' ? (
         <>
-          <input aria-label="Admin email" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendCode()} placeholder="you@example.com" style={input} />
+          <input aria-label="Admin email" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendCode()} placeholder="you@example.com" style={field} />
           <button onClick={sendCode} disabled={busy} style={{ ...button, opacity: busy ? 0.6 : 1 }}>{busy ? 'Sending...' : 'Send code'}</button>
         </>
       ) : (
         <>
-          <input aria-label="Code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => e.key === 'Enter' && verify()} placeholder="123456" style={{ ...input, letterSpacing: 6, textAlign: 'center' }} />
+          <input aria-label="Code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => e.key === 'Enter' && verify()} placeholder="123456" style={{ ...field, letterSpacing: 6, textAlign: 'center' }} />
           <button onClick={verify} disabled={busy} style={{ ...button, opacity: busy ? 0.6 : 1 }}>{busy ? 'Checking...' : 'Sign in'}</button>
-          <button onClick={() => { setStep('email'); setCode(''); setError(''); }} style={{ marginTop: 12, background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Use a different email</button>
+          <button onClick={() => { setStep('email'); setCode(''); setError(''); }} style={linkButton}>Use a different email</button>
         </>
       )}
-    </div>
+    </Shell>
   );
 }
 
@@ -92,24 +104,20 @@ function AdminTwoFactor({ onDone }) {
     onDone();
   };
 
-  if (mode === 'loading') return <div style={{ ...page, color: 'rgba(255,255,255,0.5)' }}>Checking your account...</div>;
+  if (mode === 'loading') return <Loading label="Checking your account..." />;
   if (mode === 'notAdmin') return <AdminPanel onSignOut={() => supabase.auth.signOut()} />;
   return (
-    <div style={page}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 8, textAlign: 'center' }}>{mode === 'enroll' ? 'Set up two-step sign-in' : 'Two-step sign-in'}</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20, textAlign: 'center', lineHeight: 1.6 }}>
-        {mode === 'enroll'
-          ? 'Scan this with Google Authenticator, Microsoft Authenticator or Authy, then enter the 6-digit code it shows. You only do this once.'
-          : 'Open your authenticator app and enter the 6-digit Fursday admin code.'}
-      </div>
-      {mode === 'enroll' && qr && <img src={qr} alt="QR code for your authenticator app" style={{ width: 180, height: 180, background: 'white', borderRadius: 12, padding: 8, marginBottom: 10 }} />}
-      {mode === 'enroll' && secret && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 16, wordBreak: 'break-all', textAlign: 'center' }}>Can't scan? Enter this key: <span style={{ color: 'white', fontFamily: 'monospace' }}>{secret}</span></div>}
-      {error && <div role="alert" style={{ background: '#FCEBEB', borderRadius: 10, padding: '8px 14px', marginBottom: 12, fontSize: 13, color: '#A32D2D', width: '100%', boxSizing: 'border-box' }}>{error}</div>}
-      <input aria-label="Authenticator code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => e.key === 'Enter' && verify()} placeholder="123456" style={{ ...input, letterSpacing: 6, textAlign: 'center' }} />
+    <Shell icon="lock" title={mode === 'enroll' ? 'Set up two-step sign-in' : 'Two-step sign-in'}
+      subtitle={mode === 'enroll'
+        ? 'Scan this with Google Authenticator, Microsoft Authenticator or Authy, then enter the 6-digit code it shows. You only do this once.'
+        : 'Open your authenticator app and enter the 6-digit Fursday admin code.'}>
+      {mode === 'enroll' && qr && <img src={qr} alt="QR code for your authenticator app" style={{ width: 180, height: 180, background: color.surface, border: `1px solid ${color.line}`, borderRadius: radius.md, padding: 8 }} />}
+      {mode === 'enroll' && secret && <div style={{ fontSize: font.sm, color: color.muted, wordBreak: 'break-all', textAlign: 'center' }}>Can't scan? Enter this key: <span style={{ color: color.ink, fontFamily: 'monospace' }}>{secret}</span></div>}
+      {error && <div style={{ width: '100%' }}><Notice tone="danger" icon="alert">{error}</Notice></div>}
+      <input aria-label="Authenticator code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => e.key === 'Enter' && verify()} placeholder="123456" style={{ ...field, letterSpacing: 6, textAlign: 'center' }} />
       <button onClick={verify} disabled={busy} style={{ ...button, opacity: busy ? 0.6 : 1 }}>{busy ? 'Checking...' : 'Verify'}</button>
-      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: 12, background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
-    </div>
+      <button onClick={() => supabase.auth.signOut()} style={linkButton}>Sign out</button>
+    </Shell>
   );
 }
 
@@ -156,9 +164,9 @@ export default function AdminApp() {
     supabase.from('admin_audit_logs').insert({ admin_id: session.user.id, action: 'admin_sign_in', resource_type: 'auth', resource_id: session.user.id, status: 'success', reason: navigator.userAgent.slice(0, 200) }).then(() => {});
   }, [aal, session]);
 
-  if (session === undefined) return <div style={{ ...page, color: 'rgba(255,255,255,0.5)' }}>Loading...</div>;
+  if (session === undefined) return <Loading />;
   if (!session) return <AdminLogin />;
-  if (aal === null) return <div style={{ ...page, color: 'rgba(255,255,255,0.5)' }}>Loading...</div>;
+  if (aal === null) return <Loading />;
   if (REQUIRE_TWO_FACTOR && aal !== 'aal2') return <AdminTwoFactor key={session.user.id} onDone={refreshAal} />;
   // key: remount on account switch so the is_admin check reruns for the new user.
   return <AdminPanel key={session.user.id} onSignOut={() => supabase.auth.signOut()} />;
