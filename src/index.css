@@ -48,4 +48,7 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   100% { opacity: 0; }
 }
 .fw-paw { opacity: 0; animation: fw-step 2.2s ease-out infinite; }
-@media (prefers-reduced-motion: reduce) { .fw-paw { animation: none; opacity: 0.6; } }
+/* With reduced motion on, keep the step-by-step fade (no size change): a
+   fade is gentle enough, and a frozen loader looks broken. */
+@keyframes fw-fade { 0% { opacity: 0; } 10% { opacity: 1; } 55% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fw-paw { animation-name: fw-fade; } }
