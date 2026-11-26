@@ -35,6 +35,10 @@ export default function AdminPromotions() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const discountValue = parseFloat(form.discountValue) || 0;
+  // Fursday earns 15% of a booking; a bigger discount is paid out of pocket.
+  const typicalBooking = Math.max(parseFloat(form.minBookingAmount) || 0, 349);
+  const discountRs = form.discountType === 'flat' ? discountValue : Math.min(typicalBooking * discountValue / 100, parseFloat(form.maxDiscountAmount) || Infinity);
+  const lossPerUse = Math.round(discountRs - typicalBooking * 0.15);
   const previewPromo = {
     code: form.code.trim().toUpperCase() || 'YOURCODE',
     discount_amount: form.discountType === 'flat' ? discountValue : null,
@@ -150,6 +154,11 @@ export default function AdminPromotions() {
           <div style={{ maxWidth: 360, marginBottom: 18, pointerEvents: 'none' }}>
             <PromoBanner promo={previewPromo} onUse={() => {}} />
           </div>
+          {discountValue > 0 && lossPerUse > 0 && (
+            <div role="note" style={{ background: '#FFF8E1', border: '1px solid #FFE082', color: '#8D6E00', borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>
+              On a Rs.{typicalBooking} booking this costs Fursday about <b>Rs.{lossPerUse} per use</b>: the discount is bigger than the 15% commission (Rs.{Math.round(typicalBooking * 0.15)}). Fine for acquiring new customers; set a minimum booking amount or a usage cap to limit the cost.
+            </div>
+          )}
 
           <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Code</div>
           <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. DIWALI2026"

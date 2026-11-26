@@ -106,7 +106,7 @@ export default function NotificationCenter({ onClose }) {
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <button onClick={onClose} aria-label={tr('common_close')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             <X size={20} />
           </button>
         </div>
@@ -127,6 +127,13 @@ export default function NotificationCenter({ onClose }) {
               return (
                 <div key={notif.id}
                   onClick={() => !notif.read && markAsRead(notif.id)}
+                  role={notif.read ? undefined : 'button'}
+                  tabIndex={notif.read ? undefined : 0}
+                  aria-label={notif.read ? undefined : tr('notifications_markReadAria', { title: [notif.title, notif.body].filter(Boolean).join('. ') })}
+                  onKeyDown={notif.read ? undefined : (e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markAsRead(notif.id); }
+                  }}
                   style={{
                     padding: '12px 16px',
                     borderLeft: `4px solid ${typeInfo.color}`,
@@ -145,6 +152,7 @@ export default function NotificationCenter({ onClose }) {
                       <div style={{ fontSize: 11, color: '#AAA', marginLeft: 24, marginTop: 6 }}>{getTimeAgo(notif.sent_at)}</div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
+                      aria-label={tr('notifications_deleteAria')}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#CCC' }}>
                       ✕
                     </button>
@@ -159,7 +167,7 @@ export default function NotificationCenter({ onClose }) {
         {unreadCount > 0 && (
           <div style={{ borderTop: '1px solid #F0F0F0', padding: '12px 16px', flexShrink: 0 }}>
             <button onClick={markAllAsRead}
-              style={{ width: '100%', padding: '10px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ width: '100%', minHeight: 44, padding: '10px 0', borderRadius: 12, border: 'none', background: '#FF6B35', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               {tr('notifications_markAllRead')}
             </button>
           </div>

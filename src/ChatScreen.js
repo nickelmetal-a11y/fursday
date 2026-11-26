@@ -58,7 +58,7 @@ const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
 
 export default function ChatScreen({ onBack, city, booking, userType }) {
   const t = THEMES[city] || THEMES.Gurgaon;
-  const { t: tr } = useLanguage();
+  const { t: tr, lang } = useLanguage();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -233,7 +233,9 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
   return (
     <div style={{ maxWidth:390, margin:'0 auto', height:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', display:'flex', flexDirection:'column' }}>
       <div style={{ background:t.grad, padding:'48px 20px 16px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+        <div onClick={onBack} role="button" tabIndex={0} aria-label={tr('common_back')}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBack && onBack(); } }}
+          style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
           <ArrowLeft size={18} color="white" />
         </div>
         <div style={{ width:38, height:38, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'white' }}>
@@ -244,7 +246,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           <div style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>{booking?.service || tr('chat_defaultServiceLabel')}</div>
         </div>
         {otherPartyPhone && (
-          <a href={'tel:'+otherPartyPhone} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+          <a href={'tel:'+otherPartyPhone} aria-label={tr('chat_callAria', { name: otherPartyName })} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <Phone size={16} color="white" />
           </a>
         )}
@@ -289,16 +291,16 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
                       {!isMine && m.id && (acceptedProposalIds.has(m.id)
                         ? <div style={{ marginTop:8, fontSize:12, fontWeight:600, color:'#2E7D32' }}>✅ {tr('chat_scheduleAcceptedShort')}</div>
                         : <button onClick={() => acceptSchedule(m, schedule)}
-                            style={{ marginTop:8, width:'100%', minHeight:40, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                            style={{ marginTop:8, width:'100%', minHeight:44, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
                             {tr('chat_acceptNewTime')}
                           </button>)}
                     </div>
                   </div>
                 ) : isImageMessage(m.message)
-                  ? <img src={m.message} alt="Shared" style={{ width:180, height:180, objectFit:'cover', borderRadius:14, display:'block' }} />
+                  ? <img src={m.message} alt={tr('chat_sharedPhotoAlt')} style={{ width:180, height:180, objectFit:'cover', borderRadius:14, display:'block' }} />
                   : <div style={{ fontSize:14, color:isMine?'white':'#1a1a1a', lineHeight:1.4 }}>{m.message}</div>}
                 <div style={{ fontSize:10, color:isMine?'rgba(255,255,255,0.7)':'#AAA', marginTop:schedule?0:4, padding:schedule?'0 14px 8px':0, textAlign:'right' }}>
-                  {new Date(m.created_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
+                  {new Date(m.created_at).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour:'2-digit', minute:'2-digit' })}
                 </div>
               </div>
             </div>
@@ -318,11 +320,11 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           </div>
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => setShowScheduleForm(false)}
-              style={{ flex:1, padding:'10px 0', borderRadius:10, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              style={{ flex:1, minHeight:44, padding:'10px 0', borderRadius:10, border:'1.5px solid #E0E0E0', background:'white', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
               {tr('common_cancel')}
             </button>
             <button onClick={sendSchedule} disabled={!proposedDate || !proposedTime}
-              style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              style={{ flex:1, minHeight:44, padding:'10px 0', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
               {tr('chat_sendProposal')}
             </button>
           </div>
@@ -344,7 +346,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           placeholder={tr('chat_typePlaceholder')}
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1.5px solid #E0E0E0', fontSize:14, outline:'none', fontFamily:'inherit' }} />
         {(booking?.date || booking?.time || booking?.price != null) && (
-          <button onClick={openScheduleForm} title={tr('chat_proposeSchedule')}
+          <button onClick={openScheduleForm} title={tr('chat_proposeSchedule')} aria-label={tr('chat_proposeSchedule')}
             style={{ width:44, height:44, borderRadius:22, border:'1.5px solid #E0E0E0', background:'white', color:t.primary, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
             <Calendar size={18} />
           </button>

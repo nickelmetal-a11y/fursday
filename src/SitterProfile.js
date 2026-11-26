@@ -17,7 +17,7 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
   const name = s.name || tr('sitterProfile_nameFallback');
   const rating = s.rating || 5.0;
   const reviewCount = s.reviews || 0;
-  const price = s.price || 'Rs.299/walk';
+  const price = s.price || tr('sitterProfile_priceFallback');
   const tags = s.tags || [];
   const area = s.area || city || tr('sitterProfile_areaFallback');
 
@@ -25,12 +25,12 @@ export default function SitterProfile({ onBack, onBook, sitter, city }) {
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', backgroundColor: '#FAFAFA', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', paddingBottom: 100 }}>
 
       <div style={{ position: 'relative', background: t.primary, height: 260, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 20 }}>
-        <div onClick={onBack} style={{ position: 'absolute', top: 48, left: 20, width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ position: 'absolute', top: 48, left: 20, width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <ArrowLeft size={18} color="white" />
-        </div>
-        <div onClick={() => setLiked(!liked)} style={{ position: 'absolute', top: 48, right: 60, width: 36, height: 36, borderRadius: 12, background: liked ? 'rgba(255,100,100,0.4)' : 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        </button>
+        <button type="button" onClick={() => setLiked(!liked)} aria-label={tr('sitterProfile_saveSitter')} aria-pressed={liked} style={{ position: 'absolute', top: 48, right: 60, width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: liked ? 'rgba(255,100,100,0.4)' : 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Heart size={18} color="white" fill={liked ? 'white' : 'transparent'} />
-        </div>
+        </button>
         <div style={{ position: 'absolute', top: 48, right: 16, width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Share2 size={18} color="white" />
         </div>

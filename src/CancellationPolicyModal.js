@@ -135,7 +135,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
         <div style={{ width: '100%', maxWidth: 390, background: 'white', borderRadius: '24px 24px 0 0', padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{tr('cancelPolicy_title')}</div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <button onClick={onClose} aria-label={tr('common_close')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               <X size={20} />
             </button>
           </div>
@@ -192,7 +192,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
           <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>{tr('cancelPolicy_helpsImprove')}</div>
 
           {CANCEL_REASONS.map(({ value, labelKey }) => (
-            <button key={value} onClick={() => { setReason(value); setStep('confirming'); }}
+            <button type="button" key={value} onClick={() => { setReason(value); setStep('confirming'); }}
               style={{ display: 'block', width: '100%', padding: '12px 14px', textAlign: 'left', fontSize: 13, color: reason === value ? '#FF6B35' : '#1a1a1a', background: reason === value ? '#FFF0EB' : '#F8F8F8', border: reason === value ? '2px solid #FF6B35' : '1.5px solid #E0E0E0', borderRadius: 12, marginBottom: 8, cursor: 'pointer', fontWeight: reason === value ? 600 : 400 }}>
               {tr(labelKey)}
             </button>
@@ -213,7 +213,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
 
         <div style={{ background: '#FCEBEB', borderRadius: 12, padding: '14px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, lineHeight: 1.6, color: '#A32D2D', textAlign: 'center' }}>
-            {tr('cancelPolicy_refundEta', { amount: '₹' + refundAmount.toFixed(0) })} {tr('cancelPolicy_yourReasonLabel')} <strong>{reason}</strong>
+            {tr('cancelPolicy_refundEta', { amount: '₹' + refundAmount.toFixed(0) })} {tr('cancelPolicy_yourReasonLabel')} <strong>{(() => { const r = CANCEL_REASONS.find(x => x.value === reason); return r ? tr(r.labelKey) : reason; })()}</strong>
           </div>
         </div>
 

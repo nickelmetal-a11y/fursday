@@ -118,7 +118,7 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
       <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('photoUpload_title')}</div>
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <button onClick={onClose} aria-label={tr('common_close')} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
             <X size={20} />
           </button>
         </div>
@@ -133,17 +133,17 @@ export default function PhotoUploadModal({ booking, onClose, onSubmitted }) {
           {photos.map((url, i) => (
             <div key={i} style={{ position:'relative', width:90, height:90 }}>
               <img src={url} alt={tr('photoUpload_photoAlt', { num: i + 1 })} style={{ width:90, height:90, borderRadius:12, objectFit:'cover' }} />
-              <div onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
-                style={{ position:'absolute', top:-8, right:-8, width:28, height:28, borderRadius:14, background:'#D32F2F', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+              <button type="button" onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))} aria-label={tr('photoUpload_removePhotoAria', { num: i + 1 })}
+                style={{ position:'absolute', top:-8, right:-8, width:28, height:28, borderRadius:14, background:'#D32F2F', border:'none', padding:0, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                 <X size={16} color="white" />
-              </div>
+              </button>
             </div>
           ))}
           {photos.length < 3 && (
-            <div onClick={() => choosePhoto(fileInputRef, handlePhotoSelect)}
-              style={{ width:90, height:90, borderRadius:12, background:'#E8F5E9', border:'2px dashed #2E7D32', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
+            <button type="button" onClick={() => choosePhoto(fileInputRef, handlePhotoSelect)} aria-label={uploading ? tr('photoUpload_uploadingButton') : tr('photoUpload_addPhotoAria')}
+              style={{ width:90, height:90, boxSizing:'border-box', padding:0, font:'inherit', borderRadius:12, background:'#E8F5E9', border:'2px dashed #2E7D32', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
               {uploading ? <span style={{ fontSize:12, color:'#2E7D32' }}>...</span> : <><Upload size={20} color="#2E7D32" /><span style={{ fontSize:10, color:'#2E7D32' }}>{photos.length === 0 ? tr('photoUpload_addLabel') : tr('photoUpload_moreLabel')}</span></>}
-            </div>
+            </button>
           )}
         </div>
 

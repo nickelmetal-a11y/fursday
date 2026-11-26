@@ -24,6 +24,8 @@ const TIME_SLOTS = ['6:00 AM','7:00 AM','8:00 AM','10:00 AM','11:00 AM','4:00 PM
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const SIZE_PRICES = { small: 0, medium: 0, large: 50, xlarge: 100 };
+const BUTTON_RESET = { font:'inherit', color:'inherit', textAlign:'inherit' };
+const onKeyActivate = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 const NEEDS_PRICES = { senior: 50, special: 100, reactive: 75, puppy: 50 };
 
 const getDays = () => {
@@ -58,7 +60,9 @@ function StepBar({ step }) {
 }
 
 export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking, initialPromoCode }) {
-  const { t: tr } = useLanguage();
+  const { t: tr, lang } = useLanguage();
+  const dayName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { weekday:'short' }) : DAY_NAMES[d.getDay()];
+  const monthName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { month:'short' }) : MONTH_NAMES[d.getMonth()];
   const [step, setStep] = useState(repeatBooking ? 1 : (initialService ? 1 : 0));
   const [sitterPrices, setSitterPrices] = useState({});
   const [selectedService, setSelectedService] = useState(repeatBooking ? repeatBooking.service_type : (initialService || null));
@@ -342,7 +346,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         {[
           { label:tr('bookingFlow_labelService'), val:service?.name },
           { label:tr('bookingFlow_labelSitter'), val:sitterName || tr('bookingFlow_defaultSitterName') },
-          { label:tr('bookingFlow_labelDate'), val:day?DAY_NAMES[day.getDay()]+', '+day.getDate()+' '+MONTH_NAMES[day.getMonth()]:tr('bookingFlow_dateTbd') },
+          { label:tr('bookingFlow_labelDate'), val:day?dayName(day)+', '+day.getDate()+' '+monthName(day):tr('bookingFlow_dateTbd') },
           { label:tr('bookingFlow_labelTime'), val:selectedTime },
           { label:tr('bookingFlow_labelPet'), val:pet?pet.name+(pet.breed?' ('+pet.breed+')':''):''},
           { label:tr('bookingFlow_labelAmount'), val:tr('bookingFlow_currencyPrefix')+(promoFailed ? totalPrice : finalPrice) },
@@ -371,9 +375,9 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
       <div style={{ background:ORANGE, padding:'48px 20px 16px', display:'flex', alignItems:'center', gap:12 }}>
-        <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <ArrowLeft size={18} color="white" />
-        </div>
+        </button>
         <div>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('bookingFlow_headerTitle')}</div>
           <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{sitterName} · {sitterArea}</div>
@@ -389,8 +393,8 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             <div style={{ fontSize:17, fontWeight:700, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_whatDoYouNeed')}</div>
             <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('bookingFlow_selectServiceHint')}</div>
             {services.map(s => (
-              <div key={s.id} onClick={() => setSelectedService(s.id)}
-                style={{ background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedService===s.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+              <button type="button" key={s.id} onClick={() => setSelectedService(s.id)} aria-pressed={selectedService===s.id}
+                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedService===s.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
                 <div style={{ width:48, height:48, borderRadius:14, background:selectedService===s.id?ORANGE_LIGHT:'#F8F8F8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>{s.icon}</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:2 }}>{s.name}</div>
@@ -400,7 +404,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                   <div style={{ fontSize:15, fontWeight:700, color:ORANGE }}>{tr('bookingFlow_currencyPrefix')}{s.price}</div>
                   {selectedService===s.id && <CheckCircle size={16} color={ORANGE} style={{ marginTop:4 }} />}
                 </div>
-              </div>
+              </button>
             ))}
           </>
         )}
@@ -411,11 +415,11 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>{tr('bookingFlow_next14Days')}</div>
             <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:20, scrollbarWidth:'none' }}>
               {days.map((d,i) => (
-                <div key={i} onClick={() => setSelectedDay(i)}
+                <div key={i} onClick={() => setSelectedDay(i)} role="button" tabIndex={0} aria-pressed={selectedDay===i} onKeyDown={onKeyActivate(() => setSelectedDay(i))}
                   style={{ flexShrink:0, width:54, borderRadius:14, padding:'10px 6px', textAlign:'center', cursor:'pointer', background:selectedDay===i?ORANGE:'white', border:selectedDay===i?'none':'1px solid #F0F0F0', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4, fontWeight:500 }}>{DAY_NAMES[d.getDay()]}</div>
+                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4, fontWeight:500 }}>{dayName(d)}</div>
                   <div style={{ fontSize:17, fontWeight:700, color:selectedDay===i?'white':'#1a1a1a' }}>{d.getDate()}</div>
-                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{MONTH_NAMES[d.getMonth()]}</div>
+                  <div style={{ fontSize:10, color:selectedDay===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{monthName(d)}</div>
                 </div>
               ))}
             </div>
@@ -426,11 +430,11 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:8, marginBottom:16, scrollbarWidth:'none' }}>
                   {days.map((d,i) => (
                     i > selectedDay ? (
-                    <div key={i} onClick={() => setEndDayOffset(i)}
+                    <div key={i} onClick={() => setEndDayOffset(i)} role="button" tabIndex={0} aria-pressed={endDayOffset===i} onKeyDown={onKeyActivate(() => setEndDayOffset(i))}
                       style={{ flexShrink:0, width:54, borderRadius:14, padding:'10px 6px', textAlign:'center', cursor:'pointer', background:endDayOffset===i?'#2E7D32':'white', border:endDayOffset===i?'none':'1px solid #F0F0F0', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4 }}>{DAY_NAMES[d.getDay()]}</div>
+                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.8)':'#AAA', marginBottom:4 }}>{dayName(d)}</div>
                       <div style={{ fontSize:17, fontWeight:700, color:endDayOffset===i?'white':'#1a1a1a' }}>{d.getDate()}</div>
-                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{MONTH_NAMES[d.getMonth()]}</div>
+                      <div style={{ fontSize:10, color:endDayOffset===i?'rgba(255,255,255,0.7)':'#CCC', marginTop:2 }}>{monthName(d)}</div>
                     </div>
                     ) : null
                   ))}
@@ -441,8 +445,8 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_dropOffTime')}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
                   {TIME_SLOTS.map(tt => (
-                    <div key={tt} onClick={() => setSelectedTime(tt)}
-                      style={{ padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555' }}>{tt}</div>
+                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt}
+                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555' }}>{tt}</button>
                   ))}
                 </div>
               </>
@@ -454,15 +458,15 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_dropOffTime')}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
                   {TIME_SLOTS.map(tt => (
-                    <div key={tt} onClick={() => { setDropTime(tt); setSelectedTime(tt); }}
-                      style={{ padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:dropTime===tt?ORANGE:'white', border:dropTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:dropTime===tt?600:400, color:dropTime===tt?'white':'#555' }}>{tt}</div>
+                    <button type="button" key={tt} onClick={() => { setDropTime(tt); setSelectedTime(tt); }} aria-pressed={dropTime===tt}
+                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:dropTime===tt?ORANGE:'white', border:dropTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:dropTime===tt?600:400, color:dropTime===tt?'white':'#555' }}>{tt}</button>
                   ))}
                 </div>
                 <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_pickUpTime')}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
                   {TIME_SLOTS.map(tt => (
-                    <div key={tt} onClick={() => setPickTime(tt)}
-                      style={{ padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:pickTime===tt?'#2E7D32':'white', border:pickTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:pickTime===tt?600:400, color:pickTime===tt?'white':'#555' }}>{tt}</div>
+                    <button type="button" key={tt} onClick={() => setPickTime(tt)} aria-pressed={pickTime===tt}
+                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:pickTime===tt?'#2E7D32':'white', border:pickTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:pickTime===tt?600:400, color:pickTime===tt?'white':'#555' }}>{tt}</button>
                   ))}
                 </div>
               </>
@@ -474,8 +478,8 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_pickATime')}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
                   {TIME_SLOTS.map(tt => (
-                    <div key={tt} onClick={() => setSelectedTime(tt)}
-                      style={{ padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555', boxShadow:'0 1px 6px rgba(0,0,0,0.04)' }}>{tt}</div>
+                    <button type="button" key={tt} onClick={() => setSelectedTime(tt)} aria-pressed={selectedTime===tt}
+                      style={{ ...BUTTON_RESET, width:'100%', padding:'10px 8px', borderRadius:12, textAlign:'center', cursor:'pointer', background:selectedTime===tt?ORANGE:'white', border:selectedTime===tt?'none':'1px solid #F0F0F0', fontSize:13, fontWeight:selectedTime===tt?600:400, color:selectedTime===tt?'white':'#555', boxShadow:'0 1px 6px rgba(0,0,0,0.04)' }}>{tt}</button>
                   ))}
                 </div>
               </>
@@ -489,18 +493,18 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                   { id:'large', label:tr('bookingFlow_sizeLargeLabel'), sub:tr('bookingFlow_sizeLargeSub'), extra:'+'+tr('bookingFlow_currencyPrefix')+'50' },
                   { id:'xlarge', label:tr('bookingFlow_sizeXlargeLabel'), sub:tr('bookingFlow_sizeXlargeSub'), extra:'+'+tr('bookingFlow_currencyPrefix')+'100' },
                 ].map(s => (
-                  <div key={s.id} onClick={() => setDogSize(s.id)}
-                    style={{ padding:'12px', borderRadius:14, border:dogSize===s.id?'2px solid '+ORANGE:'1.5px solid #E0E0E0', background:dogSize===s.id?ORANGE_LIGHT:'white', cursor:'pointer', textAlign:'center' }}>
+                  <button type="button" key={s.id} onClick={() => setDogSize(s.id)} aria-pressed={dogSize===s.id}
+                    style={{ ...BUTTON_RESET, width:'100%', padding:'12px', borderRadius:14, border:dogSize===s.id?'2px solid '+ORANGE:'1.5px solid #E0E0E0', background:dogSize===s.id?ORANGE_LIGHT:'white', cursor:'pointer', textAlign:'center' }}>
                     <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{s.label}</div>
                     <div style={{ fontSize:11, color:'#888' }}>{s.sub}</div>
                     {s.extra && <div style={{ fontSize:11, color:ORANGE, fontWeight:600, marginTop:2 }}>{s.extra}</div>}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
             {selectedTime && (
               <div style={{ background:ORANGE_LIGHT, borderRadius:14, padding:'10px 14px', fontSize:13, color:ORANGE, fontWeight:500 }}>
-                📅 {DAY_NAMES[days[selectedDay].getDay()]}, {days[selectedDay].getDate()} {MONTH_NAMES[days[selectedDay].getMonth()]} {tr('bookingFlow_atWord')} {selectedTime}
+                📅 {dayName(days[selectedDay])}, {days[selectedDay].getDate()} {monthName(days[selectedDay])} {tr('bookingFlow_atWord')} {selectedTime}
               </div>
             )}
           </>
@@ -512,24 +516,24 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>{tr('bookingFlow_selectPetHint')}</div>
             {petsLoading && <div style={{ textAlign:'center', padding:20, color:'#888' }}>{tr('bookingFlow_loadingPets')}</div>}
             {!petsLoading && pets.map(p => (
-              <div key={p.id} onClick={() => setSelectedPet(p.id)}
-                style={{ background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedPet===p.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+              <button type="button" key={p.id} onClick={() => setSelectedPet(p.id)} aria-pressed={selectedPet===p.id}
+                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:10, display:'flex', gap:14, alignItems:'center', cursor:'pointer', border:selectedPet===p.id?'2px solid '+ORANGE:'2px solid transparent', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
                 <div style={{ width:52, height:52, borderRadius:16, background:'#FFE0B2', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>🐕</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a', marginBottom:2 }}>{p.name}</div>
                   <div style={{ fontSize:13, color:'#888' }}>{p.breed || tr('bookingFlow_mixedBreed')}{p.age_years?' · '+p.age_years+' '+tr('bookingFlow_yearsUnit'):''}</div>
                 </div>
                 {selectedPet===p.id && <CheckCircle size={20} color={ORANGE} />}
-              </div>
+              </button>
             ))}
             {!addingPet ? (
-              <div onClick={() => setAddingPet(true)}
-                style={{ background:'white', borderRadius:18, padding:'14px 16px', marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px dashed #E0E0E0', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+              <button type="button" onClick={() => setAddingPet(true)}
+                style={{ ...BUTTON_RESET, width:'100%', textAlign:'left', background:'white', borderRadius:18, padding:'14px 16px', marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px dashed #E0E0E0', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
                 <div style={{ width:52, height:52, borderRadius:16, background:'#F5F5F5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
                   <Plus size={22} color="#CCC" />
                 </div>
                 <div style={{ fontSize:14, color:'#888' }}>{tr('bookingFlow_addNewPet')}</div>
-              </div>
+              </button>
             ) : (
               <div style={{ background:'white', borderRadius:18, padding:16, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'2px solid '+ORANGE }}>
                 <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:12 }}>{tr('bookingFlow_addYourPetHeading')}</div>
@@ -539,7 +543,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                   style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:14, color:'#1a1a1a', outline:'none', marginBottom:12, boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8 }}>
                   <button onClick={saveNewPet} disabled={!newPetName.trim() || savingPet}
-                    style={{ flex:2, padding:'10px 0', borderRadius:12, border:'none', background:newPetName.trim()?ORANGE:'#E0E0E0', color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    style={{ flex:2, padding:'10px 0', minHeight:44, borderRadius:12, border:'none', background:newPetName.trim()?ORANGE:'#E0E0E0', color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                     {savingPet?tr('common_saving'):tr('bookingFlow_savePetButton')}
                   </button>
                   <button onClick={() => setAddingPet(false)}
@@ -551,7 +555,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
             )}
             <div style={{ background:'#FFF3E0', borderRadius:18, padding:16, marginBottom:14, border:'1.5px solid '+ORANGE }}>
               <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
-                <input type="checkbox" checked={aggressionConfirmed} onChange={e => setAggressionConfirmed(e.target.checked)}
+                <input type="checkbox" checked={aggressionConfirmed} onChange={e => setAggressionConfirmed(e.target.checked)} aria-label={tr('bookingFlow_aggressionTitle')}
                   style={{ width:20, height:20, marginTop:2, cursor:'pointer' }} />
                 <div>
                   <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:4 }}>{tr('bookingFlow_aggressionTitle')}</div>
@@ -565,23 +569,23 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
               <div style={{ display:'flex', gap:8, marginBottom:8 }}>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_flatLabel')}</div>
-                  <input value={flat} onChange={e => setFlat(e.target.value)} placeholder={tr('bookingFlow_flatPlaceholder')}
+                  <input value={flat} onChange={e => setFlat(e.target.value)} aria-label={tr('bookingFlow_flatLabel')} placeholder={tr('bookingFlow_flatPlaceholder')}
                     style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
                 </div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_towerLabel')}</div>
-                  <input value={tower} onChange={e => setTower(e.target.value)} placeholder={tr('bookingFlow_towerPlaceholder')}
+                  <input value={tower} onChange={e => setTower(e.target.value)} aria-label={tr('bookingFlow_towerLabel')} placeholder={tr('bookingFlow_towerPlaceholder')}
                     style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
                 </div>
               </div>
               <div>
                 <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{tr('bookingFlow_societyLabel')}</div>
-                <input value={floor} onChange={e => setFloor(e.target.value)} placeholder={tr('bookingFlow_societyPlaceholder')}
+                <input value={floor} onChange={e => setFloor(e.target.value)} aria-label={tr('bookingFlow_societyLabel')} placeholder={tr('bookingFlow_societyPlaceholder')}
                   style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:13, outline:'none', boxSizing:'border-box' }} />
               </div>
             </div>
             <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>{tr('bookingFlow_notesHeading')}</div>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} aria-label={tr('bookingFlow_notesHeading')}
               placeholder={tr('bookingFlow_notesPlaceholder')}
               style={{ width:'100%', padding:'12px 14px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:13, color:'#1a1a1a', outline:'none', resize:'none', minHeight:90, lineHeight:1.6, fontFamily:'inherit', boxSizing:'border-box' }} />
           </>
@@ -605,7 +609,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
               {[
                 { label:tr('bookingFlow_labelSitter'), val:sitterName },
                 { label:tr('bookingFlow_labelService'), val:service.name+' · '+service.sub },
-                { label:tr('bookingFlow_labelDate'), val:day?DAY_NAMES[day.getDay()]+', '+day.getDate()+' '+MONTH_NAMES[day.getMonth()]:tr('bookingFlow_dateTbd') },
+                { label:tr('bookingFlow_labelDate'), val:day?dayName(day)+', '+day.getDate()+' '+monthName(day):tr('bookingFlow_dateTbd') },
                 { label:tr('bookingFlow_labelTime'), val:selectedTime||tr('bookingFlow_dateTbd') },
                 { label:tr('bookingFlow_labelPet'), val:pet?pet.name+(pet.breed?' ('+pet.breed+')':''):tr('bookingFlow_petNotSelected') },
               ].map((item,i) => (

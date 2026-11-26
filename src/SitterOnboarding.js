@@ -405,7 +405,7 @@ export default function SitterOnboarding({ onDone, city }) {
           style={{ width: '100%', padding: '14px 16px', borderRadius: 16, border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 15, color: 'white', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }} />
         {name.length > 1 && chatStep === 0 && (
           <div style={{ textAlign: 'right', marginBottom: 16 }}>
-            <button onClick={() => setChatStep(1)} style={{ padding: '8px 20px', borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('sitterOnboarding_send')}</button>
+            <button onClick={() => setChatStep(1)} style={{ padding: '8px 20px', minHeight: 44, borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('sitterOnboarding_send')}</button>
           </div>
         )}
         {chatStep >= 1 && (
@@ -431,7 +431,7 @@ export default function SitterOnboarding({ onDone, city }) {
             )}
             {phone.length === 10 && /^[6-9]\d{9}$/.test(phone) && (
               <div style={{ textAlign: 'right', marginBottom: 16 }}>
-                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={{ padding: '8px 20px', borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('common_next')}</button>
+                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={{ padding: '8px 20px', minHeight: 44, borderRadius: 20, border: 'none', background: ORANGE, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{tr('common_next')}</button>
               </div>
             )}
           </div>
@@ -457,21 +457,21 @@ export default function SitterOnboarding({ onDone, city }) {
       {SERVICES.map(s => {
         const sel = services.includes(s.id);
         return (
-          <div key={s.id} onClick={() => toggleService(s.id)}
-            style={{ background: sel ? 'rgba(255,107,53,0.12)' : DARK2, borderRadius: 16, padding: '14px 16px', marginBottom: 10, border: sel ? '1.5px solid ' + ORANGE : '1.5px solid rgba(255,255,255,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button type="button" key={s.id} onClick={() => toggleService(s.id)} aria-pressed={sel} aria-label={tr('sitterOnboarding_toggleServiceLabel', { service: tr(s.nameKey) })}
+            style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: sel ? 'rgba(255,107,53,0.12)' : DARK2, borderRadius: 16, padding: '14px 16px', marginBottom: 10, border: sel ? '1.5px solid ' + ORANGE : '1.5px solid rgba(255,255,255,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 24 }}>{s.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>{tr(s.nameKey)}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{tr(s.subKey)} · avg Rs.{s.avg}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{tr(s.subKey)} · {tr('sitterOnboarding_avgPrice', { amount: s.avg })}</div>
             </div>
             {sel
               ? <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE }}>+Rs.{(prices[s.id] * s.bookings).toLocaleString('en-IN')}/mo</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE }}>+Rs.{(prices[s.id] * s.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
                   <CheckCircle size={16} color={ORANGE} style={{ marginTop: 2 }} />
                 </div>
               : <div style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 20 }}>+</div>
             }
-          </div>
+          </button>
         );
       })}
       <BottomBtn label={services.length > 0 ? tr('sitterOnboarding_setMyPrices') : tr('sitterOnboarding_selectAtLeastOneService')} onClick={async () => { if(services.length > 0){ const id = await saveDraft(3); await saveDraftServices(id); setPricingIdx(0); setScreen(3); } }} disabled={services.length === 0} dark={true} />
@@ -519,7 +519,7 @@ export default function SitterOnboarding({ onDone, city }) {
             </div>
             <div style={{ background: ORANGE_LIGHT, borderRadius: 12, padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 12, color: '#888' }}>{tr('sitterOnboarding_monthlyEstimate')}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>Rs.{(prices[pricingService.id] * pricingService.bookings).toLocaleString('en-IN')}/mo</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>Rs.{(prices[pricingService.id] * pricingService.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
             </div>
           </div>
         </div>
@@ -539,12 +539,12 @@ export default function SitterOnboarding({ onDone, city }) {
       <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_profilePhoto')}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div onClick={() => choosePhoto(photoInputRef, handlePhotoUpload)}
-            style={{ width: 72, height: 72, borderRadius: 20, background: photoUrl ? 'transparent' : ORANGE_LIGHT, border: photoUrl ? 'none' : '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
+          <button type="button" onClick={() => choosePhoto(photoInputRef, handlePhotoUpload)} aria-label={tr('sitterOnboarding_profilePhoto')}
+            style={{ width: 72, height: 72, padding: 0, font: 'inherit', borderRadius: 20, background: photoUrl ? 'transparent' : ORANGE_LIGHT, border: photoUrl ? 'none' : '2px dashed ' + ORANGE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden' }}>
             {uploadingPhoto ? <span style={{ fontSize: 11, color: ORANGE }}>...</span>
-              : photoUrl ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : photoUrl ? <img src={photoUrl} alt={tr('sitterOnboarding_profilePhotoAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <><span style={{ fontSize: 24 }}>📷</span><span style={{ fontSize: 10, color: ORANGE, marginTop: 2 }}>{tr('sitterOnboarding_addPhoto')}</span></>}
-          </div>
+          </button>
           <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
           <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>{tr('sitterOnboarding_photoHint')}</div>
         </div>
@@ -626,12 +626,12 @@ export default function SitterOnboarding({ onDone, city }) {
       <div style={{ background: 'white', borderRadius: 18, padding: 16, marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 12 }}>{tr('sitterOnboarding_availableTimeSlots')}</div>
         {[
-          { label: tr('sitterOnboarding_slotMorning'), sub: '6am - 10am', key: 'morning', val: morningSlot, set: setMorningSlot },
-          { label: tr('sitterOnboarding_slotAfternoon'), sub: '12pm - 4pm', key: 'afternoon', val: afternoonSlot, set: setAfternoonSlot },
-          { label: tr('sitterOnboarding_slotEvening'), sub: '5pm - 8pm', key: 'evening', val: eveningSlot, set: setEveningSlot },
+          { label: tr('sitterOnboarding_slotMorning'), sub: tr('sitterEdit_morningHours'), key: 'morning', val: morningSlot, set: setMorningSlot },
+          { label: tr('sitterOnboarding_slotAfternoon'), sub: tr('sitterEdit_afternoonHours'), key: 'afternoon', val: afternoonSlot, set: setAfternoonSlot },
+          { label: tr('sitterOnboarding_slotEvening'), sub: tr('sitterEdit_eveningHours'), key: 'evening', val: eveningSlot, set: setEveningSlot },
         ].map(slot => (
-          <div key={slot.key} onClick={() => slot.set(!slot.val)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: slot.key !== 'evening' ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
+          <button type="button" key={slot.key} onClick={() => slot.set(!slot.val)} role="switch" aria-checked={slot.val}
+            style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: slot.key !== 'evening' ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{slot.label}</div>
               <div style={{ fontSize: 11, color: '#888' }}>{slot.sub}</div>
@@ -639,7 +639,7 @@ export default function SitterOnboarding({ onDone, city }) {
             <div style={{ width: 44, height: 24, borderRadius: 12, background: slot.val ? ORANGE : '#E0E0E0', position: 'relative', transition: 'background 0.2s', cursor: 'pointer' }}>
               <div style={{ position: 'absolute', top: 2, left: slot.val ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -759,7 +759,7 @@ export default function SitterOnboarding({ onDone, city }) {
 
       <div style={{ background: DARK, borderRadius: 24, padding: 20, marginBottom: 14 }}>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{tr('sitterOnboarding_estimatedMonthlyEarnings')}</div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: ORANGE, marginBottom: 4 }}>Rs.{estimated.toLocaleString('en-IN')}/mo</div>
+        <div style={{ fontSize: 36, fontWeight: 900, color: ORANGE, marginBottom: 4 }}>Rs.{estimated.toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 14 }}>
           {tr('sitterOnboarding_acrossInCity', { count: activeServices.length, unit: tr(activeServices.length > 1 ? 'sitterOnboarding_servicesWord' : 'sitterOnboarding_serviceWord'), city })}
         </div>
@@ -783,15 +783,15 @@ export default function SitterOnboarding({ onDone, city }) {
         ))}
       </div>
 
-      <div onClick={() => setAgreed(!agreed)}
-        style={{ background: agreed ? '#E8F5E9' : 'white', borderRadius: 16, padding: '14px 16px', marginBottom: 14, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', display: 'flex', gap: 10, border: agreed ? '1.5px solid #A5D6A7' : '1.5px solid transparent' }}>
+      <button type="button" onClick={() => setAgreed(!agreed)} role="checkbox" aria-checked={agreed}
+        style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: agreed ? '#E8F5E9' : 'white', borderRadius: 16, padding: '14px 16px', marginBottom: 14, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', display: 'flex', gap: 10, border: agreed ? '1.5px solid #A5D6A7' : '1.5px solid transparent' }}>
         <div style={{ width: 22, height: 22, borderRadius: 7, border: agreed ? 'none' : '1.5px solid #DDD', background: agreed ? ORANGE : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
           {agreed && <CheckCircle size={14} color="white" />}
         </div>
         <div style={{ fontSize: 12, color: '#555', lineHeight: 1.7 }}>
           {tr('sitterOnboarding_agreeTermsPart1')} <span style={{ color: ORANGE, fontWeight: 600 }}>{tr('sitterOnboarding_sitterTermsOfService')}</span>{tr('sitterOnboarding_agreeTermsPart2')}
         </div>
-      </div>
+      </button>
 
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, padding: '12px 20px calc(28px + env(safe-area-inset-bottom))', background: '#F8F8F8', borderTop: '1px solid #E0E0E0' }}>
         <button onClick={() => agreed && !saving && handleGoLive()} disabled={!agreed || saving}

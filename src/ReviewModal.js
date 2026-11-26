@@ -83,7 +83,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
       <div style={{ width:'100%', maxWidth:390, background:'white', borderRadius:'24px 24px 0 0', padding:'24px', boxSizing:'border-box' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div style={{ fontSize:18, fontWeight:700, color:'#1a1a1a' }}>{tr('review_title')}</div>
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <button onClick={onClose} aria-label={tr('common_close')} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
             <X size={20} />
           </button>
         </div>
@@ -96,7 +96,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
         {/* Rating stars */}
         <div style={{ display:'flex', gap:12, marginBottom:20, justifyContent:'center' }}>
           {[1, 2, 3, 4, 5].map(r => (
-            <button key={r} onClick={() => setRating(r)} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
+            <button type="button" key={r} onClick={() => setRating(r)} aria-label={tr('review_rateStarsAria', { n: r })} aria-pressed={r === rating} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
               <Star size={40} fill={r <= rating ? '#FFC107' : 'transparent'} color={r <= rating ? '#FFC107' : '#DDD'} />
             </button>
           ))}
@@ -109,7 +109,7 @@ export default function ReviewModal({ booking, onClose, onSubmitted }) {
         )}
 
         {/* Review text */}
-        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder={tr('review_textareaPlaceholder')}
+        <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder={tr('review_textareaPlaceholder')} aria-label={tr('review_textareaAria')}
           style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, resize:'none', minHeight:80, fontFamily:'inherit', boxSizing:'border-box', marginBottom:12, outline:'none' }} />
         <div style={{ fontSize:11, color:'#AAA', marginBottom:16 }}>{tr('review_charCount', { count: reviewText.length })}</div>
 

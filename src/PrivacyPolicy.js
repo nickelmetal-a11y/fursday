@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLanguage } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -51,34 +52,36 @@ const SECTIONS = [
 
 export default function PrivacyPolicy({ onBack, city }) {
   const t = THEMES[city] || THEMES.Gurgaon;
+  const { t: tr, lang } = useLanguage();
   const [openSection, setOpenSection] = useState(null);
 
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:40 }}>
       <div style={{ background:t.grad, padding:'48px 20px 24px', display:'flex', alignItems:'center', gap:12 }}>
-        <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+        <button type="button" aria-label={tr('common_back')} onClick={onBack} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <ArrowLeft size={18} color="white" />
-        </div>
+        </button>
         <div>
-          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>Privacy Policy</div>
-          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>Last updated 25 November 2026</div>
+          <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('privacy_title')}</div>
+          <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{tr('privacy_lastUpdated')}</div>
         </div>
       </div>
 
       <div style={{ padding:'16px 16px 0' }}>
         <div style={{ background:'#E3F2FD', borderRadius:14, padding:'12px 16px', marginBottom:16, fontSize:13, color:'#1565C0', lineHeight:1.6 }}>
-          This policy explains how Fursday collects, uses, and protects your personal data under India's Digital Personal Data Protection Act, 2023 and the IT Act, 2000.
+          {tr('privacy_intro')}
+          {lang === 'hi' && <div style={{ marginTop:6, fontSize:12 }}>{tr('privacy_legalEnglishNote')}</div>}
         </div>
 
         {SECTIONS.map((s, i) => (
           <div key={i} style={{ background:'white', borderRadius:16, marginBottom:8, boxShadow:'0 2px 8px rgba(0,0,0,0.05)', overflow:'hidden' }}>
-            <div onClick={() => setOpenSection(openSection === i ? null : i)}
-              style={{ padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
+            <button type="button" aria-expanded={openSection === i} onClick={() => setOpenSection(openSection === i ? null : i)}
+              style={{ width:'100%', border:'none', background:'none', font:'inherit', textAlign:'left', padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
               <div style={{ fontSize:14, fontWeight:600, color:'#1a1a1a', flex:1, paddingRight:12 }}>{s.title}</div>
               {openSection === i
                 ? <ChevronUp size={18} color={t.primary} />
                 : <ChevronDown size={18} color="#CCC" />}
-            </div>
+            </button>
             {openSection === i && (
               <div style={{ padding:'12px 16px 16px', fontSize:13, color:'#555', lineHeight:1.8, borderTop:'1px solid #F5F5F5', whiteSpace:'pre-line' }}>
                 {s.content}
@@ -88,7 +91,7 @@ export default function PrivacyPolicy({ onBack, city }) {
         ))}
 
         <div style={{ textAlign:'center', padding:'20px 0', fontSize:12, color:'#AAA', lineHeight:1.6 }}>
-          Questions? Contact us at support@fursday.in
+          {tr('privacy_footer')}
         </div>
       </div>
     </div>

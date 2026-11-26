@@ -63,10 +63,10 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
                   <Phone size={15} /> {tr('receipt_callSitter')}
                 </a>
               )}
-              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}
+              <button type="button" style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:13, fontWeight:600, fontFamily:'inherit', cursor:'pointer' }}
                 onClick={onViewBookings}>
                 <MessageCircle size={15} /> {tr('receipt_message')}
-              </div>
+              </button>
             </div>
           </div>
         )}

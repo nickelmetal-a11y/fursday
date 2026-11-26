@@ -5,6 +5,8 @@ import AdminAuditLogs from './AdminAuditLogs';
 import AdminDisputes from './AdminDisputes';
 import AdminPromotions from './AdminPromotions';
 import AdminSettings from './AdminSettings';
+import AdminUsers from './AdminUsers';
+import AdminReports from './AdminReports';
 import { logSitterApproved, logSitterRejected, logSitterSuspended, logSitterNeedsChanges, logTopSitterToggled, logPayoutMarkedPaid } from './auditService';
 
 const ORANGE = '#FF6B35';
@@ -379,6 +381,8 @@ export default function AdminPanel({ onSignOut }) {
     { id: 'payouts', icon: '💰', label: 'Payouts (' + unpaidPayouts.length + ')' },
     { id: 'disputes', icon: '⚖️', label: 'Disputes' },
     { id: 'promotions', icon: '🎟️', label: 'Promotions' },
+    { id: 'users', icon: '👥', label: 'People' },
+    { id: 'reports', icon: '📈', label: 'Reports' },
     { id: 'audit', icon: '📜', label: 'Audit' },
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
@@ -640,6 +644,10 @@ export default function AdminPanel({ onSignOut }) {
         {!loading && tab === 'audit' && <AdminAuditLogs />}
 
         {!loading && tab === 'settings' && <AdminSettings />}
+
+        {!loading && tab === 'users' && <AdminUsers />}
+
+        {!loading && tab === 'reports' && <AdminReports />}
       </div>
     </div>
   );

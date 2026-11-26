@@ -143,7 +143,7 @@ export default function SitterEditProfile({ onBack, city }) {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
       setPhotoUrl(publicUrl);
-    } catch (e) { alert('Upload failed: ' + (e.message || e)); }
+    } catch (e) { alert(t('sitterEdit_uploadFailed', { error: e.message || e })); }
     setUploadingPhoto(false);
   };
 
@@ -161,7 +161,7 @@ export default function SitterEditProfile({ onBack, city }) {
         const { data: { publicUrl } } = supabase.storage.from('sitter-photos').getPublicUrl(path);
         setPhotos(prev => [...prev, { id: null, url: publicUrl }]);
       }
-    } catch (e) { alert('Upload failed: ' + (e.message || e)); }
+    } catch (e) { alert(t('sitterEdit_uploadFailed', { error: e.message || e })); }
     setUploadingPhoto(false);
   };
 
@@ -220,7 +220,7 @@ export default function SitterEditProfile({ onBack, city }) {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch (e) { alert('Save failed: ' + e.message); }
+    } catch (e) { alert(t('sitterEdit_saveFailed', { error: e.message })); }
     setSaving(false);
   };
 
@@ -246,17 +246,17 @@ export default function SitterEditProfile({ onBack, city }) {
             <ArrowLeft size={16} /> {t('common_back')}
           </button>
           <button onClick={handleSave} disabled={saving}
-            style={{ background: saved ? '#2E7D32' : 'white', border: 'none', borderRadius: 12, padding: '8px 16px', color: saved ? 'white' : theme.primary, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            style={{ background: saved ? '#2E7D32' : 'white', border: 'none', borderRadius: 12, padding: '8px 16px', minHeight: 44, color: saved ? 'white' : theme.primary, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
             {saving ? t('common_saving') : saved ? t('sitterEdit_savedShort') : t('common_save')}
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div onClick={() => choosePhoto(avatarInputRef, handleAvatarUpload)}
-              style={{ width: 72, height: 72, borderRadius: 22, background: photoUrl ? 'transparent' : 'rgba(255,255,255,0.2)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-              {photoUrl ? <img src={photoUrl} alt="profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <button type="button" onClick={() => choosePhoto(avatarInputRef, handleAvatarUpload)} aria-label={t('sitterEdit_changeProfilePhoto')}
+              style={{ width: 72, height: 72, padding: 0, font: 'inherit', borderRadius: 22, background: photoUrl ? 'transparent' : 'rgba(255,255,255,0.2)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+              {photoUrl ? <img src={photoUrl} alt={t('sitterEdit_profilePhotoAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={{ textAlign: 'center' }}><Camera size={20} color="white" /><div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, marginTop: 2 }}>{t('sitterEdit_avatarAddPhoto')}</div></div>}
-            </div>
+            </button>
             {uploadingPhoto && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: 'white', fontSize: 10 }}>...</div></div>}
             <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
           </div>
@@ -267,11 +267,11 @@ export default function SitterEditProfile({ onBack, city }) {
               : sitterProfile?.status === 'needs_changes' ? t('sitterEdit_statusNeedsChanges')
               : t('sitterEdit_statusPending')
             }</div>
-            <div onClick={() => setIsPaused(!isPaused)}
-              style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: isPaused ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '4px 12px', cursor: 'pointer' }}>
+            <button type="button" onClick={() => setIsPaused(!isPaused)} aria-pressed={isPaused}
+              style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: isPaused ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)', border: 'none', font: 'inherit', borderRadius: 20, padding: '4px 12px', cursor: 'pointer' }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: isPaused ? '#FFC107' : '#4CAF50' }} />
               <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>{isPaused ? t('sitterEdit_pausedLabel') : t('sitterEdit_acceptingLabel')}</span>
-            </div>
+            </button>
           </div>
         </div>
         <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '10px 14px' }}>
@@ -342,17 +342,17 @@ export default function SitterEditProfile({ onBack, city }) {
                 {photos.map((photo, i) => (
                   <div key={i} style={{ position: 'relative', width: 90, height: 90 }}>
                     <img src={photo.url} alt={t('sitterEdit_photoAlt', { n: i + 1 })} style={{ width: 90, height: 90, borderRadius: 14, objectFit: 'cover' }} />
-                    <div onClick={() => handlePhotoDelete(i)}
-                      style={{ position: 'absolute', top: -8, right: -8, width: 28, height: 28, borderRadius: 14, background: '#D32F2F', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                    <button type="button" onClick={() => handlePhotoDelete(i)} aria-label={t('sitterEdit_removePhotoLabel', { n: i + 1 })}
+                      style={{ position: 'absolute', top: -8, right: -8, width: 28, height: 28, padding: 0, border: 'none', font: 'inherit', borderRadius: 14, background: '#D32F2F', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                       <span style={{ color: 'white', fontSize: 18, fontWeight: 'bold', lineHeight: 1 }}>×</span>
-                    </div>
+                    </button>
                   </div>
                 ))}
                 {photos.length < 3 && (
-                  <div onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
-                    style={{ width: 90, height: 90, borderRadius: 14, background: theme.light, border: '2px dashed ' + theme.primary, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
+                  <button type="button" onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)} aria-label={t('sitterEdit_addPortfolioPhotoLabel')}
+                    style={{ width: 90, height: 90, padding: 0, font: 'inherit', borderRadius: 14, background: theme.light, border: '2px dashed ' + theme.primary, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
                     {uploadingPhoto ? <span style={{ fontSize: 12, color: theme.primary }}>...</span> : <><Camera size={20} color={theme.primary} /><span style={{ fontSize: 10, color: theme.primary, textAlign: 'center' }}>{photos.length === 0 ? t('sitterEdit_addPhotoButton') : t('sitterEdit_morePhotos')}</span></>}
-                  </div>
+                  </button>
                 )}
               </div>
               <div style={{ fontSize: 11, color: '#AAA', marginTop: 8 }}>{t('sitterEdit_photosUploadedCount', { count: photos.length })}</div>
@@ -405,10 +405,10 @@ export default function SitterEditProfile({ onBack, city }) {
                         <div style={{ fontSize: 11, color: '#888' }}>{t(s.subKey)}</div>
                       </div>
                     </div>
-                    <div onClick={() => toggleService(s.id)} role="switch" aria-checked={active} aria-label={t('sitterEdit_serviceToggleLabel', { service: t(s.nameKey) })}
-                      style={{ width: 44, height: 24, borderRadius: 12, background: active ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                    <button type="button" onClick={() => toggleService(s.id)} role="switch" aria-checked={active} aria-label={t('sitterEdit_serviceToggleLabel', { service: t(s.nameKey) })}
+                      style={{ width: 44, height: 24, padding: 0, border: 'none', borderRadius: 12, background: active ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ position: 'absolute', top: 2, left: active ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-                    </div>
+                    </button>
                   </div>
                   {active && (
                     <div>
@@ -461,8 +461,8 @@ export default function SitterEditProfile({ onBack, city }) {
                 { labelKey: 'sitterEdit_afternoon', subKey: 'sitterEdit_afternoonHours', val: afternoonSlot, set: setAfternoonSlot },
                 { labelKey: 'sitterEdit_evening', subKey: 'sitterEdit_eveningHours', val: eveningSlot, set: setEveningSlot },
               ].map((slot, i, arr) => (
-                <div key={slot.labelKey} onClick={() => slot.set(!slot.val)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
+                <button type="button" key={slot.labelKey} onClick={() => slot.set(!slot.val)} role="switch" aria-checked={slot.val}
+                  style={{ width: '100%', font: 'inherit', textAlign: 'left', color: 'inherit', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{t(slot.labelKey)}</div>
                     <div style={{ fontSize: 11, color: '#888' }}>{t(slot.subKey)}</div>
@@ -470,7 +470,7 @@ export default function SitterEditProfile({ onBack, city }) {
                   <div style={{ width: 44, height: 24, borderRadius: 12, background: slot.val ? theme.primary : '#E0E0E0', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
                     <div style={{ position: 'absolute', top: 2, left: slot.val ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
             <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Search, MapPin, Star, Filter, Heart } from 'lucide-react';
 import { supabase } from './supabase';
-import { useLanguage } from './i18n';
+import { useLanguage, translate } from './i18n';
 
 const THEMES = {
   Gurgaon: { primary: '#FF6B35', light: '#FFF0EB', grad: 'linear-gradient(135deg,#FF6B35,#FF8C5A)' },
@@ -79,7 +79,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           const BG = ['#FFE0B2','#E1F5FE','#F8BBD9','#E8F5E9','#FFF9C4'];
           const mapped = data.map((s, i) => ({
             id: s.id,
-            name: s.users?.name || 'Sitter',
+            name: s.users?.name || translate('explore_sitterFallback'),
             rating: s.rating || 5.0,
             reviews: s.total_bookings || 0,
             services: s.sitter_services || [],
@@ -118,9 +118,9 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
       <div style={{ background:t.grad, padding:'48px 20px 16px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+          <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <ArrowLeft size={18} color="white" />
-          </div>
+          </button>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('explore_title', { city })}</div>
         </div>
         <div style={{ background:'white', borderRadius:14, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
@@ -179,6 +179,8 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                     <div style={{ fontSize:15, fontWeight:700, color:t.primary, marginTop:2 }}>{tr('explore_fromPrice', { price: Math.round(s.minPrice) })}</div>
                   </div>
                   <button onClick={() => toggleFavorite(s.id)}
+                    aria-label={tr(favorites.includes(s.id) ? 'explore_removeFavorite' : 'explore_addFavorite')}
+                    aria-pressed={favorites.includes(s.id)}
                     style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center' }}>
                     <Heart size={20} fill={favorites.includes(s.id) ? t.primary : 'none'} color={favorites.includes(s.id) ? t.primary : '#DDD'} />
                   </button>
@@ -192,7 +194,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                   {s.distance !== null && s.distance !== undefined && (
                     <div style={{ display:'flex', alignItems:'center', gap:3 }}>
                       <MapPin size={12} color={t.primary} />
-                      <span style={{ fontSize:12, color:t.primary, fontWeight:600 }}>{s.distance.toFixed(1)} km</span>
+                      <span style={{ fontSize:12, color:t.primary, fontWeight:600 }}>{tr('explore_distanceKm', { km: s.distance.toFixed(1) })}</span>
                     </div>
                   )}
                 </div>
@@ -212,7 +214,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
               ))}
             </div>
             <button onClick={() => onBook && onBook(s)}
-              style={{ width:'100%', padding:'12px 0', borderRadius:14, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+              style={{ width:'100%', minHeight:44, padding:'12px 0', borderRadius:14, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
               {tr('explore_requestBooking')}
             </button>
           </div>
@@ -227,12 +229,13 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           { id:'profile', key:'nav_myPets', emoji:'\uD83D\uDC15' },
           { id:'settings', key:'nav_settings', emoji:'\u2699\uFE0F' },
         ].map(n => (
-          <div key={n.id} onClick={() => { if(n.id==='explore') return; if(onNav) onNav(n.id); else onBack(); }}
-            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+          <button type="button" key={n.id} onClick={() => { if(n.id==='explore') return; if(onNav) onNav(n.id); else onBack(); }}
+            aria-current={n.id==='explore' ? 'page' : undefined}
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', border:'none', background:'none', padding:0, font:'inherit', color:'inherit' }}>
             <span style={{ fontSize:20 }}>{n.emoji}</span>
             <span style={{ fontSize:10, fontWeight:n.id==='explore'?700:400, color:n.id==='explore'?t.primary:'#BBB' }}>{tr(n.key)}</span>
             {n.id==='explore' && <div style={{ width:4, height:4, borderRadius:2, background:t.primary }} />}
-          </div>
+          </button>
         ))}
       </div>
     </div>

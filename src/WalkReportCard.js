@@ -52,7 +52,7 @@ const ZONES = {
 };
 
 export default function WalkReportCard({ onBack, city, booking, mode }) {
-  const { t: tr } = useLanguage();
+  const { t: tr, lang } = useLanguage();
   const isParent = mode === 'parent';
   const c = city || 'Gurgaon';
   const t = THEMES[c] || THEMES.Gurgaon;
@@ -73,7 +73,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
     heat:false, stray:'none',
     highlight:'', notes:'', nextrec:'',
     gatein:'', gateout:'',
-    time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+    time: new Date().toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN',{hour:'2-digit',minute:'2-digit'}),
   });
 
   const upd = (f,v) => setR(p => ({...p,[f]:v}));
@@ -170,9 +170,9 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
       <div style={{ background:t.grad, padding:'48px 20px 20px', display:'flex', alignItems:'center', gap:12 }}>
-        <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+        <button type="button" aria-label={tr('common_back')} onClick={onBack} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
           <ArrowLeft size={18} color="white" />
-        </div>
+        </button>
         <div>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('walkReport_headerTitle', { pet })}</div>
           <div style={{ color:'rgba(255,255,255,0.75)', fontSize:12 }}>{tr('walkReport_headerSubtitle', { sitter, time:r.time })}</div>
@@ -189,12 +189,12 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
             <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>{tr('walkReport_activityHint')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
               {[{f:'pee',e:'💧',l:tr('walkReport_activityPee')},{f:'poo',e:'💩',l:tr('walkReport_activityPoo')},{f:'water',e:'🥤',l:tr('walkReport_activityWater')},{f:'food',e:'🍖',l:tr('walkReport_activityFood')}].map(x => (
-                <div key={x.f} onClick={()=>upd(x.f,!r[x.f])}
-                  style={{ background:r[x.f]?t.light:'white', border:r[x.f]?'2px solid '+t.primary:'1.5px solid #E0E0E0', borderRadius:16, padding:'14px 8px', textAlign:'center', cursor:'pointer' }}>
+                <button type="button" key={x.f} aria-pressed={r[x.f]} onClick={()=>upd(x.f,!r[x.f])}
+                  style={{ fontFamily:'inherit', background:r[x.f]?t.light:'white', border:r[x.f]?'2px solid '+t.primary:'1.5px solid #E0E0E0', borderRadius:16, padding:'14px 8px', textAlign:'center', cursor:'pointer' }}>
                   <div style={{ fontSize:28, marginBottom:6 }}>{x.e}</div>
                   <div style={{ fontSize:12, fontWeight:r[x.f]?700:400, color:r[x.f]?t.primary:'#888' }}>{x.l}</div>
                   {r[x.f] && <div style={{ fontSize:10, color:t.primary, marginTop:3 }}>{tr('walkReport_done')}</div>}
-                </div>
+                </button>
               ))}
             </div>
             <div style={S.card}>
@@ -212,7 +212,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               <div style={S.lbl}>{tr('walkReport_walkAreaLabel')}</div>
               <select value={r.zone} onChange={e=>upd('zone',e.target.value)} style={{...S.inp,cursor:'pointer'}}>
                 <option value="">{tr('walkReport_selectArea')}</option>
-                {zones.map(z=><option key={z} value={z}>{z}</option>)}
+                {zones.map(z=><option key={z} value={z}>{z==='Other' ? tr('walkReport_zoneOther') : z}</option>)}
               </select>
               <div style={{ display:'flex', gap:10 }}>
                 <div style={{ flex:1 }}>
@@ -236,18 +236,18 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               <div style={S.sec}>{tr('walkReport_overallMood')}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {MOODS.map(m=>(
-                  <div key={m.val} onClick={()=>upd('mood',m.val)}
-                    style={{ flex:1, textAlign:'center', padding:'10px 4px', borderRadius:14, border:r.mood===m.val?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:r.mood===m.val?t.light:'white', cursor:'pointer' }}>
+                  <button type="button" key={m.val} aria-pressed={r.mood===m.val} onClick={()=>upd('mood',m.val)}
+                    style={{ flex:1, minWidth:0, fontFamily:'inherit', textAlign:'center', padding:'10px 4px', borderRadius:14, border:r.mood===m.val?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:r.mood===m.val?t.light:'white', cursor:'pointer' }}>
                     <div style={{ fontSize:22, marginBottom:4 }}>{m.emoji}</div>
                     <div style={{ fontSize:10, color:r.mood===m.val?t.primary:'#888', fontWeight:r.mood===m.val?600:400 }}>{m.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
             <div style={S.card}>
               <div style={S.sec}>{tr('walkReport_indiaSafetyChecks')}</div>
-              <div onClick={()=>upd('heat',!r.heat)}
-                style={{ background:r.heat?'#E8F5E9':'#FFF8E1', border:r.heat?'1.5px solid #A5D6A7':'1.5px solid #FFE082', borderRadius:14, padding:'12px 14px', marginBottom:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center' }}>
+              <button type="button" aria-pressed={r.heat} onClick={()=>upd('heat',!r.heat)}
+                style={{ width:'100%', boxSizing:'border-box', fontFamily:'inherit', textAlign:'left', background:r.heat?'#E8F5E9':'#FFF8E1', border:r.heat?'1.5px solid #A5D6A7':'1.5px solid #FFE082', borderRadius:14, padding:'12px 14px', marginBottom:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center' }}>
                 <span style={{ fontSize:22 }}>🌡️</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a' }}>{tr('walkReport_heatSafetyObserved')}</div>
@@ -256,15 +256,15 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                 <div style={{ width:22, height:22, borderRadius:7, background:r.heat?'#2E7D32':'#E0E0E0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   {r.heat && <CheckCircle size={14} color="white" />}
                 </div>
-              </div>
+              </button>
               <div style={S.sec}>{tr('walkReport_strayEncounters')}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {STRAYS.map(o=>(
-                  <div key={o.val} onClick={()=>upd('stray',o.val)}
-                    style={{ padding:'10px 12px', borderRadius:12, border:r.stray===o.val?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:r.stray===o.val?t.light:'white', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+                  <button type="button" key={o.val} aria-pressed={r.stray===o.val} onClick={()=>upd('stray',o.val)}
+                    style={{ fontFamily:'inherit', textAlign:'left', padding:'10px 12px', borderRadius:12, border:r.stray===o.val?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:r.stray===o.val?t.light:'white', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:16 }}>{o.emoji}</span>
                     <span style={{ fontSize:12, fontWeight:r.stray===o.val?600:400, color:r.stray===o.val?t.primary:'#555' }}>{o.label}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -281,17 +281,17 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               <div style={{ display:'flex', gap:10, marginBottom:8 }}>
                 {photos.map((p, i) => (
                   <div key={i} style={{ flex:1, position:'relative', aspectRatio:'1', borderRadius:14, overflow:'hidden' }}>
-                    <img src={p.url} alt="walk" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    <div onClick={() => removePhoto(i)} style={{ position:'absolute', top:4, right:4, width:22, height:22, borderRadius:11, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                    <img src={p.url} alt={tr('walkReport_photoAlt')} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    <button type="button" aria-label={tr('walkReport_removePhotoAria')} onClick={() => removePhoto(i)} style={{ position:'absolute', top:4, right:4, width:22, height:22, borderRadius:11, border:'none', padding:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                       <X size={13} color="white" />
-                    </div>
+                    </button>
                   </div>
                 ))}
                 {photos.length < 3 && (
-                  <div onClick={() => !uploadingPhoto && choosePhoto(fileInputRef, handlePhotoSelect, { cameraOnly: true })}
-                    style={{ flex:1, aspectRatio:'1', borderRadius:14, background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
+                  <button type="button" onClick={() => !uploadingPhoto && choosePhoto(fileInputRef, handlePhotoSelect, { cameraOnly: true })}
+                    style={{ flex:1, minWidth:0, aspectRatio:'1', borderRadius:14, padding:0, fontFamily:'inherit', background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
                     {uploadingPhoto ? <span style={{ fontSize:11, color:t.primary }}>{tr('walkReport_uploading')}</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{tr('walkReport_add')}</span></>}
-                  </div>
+                  </button>
                 )}
                 {/* fill empty slots visually */}
                 {photos.length < 2 && Array.from({length: 2 - photos.length}).map((_, i) => (
@@ -329,7 +329,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>
                 {[
-                  { emoji:'⏱️', val:r.mins?r.mins+' min':'--', label:tr('walkReport_statDuration') },
+                  { emoji:'⏱️', val:r.mins?r.mins+' '+tr('walkReport_minUnit'):'--', label:tr('walkReport_statDuration') },
                   { emoji:'📍', val:r.km?r.km+' km':'--', label:tr('walkReport_statDistance') },
                   { emoji:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).emoji:'😊', val:MOODS.find(m=>m.val===r.mood)?MOODS.find(m=>m.val===r.mood).label:tr('walkReport_moodNotSet'), label:tr('walkReport_statMood') },
                 ].map((x,i)=>(
@@ -376,7 +376,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
                 <div style={{ display:'flex', gap:6, marginTop:4 }}>
                   {photos.map((p, i) => (
                     <div key={i} style={{ flex:1, aspectRatio:'1', borderRadius:10, overflow:'hidden' }}>
-                      <img src={p.url} alt="walk" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      <img src={p.url} alt={tr('walkReport_photoAlt')} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                     </div>
                   ))}
                 </div>

@@ -36,7 +36,7 @@ export default function DisputeForm({ booking, sitterName, otherName, reporterRo
         const { data: sp } = await supabase.from('sitter_profiles').select('user_id').eq('id', booking.sitter_id).single();
         reportedUserId = sp?.user_id;
       }
-      if (!reportedUserId) throw new Error('Could not find the other person on this booking');
+      if (!reportedUserId) throw new Error(tr('disputeForm_otherPartyNotFound'));
 
       const { error: disputeError } = await supabase
         .from('disputes')
@@ -79,18 +79,18 @@ export default function DisputeForm({ booking, sitterName, otherName, reporterRo
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>{tr('disputeForm_typeLabel')}</div>
           {disputeTypes.map(dt => (
-            <div key={dt.id} onClick={() => setDisputeType(dt.id)}
-              style={{ padding:'12px 14px', borderRadius:12, border:disputeType===dt.id?'2px solid #FF6B35':'1.5px solid #E0E0E0', background:disputeType===dt.id?'#FFF0EB':'white', marginBottom:8, fontSize:13, cursor:'pointer', fontWeight:disputeType===dt.id?600:400, color:disputeType===dt.id?'#FF6B35':'#1a1a1a' }}>
+            <button type="button" key={dt.id} onClick={() => setDisputeType(dt.id)} aria-pressed={disputeType===dt.id}
+              style={{ display:'block', width:'100%', textAlign:'left', fontFamily:'inherit', padding:'12px 14px', borderRadius:12, border:disputeType===dt.id?'2px solid #FF6B35':'1.5px solid #E0E0E0', background:disputeType===dt.id?'#FFF0EB':'white', marginBottom:8, fontSize:13, cursor:'pointer', fontWeight:disputeType===dt.id?600:400, color:disputeType===dt.id?'#FF6B35':'#1a1a1a' }}>
               {dt.label}
-              <div style={{ fontSize:11, color:'#888', fontWeight:400, marginTop:2 }}>{dt.desc}</div>
-            </div>
+              <span style={{ display:'block', fontSize:11, color:'#888', fontWeight:400, marginTop:2 }}>{dt.desc}</span>
+            </button>
           ))}
         </div>
 
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={tr('disputeForm_titlePlaceholder')}
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={tr('disputeForm_titlePlaceholder')} aria-label={tr('disputeForm_titlePlaceholder')}
           style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, marginBottom:12, boxSizing:'border-box', outline:'none', fontFamily:'inherit' }} />
 
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('disputeForm_descriptionPlaceholder')}
+        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('disputeForm_descriptionPlaceholder')} aria-label={tr('disputeForm_descriptionPlaceholder')}
           style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:13, marginBottom:12, minHeight:80, boxSizing:'border-box', outline:'none', fontFamily:'inherit', resize:'none' }} />
 
         <div style={{ display:'flex', gap:8 }}>

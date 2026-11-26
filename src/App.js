@@ -22,7 +22,7 @@ import ParentOnboarding from './ParentOnboarding';
 import BroadcastRequest from './BroadcastRequest';
 import SettingsScreen from './SettingsScreen';
 import LanguageToggle from './LanguageToggle';
-import { useLanguage } from './i18n';
+import { useLanguage, translate } from './i18n';
 import { checkLocationRestriction } from './geolocationService';
 
 const THEMES = {
@@ -198,11 +198,11 @@ export default function App() {
         if (data) {
           setRealSitters(data.map((s, i) => ({
             id: s.id,
-            name: s.users?.name || 'Care pro',
+            name: s.users?.name || translate('sitterProfile_nameFallback'),
             city, area: city,
             rating: s.rating || 5.0,
             reviews: s.total_bookings || 0,
-            price: s.sitter_services?.[0] ? 'Rs.' + Math.round(s.sitter_services[0].price_paise/100) + '/walk' : 'Rs.299/walk',
+            price: translate('home_pricePerWalk').replace('{n}', s.sitter_services?.[0] ? Math.round(s.sitter_services[0].price_paise/100) : 299),
             tags: s.sitter_services?.map(sv => sv.service_type) || [],
             verified: s.aadhaar_verified || false,
             emoji: (s.users?.name || 'S')[0].toUpperCase(),
@@ -302,9 +302,9 @@ export default function App() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
       const { data: petRow } = await supabase.from('pet_profiles').select('id').eq('user_id', user?.id).limit(1).single();
-      if (!petRow) { alert('Please add a pet profile before requesting a sitter.'); return; }
+      if (!petRow) { alert(tr('home_alertAddPetFirst')); return; }
       const { error } = await supabase.from('bookings').insert({ pet_parent_id:user?.id, sitter_id:sitter.id, city_id:cityRow?.id, pet_id:petRow.id, service_type:'walk30', booking_date:new Date().toISOString().split('T')[0], time_slot:'07:00', gross_amount_paise:29900, sitter_payout_paise:29900, status:'pending', payment_status:'unpaid' });
-      if (error) { alert('Could not send request: ' + error.message); return; }
+      if (error) { alert(tr('home_alertRequestFailed') + error.message); return; }
       setRequestSentFor(sitter.name);
       setTimeout(() => setRequestSentFor(null), 3000);
     } catch(e) { console.log('Request error:', e); }
@@ -328,7 +328,7 @@ export default function App() {
         {tr('comingSoon_yourIp')} {userIP}
         </div>
       )}
-      <button onClick={() => window.location.reload()} style={{ marginTop:20, padding:'12px 24px', background:'#FF6B35', color:'white', border:'none', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:13 }}>
+      <button onClick={() => window.location.reload()} style={{ marginTop:20, padding:'12px 24px', minHeight:44, background:'#FF6B35', color:'white', border:'none', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:13 }}>
         {tr('comingSoon_checkAgain')}
       </button>
     </div>
@@ -360,7 +360,7 @@ export default function App() {
   if (needsFirstLogin) return <FirstLoginPrompt user={user} onDone={name => { setUserName(name); setShowParentOnboarding(true); }} />;
   if (showParentOnboarding) return <ParentOnboarding onDone={() => setShowParentOnboarding(false)} city={city} userName={userName} />;
 
-  const activeCities = Object.keys(CITY_CONFIG).map(c => CITY_CONFIG[c].displayName).join(' and ');
+  const activeCities = Object.keys(CITY_CONFIG).map(c => CITY_CONFIG[c].displayName).join(tr('home_citiesJoiner'));
 
   if (outsideCity) return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#0f0f1a', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 24px', textAlign:'center' }}>
@@ -369,7 +369,7 @@ export default function App() {
       <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:32, lineHeight:1.6 }}>{tr('outside_body', { cities: activeCities })}</div>
       {!waitlistSent ? (
         <div style={{ width:'100%' }}>
-          <input value={waitlistEmail} onChange={e => setWaitlistEmail(e.target.value)} placeholder="your@email.com" type="email"
+          <input value={waitlistEmail} onChange={e => setWaitlistEmail(e.target.value)} placeholder="your@email.com" type="email" aria-label={tr('home_waitlistEmailLabel')}
             style={{ width:'100%', padding:'16px', borderRadius:14, border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.08)', fontSize:15, color:'white', outline:'none', boxSizing:'border-box', marginBottom:12 }} />
           <button onClick={async () => { if(waitlistEmail.includes('@')){ await supabase.from('waitlist').insert({ email:waitlistEmail }); setWaitlistSent(true); } }}
             style={{ width:'100%', padding:'16px 0', borderRadius:14, border:'none', background:'#FF6B35', color:'white', fontSize:15, fontWeight:700, cursor:'pointer', marginBottom:12 }}>
@@ -394,14 +394,14 @@ export default function App() {
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
   if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
   if (showOnboarding) return <SitterOnboarding onDone={dest => { setShowOnboarding(false); if(dest==='sitter'){ setIsSitter(true); setIsSitterMode(true); } }} city={city} />;
-  if (isSitterMode) return <SitterDashboard onBack={() => { setIsSitterMode(false); goHome(); }} onEditProfile={() => { setIsSitterMode(false); setShowSitterEdit(true); }} city={city} onMessage={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||'Pet parent', otherPhone:b.users?.phone||'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
+  if (isSitterMode) return <SitterDashboard onBack={() => { setIsSitterMode(false); goHome(); }} onEditProfile={() => { setIsSitterMode(false); setShowSitterEdit(true); }} city={city} onMessage={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:b.users?.phone||'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
   if (showSitterEdit) return <SitterEditProfile onBack={() => { setShowSitterEdit(false); goHome(); }} city={city} />;
   if (showUserProfile) return <UserProfile onBack={() => { setShowUserProfile(false); goHome(); }} city={city} activeNav={activeNav} onAddPet={() => { setShowUserProfile(false); setEditingPetId(null); setShowPetProfile(true); }} onEditPet={(pet) => { setShowUserProfile(false); setEditingPetId(pet?.id || null); setShowPetProfile(true); }} onSignOut={async () => { await supabase.auth.signOut(); setUser(null); setShowUserProfile(false); }} onNav={id => { setShowUserProfile(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='settings'){ goSettings(); } }} />;
   if (showExplore) return <ExploreScreen onBack={() => { setShowExplore(false); goHome(); }} city={city} userLocation={userLocation} activeNav={activeNav} onBook={sitter => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} onNav={id => { setShowExplore(false); if(id==='home'){ goHome(); } else if(id==='book'){ setActiveNav('book'); setShowBookings(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } }} />;
   if (showChat) return <ChatScreen onBack={() => { setShowChat(false); if(chatBooking?.fromSitter) setIsSitterMode(true); else { setShowBookings(true); } }} city={city} booking={chatBooking} userType={chatBooking?.fromSitter?'sitter':'parent'} />;
   if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={paymentId => { setShowPayment(false); if(paymentBooking?.id) sendBookingEmail(paymentBooking); setReceiptData({ ...paymentBooking, paymentId }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
   if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
-  if (showBookings) return <BookingsDashboard onBack={() => { setShowBookings(false); goHome(); }} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { setShowBookings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } else if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || 'Sitter', area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
+  if (showBookings) return <BookingsDashboard onBack={() => { setShowBookings(false); goHome(); }} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { setShowBookings(false); if(id==='home'){ goHome(); } else if(id==='explore'){ setActiveNav('explore'); setShowExplore(true); } else if(id==='profile'){ setActiveNav('profile'); setShowUserProfile(true); } else if(id==='settings'){ goSettings(); } else if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
   if (showPetProfile) return <PetProfile onBack={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} city={city} petId={editingPetId} onSave={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} />;
   if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); goHome(); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} />;
   if (selectedSitter && !showBooking) return <SitterProfile onBack={() => { setSelectedSitter(null); goHome(); }} onBook={() => setShowBooking(true)} sitter={selectedSitter} city={city} />;
@@ -465,7 +465,7 @@ export default function App() {
           {/* Quick action button */}
           <div style={{ padding:'0 16px 0' }}>
             <button onClick={() => { setActiveNav('explore'); setShowExplore(true); }}
-              style={{ width:'100%', padding:'14px', background:theme.primary, border:'none', borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>🔍 {tr('common_seeAll')} {tr('nav_explore').toLowerCase()}</button>
+              style={{ width:'100%', padding:'14px', minHeight:44, background:theme.primary, border:'none', borderRadius:12, color:'white', fontWeight:700, cursor:'pointer', marginBottom:10, fontSize:13 }}>🔍 {tr('common_seeAll')} {tr('nav_explore').toLowerCase()}</button>
           </div>
 
           {/* Admin-declared promo banner (AdminPanel's Promotions tab) */}
@@ -480,12 +480,12 @@ export default function App() {
             <div style={{ fontSize:13, fontWeight:600, color:'#888', marginBottom:10 }}>{tr('home_whatDoYouNeed')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
               {SERVICES.slice(0,2).map(svc => (
-                <div key={svc.id} onClick={() => { if(svc.id==='broadcast'){ setShowBroadcast(true); return; } setSelectedServiceType(svc.id); setShowBooking(true); }}
-                  style={{ background:svc.color, borderRadius:12, padding:'12px', cursor:'pointer', border:'0.5px solid rgba(0,0,0,0.04)' }}>
+                <button type="button" key={svc.id} onClick={() => { if(svc.id==='broadcast'){ setShowBroadcast(true); return; } setSelectedServiceType(svc.id); setShowBooking(true); }}
+                  style={{ display:'block', width:'100%', textAlign:'left', font:'inherit', color:'inherit', background:svc.color, borderRadius:12, padding:'12px', cursor:'pointer', border:'0.5px solid rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize:24, marginBottom:6 }}>{svc.icon}</div>
                   <div style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', marginBottom:2, lineHeight:1.2 }}>{tr(svc.id==='walk30'?'service_walk':svc.id==='boarding'?'service_boarding':svc.id==='daycare'?'service_daycare':'service_broadcast')}</div>
                   <div style={{ fontSize:10, color:svc.tc, fontWeight:600 }}>{tr(svc.id==='walk30'?'service_walkPrice':svc.id==='boarding'?'service_boardingPrice':svc.id==='daycare'?'service_daycarePrice':'service_broadcastPrice')}</div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -495,7 +495,7 @@ export default function App() {
             <div style={{ padding:'16px' }}>
               <div style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>{tr('home_availableNow')}</div>
               {filteredSitters.slice(0,2).map(s => (
-                <div key={s.id} onClick={() => setSelectedSitter(s)} style={{ background:'#fafafa', borderRadius:12, padding:12, marginBottom:10, cursor:'pointer', border:'0.5px solid #f0f0f0', display:'flex', gap:10, alignItems:'center' }}>
+                <div key={s.id} role="button" tabIndex={0} onClick={() => setSelectedSitter(s)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedSitter(s); } }} style={{ background:'#fafafa', borderRadius:12, padding:12, marginBottom:10, cursor:'pointer', border:'0.5px solid #f0f0f0', display:'flex', gap:10, alignItems:'center' }}>
                   <div style={{ width:44, height:44, borderRadius:10, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
                     {s.profilePhoto?<img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />:s.emoji}
                   </div>
@@ -503,17 +503,17 @@ export default function App() {
                     <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{s.name}</div>
                     <div style={{ fontSize:11, color:'#888' }}>⭐ {s.rating} • {tr('home_walksSuffix', { n: s.reviews })}</div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); requestBooking(s); }} style={{ background:theme.primary, color:'white', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0 }}>{tr('common_book')}</button>
+                  <button onClick={e => { e.stopPropagation(); requestBooking(s); }} style={{ background:theme.primary, color:'white', border:'none', padding:'6px 12px', minHeight:44, borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0 }}>{tr('common_book')}</button>
                 </div>
               ))}
-              <div onClick={() => { setActiveNav('explore'); setShowExplore(true); }} style={{ textAlign:'center', padding:'12px', color:theme.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>{tr('home_seeAllSitters', { n: realSitters.length })}</div>
+              <button type="button" onClick={() => { setActiveNav('explore'); setShowExplore(true); }} style={{ display:'block', width:'100%', background:'none', border:'none', font:'inherit', textAlign:'center', padding:'12px', color:theme.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>{tr('home_seeAllSitters', { n: realSitters.length })}</button>
             </div>
           )}
 
           {/* Sitter mode button */}
           {isSitter && (
             <div style={{ padding:'16px' }}>
-              <div onClick={() => setIsSitterMode(true)} style={{ background:'#E8F5E9', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid #C8E6C9' }}>
+              <button type="button" onClick={() => setIsSitterMode(true)} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', background:'#E8F5E9', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', border:'1px solid #C8E6C9' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:36, height:36, borderRadius:10, background:'#2E7D32', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>💰</div>
                   <div>
@@ -523,14 +523,14 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
           )}
 
           {/* Become pro banner */}
           {!isSitter && (
             <div style={{ padding:'16px' }}>
-              <div onClick={() => setShowOnboarding(true)} style={{ background:'#0f0f1a', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
+              <button type="button" onClick={() => setShowOnboarding(true)} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', border:'none', background:'#0f0f1a', borderRadius:12, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🐾</div>
                   <div>
@@ -538,7 +538,7 @@ export default function App() {
                     <div style={{ color:theme.primary, fontSize:11 }}>{tr('home_earnRange')}</div>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
           )}
         </div>
@@ -553,11 +553,11 @@ export default function App() {
           { id:'profile', label:tr('nav_myPets'),  icon:'🐕', action: () => { setShowUserProfile(true); setActiveNav('profile'); } },
           { id:'settings',label:tr('nav_settings'), icon:'⚙️', action: () => goSettings() },
         ].map(n => (
-          <div key={n.id} onClick={n.action} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:50, paddingTop:2 }}>
-            <span style={{ fontSize:20 }}>{n.icon}</span>
+          <button type="button" key={n.id} onClick={n.action} aria-current={activeNav===n.id ? 'page' : undefined} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:50, minHeight:44, padding:'2px 0 0', background:'none', border:'none', font:'inherit', color:'inherit' }}>
+            <span style={{ fontSize:20 }} aria-hidden="true">{n.icon}</span>
             <div style={{ fontSize:9, fontWeight:activeNav===n.id?700:400, color:activeNav===n.id?theme.primary:'#BBBBBB' }}>{n.label}</div>
             {activeNav===n.id && <div style={{ width:4, height:4, borderRadius:2, background:theme.primary }} />}
-          </div>
+          </button>
         ))}
       </div>
     </div>

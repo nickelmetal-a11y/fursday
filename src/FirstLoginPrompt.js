@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
+import { useLanguage } from './i18n';
 
 const ORANGE = '#FF6B35';
 const DARK = '#0f0f1a';
@@ -8,16 +9,17 @@ export default function FirstLoginPrompt({ user, onDone }) {
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { t: tr } = useLanguage();
 
   const handleSave = async () => {
-    if (name.trim().length < 2) { setError('Please enter your full name'); return; }
+    if (name.trim().length < 2) { setError(tr('firstLogin_errName')); return; }
     setSaving(true);
     const { error } = await supabase.from('users').upsert({
       id: user.id,
       name: name.trim(),
       email: user.email,
     }, { onConflict: 'id' });
-    if (error) { setError('Could not save. Please try again.'); setSaving(false); return; }
+    if (error) { setError(tr('firstLogin_errSave')); setSaving(false); return; }
     onDone(name.trim());
   };
 
@@ -27,10 +29,10 @@ export default function FirstLoginPrompt({ user, onDone }) {
         🐾
       </div>
       <div style={{ fontSize:26, fontWeight:700, color:'white', marginBottom:8, textAlign:'center' }}>
-        Welcome to Fursday!
+        {tr('firstLogin_title')}
       </div>
       <div style={{ fontSize:14, color:'rgba(255,255,255,0.5)', marginBottom:40, textAlign:'center', lineHeight:1.6 }}>
-        What should we call you?
+        {tr('firstLogin_subtitle')}
       </div>
 
       {error && (
@@ -43,14 +45,15 @@ export default function FirstLoginPrompt({ user, onDone }) {
         value={name}
         onChange={e => { setName(e.target.value); setError(''); }}
         onKeyDown={e => e.key === 'Enter' && handleSave()}
-        placeholder="Your full name"
+        placeholder={tr('firstLogin_namePlaceholder')}
+        aria-label={tr('firstLogin_namePlaceholder')}
         autoFocus
         style={{ width:'100%', padding:'16px', borderRadius:14, border:'1.5px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.08)', fontSize:16, color:'white', outline:'none', fontFamily:'inherit', boxSizing:'border-box', marginBottom:12 }}
       />
 
       <button onClick={handleSave} disabled={saving || name.trim().length < 2}
         style={{ width:'100%', padding:'16px 0', borderRadius:14, border:'none', background:name.trim().length >= 2 ? ORANGE : 'rgba(255,255,255,0.1)', color:'white', fontSize:15, fontWeight:700, cursor:name.trim().length >= 2 ? 'pointer' : 'not-allowed' }}>
-        {saving ? 'Saving...' : 'Get started →'}
+        {saving ? tr('common_saving') : tr('firstLogin_getStarted')}
       </button>
 
       <div style={{ marginTop:24, fontSize:12, color:'rgba(255,255,255,0.2)', textAlign:'center' }}>

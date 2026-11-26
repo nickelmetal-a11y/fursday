@@ -60,9 +60,9 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
       {/* Header */}
       <div style={{ background:t.grad, padding:'48px 20px 30px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-          <div onClick={onBack} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+          <button type="button" aria-label={tr('common_back')} onClick={onBack} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <ArrowLeft size={18} color="white" />
-          </div>
+          </button>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>{tr('profile_headerTitle')}</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
@@ -120,14 +120,14 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
                     {[pet.breed, pet.age_years ? pet.age_years + ' ' + tr('profile_yearsUnit') : null, pet.weight_kg ? pet.weight_kg + ' ' + tr('profile_weightUnit') : null].filter(Boolean).join(' · ')}
                   </div>
                   <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
-                    {pet.is_vaccinated && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:'#E8F5E9', color:'#2E7D32', fontWeight:600 }}>{tr('profile_vaccinatedBadge')}</span>}
-                    {pet.gender && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:t.light, color:t.primary, fontWeight:600 }}>{pet.gender}</span>}
+                    {pet.vaccinated === 'yes' && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:'#E8F5E9', color:'#2E7D32', fontWeight:600 }}>{tr('profile_vaccinatedBadge')}</span>}
+                    {pet.gender && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:20, background:t.light, color:t.primary, fontWeight:600 }}>{pet.gender === 'male' ? tr('profile_genderMale') : pet.gender === 'female' ? tr('profile_genderFemale') : pet.gender}</span>}
                   </div>
                 </div>
-                <div onClick={() => onEditPet && onEditPet(pet)}
-                  style={{ width:34, height:34, borderRadius:10, background:t.light, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+                <button type="button" aria-label={tr('profile_editPetAria', { name: pet.name })} onClick={() => onEditPet && onEditPet(pet)}
+                  style={{ width:34, height:34, borderRadius:10, border:'none', padding:0, background:t.light, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
                   <Edit2 size={15} color={t.primary} />
-                </div>
+                </button>
               </div>
             ))}
             <button onClick={onAddPet}
@@ -145,7 +145,7 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
           { icon:'⭐', label:tr('profile_myReviewsLabel'), sub:tr('profile_myReviewsSub'), action:'reviews' },
           { icon:'🔔', label:tr('profile_notificationsLabel'), sub:tr('profile_notificationsSub'), action:'notifications' },
         ].map((item, i) => (
-          <div key={i} onClick={() => alert(item.label + tr('profile_comingSoonSuffix'))} style={{ background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+          <button type="button" key={i} onClick={() => alert(item.label + tr('profile_comingSoonSuffix'))} style={{ width:'100%', border:'none', font:'inherit', textAlign:'left', background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
             <div style={{ width:40, height:40, borderRadius:12, background:t.light, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
               {item.icon}
             </div>
@@ -154,21 +154,21 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
               <div style={{ fontSize:12, color:'#888', marginTop:1 }}>{item.sub}</div>
             </div>
             <ChevronRight size={16} color="#CCC" />
-          </div>
+          </button>
         ))}
 
         {whatsapp && (
-          <div onClick={() => openWhatsAppSupport(whatsapp, tr('profile_whatsappMessage'))}
-            style={{ background:'#25D366', borderRadius:16, padding:'14px 16px', marginBottom:8, display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+          <button type="button" onClick={() => openWhatsAppSupport(whatsapp, tr('profile_whatsappMessage'))}
+            style={{ width:'100%', border:'none', font:'inherit', textAlign:'left', background:'#25D366', borderRadius:16, padding:'14px 16px', marginBottom:8, display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
             <div style={{ width:40, height:40, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>💬</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:600, color:'white' }}>{tr('profile_whatsappChatTitle')}</div>
               <div style={{ fontSize:12, color:'rgba(255,255,255,0.85)', marginTop:1 }}>{tr('profile_whatsappChatSub')}</div>
             </div>
-          </div>
+          </button>
         )}
-        <div onClick={handleSignOut}
-          style={{ background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+        <button type="button" onClick={handleSignOut}
+          style={{ width:'100%', border:'none', font:'inherit', textAlign:'left', background:'white', borderRadius:16, padding:'14px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
           <div style={{ width:40, height:40, borderRadius:12, background:'#FCEBEB', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
             🚪
           </div>
@@ -176,7 +176,7 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
             <div style={{ fontSize:14, fontWeight:600, color:'#A32D2D' }}>{tr('profile_signOut')}</div>
             <div style={{ fontSize:12, color:'#888', marginTop:1 }}>{user?.email}</div>
           </div>
-        </div>
+        </button>
 
         <div style={{ textAlign:'center', padding:'20px 0', fontSize:12, color:'#CCC', lineHeight:1.6 }}>
           {tr('profile_footerTagline')}
@@ -192,12 +192,12 @@ export default function UserProfile({ onBack, city, onAddPet, onEditPet, onSignO
           { id:'profile', label:tr('nav_myPets'), emoji:'\uD83D\uDC15' },
           { id:'settings', label:tr('nav_settings'), emoji:'\u2699\uFE0F' },
         ].map(n => (
-          <div key={n.id} onClick={() => { if(n.id==='profile') return; if(onNav) onNav(n.id); else onBack(); }}
-            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+          <button type="button" key={n.id} aria-current={n.id==='profile' ? 'page' : undefined} onClick={() => { if(n.id==='profile') return; if(onNav) onNav(n.id); else onBack(); }}
+            style={{ border:'none', background:'none', padding:0, font:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
             <span style={{ fontSize:20 }}>{n.emoji}</span>
             <span style={{ fontSize:10, fontWeight:n.id==='profile'?700:400, color:n.id==='profile'?t.primary:'#BBB' }}>{n.label}</span>
             {n.id==='profile' && <div style={{ width:4, height:4, borderRadius:2, background:t.primary }} />}
-          </div>
+          </button>
         ))}
       </div>
     </div>

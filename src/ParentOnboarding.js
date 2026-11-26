@@ -106,16 +106,16 @@ export default function ParentOnboarding({ onDone, city, userName }) {
       content: (
         <div>
           <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_dogNameLabel')}</div>
-          <input value={petName} onChange={e => setPetName(e.target.value)} placeholder={tr('parentOnboarding_dogNamePlaceholder')}
+          <input value={petName} onChange={e => setPetName(e.target.value)} placeholder={tr('parentOnboarding_dogNamePlaceholder')} aria-label={tr('parentOnboarding_dogNameLabel')}
             style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, boxSizing:'border-box' }} />
           <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_breedLabel')}</div>
-          <select value={petBreed} onChange={e => setPetBreed(e.target.value)}
+          <select value={petBreed} onChange={e => setPetBreed(e.target.value)} aria-label={tr('parentOnboarding_breedLabel')}
             style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, background:'white', boxSizing:'border-box' }}>
             <option value="">{tr('parentOnboarding_selectBreedPlaceholder')}</option>
-            {['Labrador','Golden Retriever','German Shepherd','Beagle','Pug','Shih Tzu','Pomeranian','Indie/Mixed','Husky','Other'].map(b => <option key={b} value={b}>{b}</option>)}
+            {BREEDS.map(b => <option key={b} value={b}>{b === 'Indie/Mixed' ? tr('pet_breedIndie') : b === 'Other' ? tr('pet_breedOther') : b}</option>)}
           </select>
           <div style={{ fontSize:13, fontWeight:600, color:'#1a1a1a', marginBottom:6 }}>{tr('parentOnboarding_ageLabel')}</div>
-          <input value={petAge} onChange={e => setPetAge(e.target.value.replace(/\D/g,''))} placeholder={tr('parentOnboarding_agePlaceholder')} type="tel"
+          <input value={petAge} onChange={e => setPetAge(e.target.value.replace(/\D/g,''))} placeholder={tr('parentOnboarding_agePlaceholder')} aria-label={tr('parentOnboarding_ageLabel')} type="tel"
             style={{ width:'100%', padding:'14px 16px', borderRadius:14, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:0, boxSizing:'border-box' }} />
           <div style={{ marginTop:16, background:'#FFF0EB', borderRadius:12, padding:'10px 14px', fontSize:12, color:'#FF6B35' }}>
             {tr('parentOnboarding_moreDetailsHint')}
@@ -139,7 +139,7 @@ export default function ParentOnboarding({ onDone, city, userName }) {
               <ArrowLeft size={16} /> {tr('common_back')}
             </button>
           )}
-          <div style={{ display:'flex', gap:6, marginLeft:'auto' }}>
+          <div aria-hidden="true" style={{ display:'flex', gap:6, marginLeft:'auto' }}>
             {steps.map((_,i) => (
               <div key={i} style={{ width:i===step?24:8, height:8, borderRadius:4, background:i<=step?'white':'rgba(255,255,255,0.3)', transition:'width 0.2s' }} />
             ))}

@@ -22,7 +22,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
   const [retryCount, setRetryCount] = useState(0);
 
   const amount = booking?.amount || 29900;
-  const serviceName = booking?.service || 'Dog Walking';
+  const serviceName = booking?.service || tr('payment_serviceFallback');
   const bookingRef = booking?.ref || 'FUR' + Math.random().toString(36).substring(2,8).toUpperCase();
 
   useEffect(() => {
@@ -213,9 +213,9 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
   return (
     <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: '#F8F8F8', fontFamily: '-apple-system,sans-serif', paddingBottom: 100 }}>
       <div style={{ background: t.grad, padding: '48px 20px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div onClick={onBack} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <button type="button" onClick={onBack} aria-label={tr('common_back')} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', padding: 0, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <ArrowLeft size={18} color="white" />
-        </div>
+        </button>
         <div>
           <div style={{ color: 'white', fontSize: 17, fontWeight: 700 }}>{tr('payment_headerTitle')}</div>
           <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>{tr('payment_headerSub')}</div>
@@ -247,8 +247,8 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
             { id: 'card', label: tr('payment_methodCardLabel'), sub: tr('payment_methodCardSub'), emoji: '💳' },
             { id: 'netbanking', label: tr('payment_methodNetbankingLabel'), sub: tr('payment_methodNetbankingSub'), emoji: '🏦' },
           ].map(m => (
-            <div key={m.id} onClick={() => setMethod(m.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: m.id !== 'netbanking' ? '1px solid #F5F5F5' : 'none', cursor: 'pointer' }}>
+            <button type="button" key={m.id} onClick={() => setMethod(m.id)} aria-pressed={method === m.id}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', border: 'none', borderBottom: m.id !== 'netbanking' ? '1px solid #F5F5F5' : 'none', background: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
               <span style={{ fontSize: 22 }}>{m.emoji}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a' }}>{m.label}</div>
@@ -257,7 +257,7 @@ export default function PaymentScreen({ onBack, onSuccess, city, booking }) {
               <div style={{ width: 20, height: 20, borderRadius: 10, border: method === m.id ? 'none' : '1.5px solid #DDD', background: method === m.id ? t.primary : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {method === m.id && <div style={{ width: 8, height: 8, borderRadius: 4, background: 'white' }} />}
               </div>
-            </div>
+            </button>
           ))}
         </div>
         <div style={{ background: '#E8F5E9', borderRadius: 14, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center' }}>

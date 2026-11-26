@@ -24,7 +24,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   const { t: tr } = useLanguage();
 
   const sendOtp = async () => {
-    if (!email.includes('@')) { setError('Enter a valid email address'); return; }
+    if (!email.includes('@')) { setError(tr('login_errInvalidEmail')); return; }
     if (!termsAccepted) { setShowTermsError(true); return; }
     setLoading(true);
     setError('');
@@ -39,7 +39,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
   };
 
   const verifyOtp = async () => {
-    if (otp.length < 6) { setError('Enter the 6-digit code from your email'); return; }
+    if (otp.length < 6) { setError(tr('login_errEnterCode')); return; }
     setLoading(true);
     setError('');
     const { data, error } = await supabase.auth.verifyOtp({
@@ -47,7 +47,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
       token: otp,
       type: 'email',
     });
-    if (error) { setError('Invalid or expired code. Try again.'); setLoading(false); return; }
+    if (error) { setError(tr('login_errInvalidCode')); setLoading(false); return; }
     if (data?.user) {
       await supabase.from('users').upsert({
         id: data.user.id,
@@ -118,23 +118,26 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{tr('yourEmail')}</div>
           <input value={email} onChange={e => setEmail(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendOtp()}
-            placeholder="your@email.com" type="email" style={{ ...inp, marginBottom: 16 }} />
+            placeholder="your@email.com" type="email" aria-label={tr('yourEmail')} style={{ ...inp, marginBottom: 16 }} />
 
           <div onClick={() => { setTermsAccepted(!termsAccepted); setShowTermsError(false); }}
             style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 16, cursor: 'pointer' }}>
-            <div style={{ width: 22, height: 22, borderRadius: 7, border: termsAccepted ? 'none' : '1.5px solid rgba(255,255,255,0.2)', background: termsAccepted ? ORANGE : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+            <div role="checkbox" aria-checked={termsAccepted} aria-label={tr('login_agreeCheckboxAria')} tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTermsAccepted(!termsAccepted); setShowTermsError(false); } }}
+              style={{ width: 22, height: 22, borderRadius: 7, border: termsAccepted ? 'none' : '1.5px solid rgba(255,255,255,0.2)', background: termsAccepted ? ORANGE : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
               {termsAccepted && <span style={{ color: 'white', fontSize: 13 }}>✓</span>}
             </div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-              I agree to Fursday's{' '}
-              <span onClick={e => { e.stopPropagation(); setShowTermsLocal(true); }} style={{ color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>Terms of Service</span>
-              {' '}and{' '}
-              <span onClick={e => { e.stopPropagation(); setShowPrivacyLocal(true); }} style={{ color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>Privacy Policy</span>
+              {tr('login_agreePrefix')}{' '}
+              <button type="button" onClick={e => { e.stopPropagation(); setShowTermsLocal(true); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>{tr('login_termsOfService')}</button>
+              {' '}{tr('login_and')}{' '}
+              <button type="button" onClick={e => { e.stopPropagation(); setShowPrivacyLocal(true); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: ORANGE, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>{tr('login_privacyPolicy')}</button>
+              {tr('login_agreeSuffix')}
             </div>
           </div>
           {showTermsError && (
             <div style={{ background: 'rgba(255,107,53,0.15)', borderRadius: 10, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: ORANGE }}>
-              Please accept the Terms of Service to continue
+              {tr('login_acceptTermsError')}
             </div>
           )}
 
@@ -160,7 +163,7 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
           </div>
           <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
             onKeyDown={e => e.key === 'Enter' && verifyOtp()}
-            placeholder="000000" type="tel" maxLength={6}
+            placeholder="000000" type="tel" maxLength={6} aria-label={tr('login_otpAria')}
             style={{ ...inp, fontSize: 32, letterSpacing: 12, textAlign: 'center', marginBottom: 12 }} />
           <button onClick={verifyOtp} disabled={loading || otp.length < 6}
             style={{ width: '100%', padding: 16, borderRadius: 14, border: 'none', background: otp.length === 6 ? ORANGE : 'rgba(255,255,255,0.1)', color: 'white', fontSize: 15, fontWeight: 600, cursor: otp.length === 6 ? 'pointer' : 'not-allowed', marginBottom: 12 }}>
@@ -171,9 +174,9 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
             {tr('useDifferentEmail')}
           </button>
           <div style={{ textAlign: 'center' }}>
-            <span onClick={sendOtp} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button type="button" onClick={sendOtp} style={{ background: 'none', border: 'none', font: 'inherit', padding: 0, fontSize: 13, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', textDecoration: 'underline' }}>
               {tr('resendCode')}
-            </span>
+            </button>
           </div>
         </div>
       )}

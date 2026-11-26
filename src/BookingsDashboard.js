@@ -29,10 +29,18 @@ const SC = {
   cancelled: { bg: '#FCEBEB', color: '#A32D2D', labelKey: 'bookings_statusCancelled' },
 };
 
+const PAYMENT_STATUS_KEYS = {
+  paid: 'bookings_paymentPaid',
+  unpaid: 'bookings_paymentUnpaid',
+  pending: 'bookings_paymentPending',
+  refunded: 'bookings_paymentRefunded',
+  failed: 'bookings_paymentFailed',
+};
+
 export default function BookingsDashboard({ onBack, city, onViewReport, onReview, onPayNow, onMessage, onNav }) {
   const c = city || 'Gurgaon';
   const t = THEMES[c] || THEMES.Gurgaon;
-  const { t: tr } = useLanguage();
+  const { t: tr, lang } = useLanguage();
   const { phone: supportPhone } = useSupportContact();
   const [tab, setTab] = useState('upcoming');
   const [expanded, setExpanded] = useState(null);
@@ -213,7 +221,9 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
           return (
             <div key={b.id} style={{ background:'white', borderRadius:20, marginBottom:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', overflow:'hidden', border:b.status==='active'?'2px solid #2E7D32':needsPayment?'2px solid '+t.primary:'2px solid transparent' }}>
-              <div onClick={() => setExpanded(isOpen ? null : b.id)} style={{ padding:'14px 16px', cursor:'pointer' }}>
+              <div onClick={() => setExpanded(isOpen ? null : b.id)} tabIndex={0}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setExpanded(isOpen ? null : b.id); } }}
+                style={{ padding:'14px 16px', cursor:'pointer' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
                   <div>
                     <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a', marginBottom:2 }}>{SERVICE_NAME_KEYS[b.service_type] ? tr(SERVICE_NAME_KEYS[b.service_type]) : b.service_type}</div>
@@ -248,7 +258,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                 )}
                 {['pending','confirmed'].includes(b.status) && (
                   <button onClick={(e) => { e.stopPropagation(); setCancellingBooking(b); }}
-                    style={{ marginTop:8, width:'100%', padding:'10px 0', borderRadius:12, border:'1.5px solid #FFCDD2', background:'white', color:'#A32D2D', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    style={{ marginTop:8, width:'100%', minHeight:44, padding:'10px 0', borderRadius:12, border:'1.5px solid #FFCDD2', background:'white', color:'#A32D2D', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                     {tr('bookings_cancelBooking')}
                   </button>
                 )}
@@ -296,11 +306,11 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                 )}
                 <div style={{ display:'flex', gap:8, marginTop:10 }}>
                   <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b, sitterName, sitterPhone, b.sitter_profiles?.user_id); }}
-                    style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    style={{ flex:1, minHeight:44, padding:'10px 0', borderRadius:12, border:'none', background:t.light, color:t.primary, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                     <span>💬</span> {tr('bookings_message')}
                   </button>
                   {sitterPhone && (
-                    <a onClick={(e) => e.stopPropagation()} href={'tel:'+sitterPhone} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#1a1a1a', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'center', textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    <a onClick={(e) => e.stopPropagation()} href={'tel:'+sitterPhone} style={{ flex:1, minHeight:44, boxSizing:'border-box', padding:'10px 0', borderRadius:12, border:'1.5px solid #E0E0E0', background:'white', color:'#1a1a1a', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'center', textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                       <Phone size={14} /> {tr('bookings_call')}
                     </a>
                   )}
@@ -312,7 +322,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                   <div style={{ fontSize:11, color:'#AAA', margin:'12px 0 8px', fontWeight:600, textTransform:'uppercase' }}>{tr('bookings_detailsHeading')}</div>
                   {[
                     { label:tr('bookings_labelRef'), val:b.booking_ref },
-                    { label:tr('bookings_labelPayment'), val:b.payment_status },
+                    { label:tr('bookings_labelPayment'), val:PAYMENT_STATUS_KEYS[b.payment_status] ? tr(PAYMENT_STATUS_KEYS[b.payment_status]) : b.payment_status },
                     { label:tr('bookings_labelNotes'), val:b.parent_notes || tr('bookings_none') },
                   ].filter(x => x.val).map((x,i) => (
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #F8F8F8' }}>
@@ -321,10 +331,10 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                     </div>
                   ))}
                   {b.status === 'active' && (
-                    <a onClick={(e) => { e.preventDefault(); callSupport(supportPhone); }} href="#"
-                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:8, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#FCEBEB', color:'#A32D2D', fontSize:13, fontWeight:700, cursor:'pointer', textDecoration:'none' }}>
+                    <button type="button" onClick={() => callSupport(supportPhone)}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:8, width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:'#FCEBEB', color:'#A32D2D', fontSize:13, fontWeight:700, fontFamily:'inherit', cursor:'pointer', textDecoration:'none' }}>
                       {tr('bookings_emergencySupportCta')}
-                    </a>
+                    </button>
                   )}
                   {(b.status === 'pending' || b.status === 'confirmed') && (
                     <button onClick={() => setCancellingBooking(b)}
@@ -404,10 +414,10 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
               { key:'bookings_reasonSafety', text:'Safety concern during walk' },
               { key:'bookings_reasonOtherIssue', text:'Other issue' },
             ].map(reason => (
-              <div key={reason.text} onClick={() => setReportReason(reason.text)}
-                style={{ padding:'12px 14px', borderRadius:12, border:reportReason===reason.text?'2px solid #FF6B35':'1.5px solid #E0E0E0', background:reportReason===reason.text?'#FFF0EB':'white', marginBottom:8, fontSize:13, cursor:'pointer', fontWeight:reportReason===reason.text?600:400, color:reportReason===reason.text?'#FF6B35':'#1a1a1a' }}>
+              <button type="button" key={reason.text} onClick={() => setReportReason(reason.text)} aria-pressed={reportReason===reason.text}
+                style={{ display:'block', width:'100%', textAlign:'left', fontFamily:'inherit', padding:'12px 14px', borderRadius:12, border:reportReason===reason.text?'2px solid #FF6B35':'1.5px solid #E0E0E0', background:reportReason===reason.text?'#FFF0EB':'white', marginBottom:8, fontSize:13, cursor:'pointer', fontWeight:reportReason===reason.text?600:400, color:reportReason===reason.text?'#FF6B35':'#1a1a1a' }}>
                 {tr(reason.key)}
-              </div>
+              </button>
             ))}
             <div style={{ display:'flex', gap:8, marginTop:8 }}>
               <button onClick={() => { setReportModal(null); setReportReason(''); }}
@@ -430,12 +440,13 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           { id:'profile', label:tr('nav_myPets'), emoji:'\uD83D\uDC15' },
           { id:'settings', label:tr('nav_settings'), emoji:'\u2699\uFE0F' },
         ].map(n => (
-          <div key={n.id} onClick={() => { if(n.id==='book') return; if(onNav) onNav(n.id); else onBack(); }}
-            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
-            <span style={{ fontSize:20 }}>{n.emoji}</span>
+          <button type="button" key={n.id} onClick={() => { if(n.id==='book') return; if(onNav) onNav(n.id); else onBack(); }}
+            aria-current={n.id==='book' ? 'page' : undefined}
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', border:'none', background:'none', padding:0, font:'inherit', color:'inherit' }}>
+            <span aria-hidden="true" style={{ fontSize:20 }}>{n.emoji}</span>
             <span style={{ fontSize:10, fontWeight:n.id==='book'?700:400, color:n.id==='book'?t.primary:'#BBB' }}>{n.label}</span>
-            {n.id==='book' && <div style={{ width:4, height:4, borderRadius:2, background:t.primary }} />}
-          </div>
+            {n.id==='book' && <span style={{ display:'block', width:4, height:4, borderRadius:2, background:t.primary }} />}
+          </button>
         ))}
       </div>
 
@@ -490,7 +501,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
             <div style={{ background:'#E8F5E9', borderRadius:12, padding:'12px 14px', marginBottom:16, fontSize:13 }}>
               <div style={{ color:'#2E7D32', fontWeight:600, marginBottom:4 }}>{tr('bookings_proofProvidedMsg')}</div>
-              <div style={{ fontSize:12, color:'#555' }}>{tr('bookings_photosUploadedOn', { date: new Date(photoReport.created_at).toLocaleDateString() })}</div>
+              <div style={{ fontSize:12, color:'#555' }}>{tr('bookings_photosUploadedOn', { date: new Date(photoReport.created_at).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN') })}</div>
               {photoReport.parent_confirmed && <div style={{ fontSize:12, color:'#2E7D32', marginTop:6 }}>{tr('bookings_photosConfirmedMsg')}</div>}
             </div>
 

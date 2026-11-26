@@ -40,7 +40,7 @@ const STATUS_COLORS = {
 export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, onEditProfile }) {
   const t = THEMES[city] || THEMES.Gurgaon;
   const { whatsapp: supportWa, phone: supportPhone } = useSupportContact();
-  const { t: tr } = useLanguage();
+  const { t: tr, lang } = useLanguage();
   const [tab, setTab] = useState('new');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +123,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       const { notifySitterArriving } = await import('./notificationService');
       await notifySitterArriving(b.pet_parent_id, sitterProfile?.users?.name || 'Your sitter', status);
       setArrivalStatus(prev => ({ ...prev, [b.id]: status }));
-    } catch (err) { alert('Could not send update: ' + (err.message || err)); }
+    } catch (err) { alert(tr('sitter_errSendUpdate') + (err.message || err)); }
   };
 
   const notifyParent = async (b, type, title, body) => {
@@ -164,7 +164,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   const completeBooking = async (id) => {
     const { error } = await supabase.from('bookings').update({ status: 'completed', end_verified_at: new Date().toISOString() }).eq('id', id);
-    if (error) { alert('Could not complete booking: ' + error.message); return; }
+    if (error) { alert(tr('sitter_errComplete') + error.message); return; }
     loadData();
   };
 
@@ -220,7 +220,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
   const completeWithOtp = async (booking) => {
     const { error: completeError } = await supabase.from('bookings').update({ status:'completed', end_verified_at:['boarding','daycare'].includes(booking.service_type)?null:new Date().toISOString() }).eq('id', booking.id);
-    if (completeError) { alert('Could not complete booking: ' + completeError.message); return; }
+    if (completeError) { alert(tr('sitter_errComplete') + completeError.message); return; }
 
     // TIER 2: Send walk completed notification to both parties
     try {
@@ -266,7 +266,10 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     const isOpen = expanded === b.id;
     return (
       <div style={{ background: 'white', borderRadius: 20, marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', border: b.status === 'pending' ? '2px solid ' + t.primary : b.status === 'active' ? '2px solid #2E7D32' : '2px solid transparent' }}>
-        <div onClick={() => setExpanded(isOpen ? null : b.id)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
+        <div role="button" tabIndex={0} aria-expanded={isOpen} aria-label={tr('sitter_toggleDetails')}
+          onClick={() => setExpanded(isOpen ? null : b.id)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(isOpen ? null : b.id); } }}
+          style={{ padding: '14px 16px', cursor: 'pointer' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <span style={{ fontSize: 24 }}>{SERVICE_ICONS[b.service_type] || '🐾'}</span>
@@ -283,11 +286,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Calendar size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.booking_date || 'TBD'}</span>
+              <span style={{ fontSize: 12, color: '#555' }}>{b.booking_date || tr('sitter_tbd')}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Clock size={12} color={t.primary} />
-              <span style={{ fontSize: 12, color: '#555' }}>{b.time_slot || 'TBD'}</span>
+              <span style={{ fontSize: 12, color: '#555' }}>{b.time_slot || tr('sitter_tbd')}</span>
             </div>
           </div>
           {b.status === 'pending' && (
@@ -306,12 +309,12 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         <div style={{ padding: '0 16px 16px' }}>
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button onClick={(e) => { e.stopPropagation(); onMessage && onMessage(b); }}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: 'none', background: t.light, color: t.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ flex: 1, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: 'none', background: t.light, color: t.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 <span>💬</span> {tr('message')}
               </button>
               {b.users?.phone && (
                 <a onClick={(e) => e.stopPropagation()} href={'tel:' + b.users.phone}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                  style={{ flex: 1, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, border: '1.5px solid #E0E0E0', background: 'white', color: '#1a1a1a', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
                   <Phone size={14} /> {tr('call')}
                 </a>
               )}
@@ -319,11 +322,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             {b.status === 'pending' && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button onClick={() => acceptBooking(b)}
-                  style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ flex: 2, minHeight: 44, padding: '12px 0', borderRadius: 12, border: 'none', background: '#E8F5E9', color: '#2E7D32', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                   {tr('accept')} ✓
                 </button>
                 <button onClick={() => declineBooking(b)}
-                  style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                  style={{ flex: 1, minHeight: 44, padding: '12px 0', borderRadius: 12, border: '1.5px solid #FFCDD2', background: 'white', color: '#C62828', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                   {tr('decline')}
                 </button>
               </div>
@@ -332,24 +335,24 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div style={{ marginTop:10, background:t.light, borderRadius:12, padding:'12px 14px' }}>
                 <div style={{ display:'flex', gap:8, marginBottom:12 }}>
                   <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrivalStatus[b.id]}
-                    style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid '+t.primary, background:arrivalStatus[b.id]==='on_way'?t.primary:'white', color:arrivalStatus[b.id]==='on_way'?'white':t.primary, fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]?'default':'pointer' }}>
+                    style={{ flex:1, minHeight:44, padding:'8px 0', borderRadius:10, border:'1.5px solid '+t.primary, background:arrivalStatus[b.id]==='on_way'?t.primary:'white', color:arrivalStatus[b.id]==='on_way'?'white':t.primary, fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]?'default':'pointer' }}>
                     🚶 {tr('onMyWay')}
                   </button>
                   <button onClick={() => markArrival(b, 'arrived')} disabled={arrivalStatus[b.id]==='arrived'}
-                    style={{ flex:1, padding:'8px 0', borderRadius:10, border:'1.5px solid #2E7D32', background:arrivalStatus[b.id]==='arrived'?'#2E7D32':'white', color:arrivalStatus[b.id]==='arrived'?'white':'#2E7D32', fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]==='arrived'?'default':'pointer' }}>
+                    style={{ flex:1, minHeight:44, padding:'8px 0', borderRadius:10, border:'1.5px solid #2E7D32', background:arrivalStatus[b.id]==='arrived'?'#2E7D32':'white', color:arrivalStatus[b.id]==='arrived'?'white':'#2E7D32', fontSize:12, fontWeight:700, cursor:arrivalStatus[b.id]==='arrived'?'default':'pointer' }}>
                     📍 {tr('arrived')}
                   </button>
                 </div>
                 <div style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', marginBottom:8 }}>
                   {['boarding','daycare'].includes(b.service_type) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk')}
                 </div>
-                <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>{tr('otpHint', { name: b.users?.name || 'the pet parent' })}</div>
+                <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>{tr('otpHint', { name: b.users?.name || tr('sitter_thePetParent') })}</div>
                 <div style={{ display:'flex', gap:8 }}>
                   <input value={otpEntry[b.id] || ''} onChange={e => setOtpEntry({ ...otpEntry, [b.id]: e.target.value.replace(/\D/g,'').slice(0,4) })}
-                    placeholder="0000" inputMode="numeric" maxLength={4}
+                    placeholder="0000" inputMode="numeric" maxLength={4} aria-label={['boarding','daycare'].includes(b.service_type) ? tr('enterOtpTitleDrop') : tr('enterOtpTitleWalk')}
                     style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #E0E0E0', fontSize:18, letterSpacing:6, textAlign:'center', outline:'none', boxSizing:'border-box' }} />
                   <button onClick={() => verifyStartOtp(b)}
-                    style={{ padding:'0 20px', borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>{tr('start')}</button>
+                    style={{ padding:'0 20px', minHeight:44, borderRadius:10, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>{tr('start')}</button>
                 </div>
                 {otpError[b.id] && <div style={{ fontSize:11, color:'#C62828', marginTop:6 }}>{otpError[b.id]}</div>}
                 <button onClick={(e) => { e.stopPropagation(); sitterCancel(b); }}
@@ -362,17 +365,17 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div style={{ marginTop:10 }}>
                 {(supportPhone || supportWa) && (
                   <button onClick={(e) => { e.stopPropagation(); setSosFor(b); }}
-                    style={{ width:'100%', padding:'10px 0', borderRadius:12, border:'none', background:'#C62828', color:'white', fontSize:13, fontWeight:700, cursor:'pointer', marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    style={{ width:'100%', minHeight:44, padding:'10px 0', borderRadius:12, border:'none', background:'#C62828', color:'white', fontSize:13, fontWeight:700, cursor:'pointer', marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                     {tr('sos')}
                   </button>
                 )}
                 {['boarding','daycare'].includes(b.service_type) ? (
                   <div style={{ background:'#E8F5E9', borderRadius:12, padding:'12px 14px' }}>
                     <div style={{ fontSize:12, fontWeight:600, color:'#1B5E20', marginBottom:6 }}>{tr('pickupOtpTitle')}</div>
-                    <div style={{ fontSize:11, color:'#388E3C', marginBottom:8 }}>{tr('pickupOtpHint', { name: b.users?.name || 'the parent' })}</div>
+                    <div style={{ fontSize:11, color:'#388E3C', marginBottom:8 }}>{tr('pickupOtpHint', { name: b.users?.name || tr('sitter_theParent') })}</div>
                     <div style={{ background:'white', borderRadius:10, padding:'10px', textAlign:'center', fontSize:26, fontWeight:800, letterSpacing:8, color:'#2E7D32', marginBottom:8 }}>{b.end_otp || '----'}</div>
                     <button onClick={() => completeWithOtp(b)}
-                      style={{ width:'100%', padding:'10px 0', borderRadius:10, border:'none', background:'#2E7D32', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                      style={{ width:'100%', minHeight:44, padding:'10px 0', borderRadius:10, border:'none', background:'#2E7D32', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
                       {tr('parentCollected')}
                     </button>
                   </div>
@@ -439,13 +442,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       <div style={{ background:'#0f0f1a', padding:'48px 16px 16px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <div>
-            <div style={{ color:'white', fontSize:18, fontWeight:700 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || 'there'} 👋</div>
+            <div style={{ color:'white', fontSize:18, fontWeight:700 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || tr('sitter_there')} 👋</div>
             <div style={{ color:sitterProfile?.status==='active'?'#4CAF50':'#FFC107', fontSize:11, fontWeight:500, marginTop:2 }}>
               {sitterProfile?.status==='active'?tr('live'):tr('pendingApproval')}
             </div>
           </div>
           <div style={{ background:'#FF6B35', borderRadius:20, padding:'4px 12px', fontSize:11, color:'white', fontWeight:700 }}>
-            {(() => { const w=bookings.filter(b=>b.status==='completed').length; if(w>=300)return'🏆 Elite Pro'; if(w>=150)return'🥇 Platinum Pro'; if(w>=75)return'🥈 Gold Pro'; if(w>=25)return'🥈 Silver Pro'; return'🥉 Bronze Pro'; })()}
+            {(() => { const w=bookings.filter(b=>b.status==='completed').length; if(w>=300)return tr('sitter_tierElite'); if(w>=150)return tr('sitter_tierPlatinum'); if(w>=75)return tr('sitter_tierGold'); if(w>=25)return tr('sitter_tierSilver'); return tr('sitter_tierBronze'); })()}
           </div>
         </div>
         <div style={{ textAlign:'center', marginBottom:12 }}>
@@ -458,7 +461,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             15% commission on every booking regardless of tier; see
             TermsAndConditions.js #7. A commission reduction promise doesn't
             belong here unless it's actually wired to payout math. */}
-        {(() => { const w=bookings.filter(b=>b.status==='completed').length; const tiers=[{max:25,next:'Silver Pro 🥈'},{max:75,next:'Gold Pro 🥇'},{max:150,next:'Platinum Pro 🥈'},{max:300,next:'Elite Pro 🏆'}]; const tier=tiers.find(t=>w<t.max); const prev=tiers[tiers.indexOf(tier)-1]; const pMin=prev?prev.max:0; const pct=tier?Math.min(100,Math.round((w-pMin)/(tier.max-pMin)*100)):100; return (<div style={{ marginBottom:14 }}><div style={{ background:'rgba(255,255,255,0.1)', borderRadius:4, height:6, marginBottom:5 }}><div style={{ width:pct+'%', background:'#FF6B35', borderRadius:4, height:6 }} /></div>{tier?<div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textAlign:'right' }}>{tier.max-w} more walks → {tier.next}</div>:<div style={{ fontSize:10, color:'#FF6B35', textAlign:'center', fontWeight:600 }}>Elite Pro — top tier 🎉</div>}</div>); })()}
+        {(() => { const w=bookings.filter(b=>b.status==='completed').length; const tiers=[{max:25,next:tr('sitter_nextSilver')},{max:75,next:tr('sitter_nextGold')},{max:150,next:tr('sitter_nextPlatinum')},{max:300,next:tr('sitter_nextElite')}]; const tier=tiers.find(t=>w<t.max); const prev=tiers[tiers.indexOf(tier)-1]; const pMin=prev?prev.max:0; const pct=tier?Math.min(100,Math.round((w-pMin)/(tier.max-pMin)*100)):100; return (<div style={{ marginBottom:14 }}><div style={{ background:'rgba(255,255,255,0.1)', borderRadius:4, height:6, marginBottom:5 }}><div style={{ width:pct+'%', background:'#FF6B35', borderRadius:4, height:6 }} /></div>{tier?<div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textAlign:'right' }}>{tr('sitter_moreWalksToNext', { n: tier.max-w, next: tier.next })}</div>:<div style={{ fontSize:10, color:'#FF6B35', textAlign:'center', fontWeight:600 }}>{tr('sitter_topTier')}</div>}</div>); })()}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
           {[{label:tr('newRequests'),val:newBookings.length},{label:tr('yourRating'),val:(sitterProfile?.rating||5.0).toFixed(1)+' ⭐'},{label:tr('totalWalks'),val:bookings.filter(b=>b.status==='completed').length}].map((s,i) => (
             <div key={i} style={{ background:'rgba(255,255,255,0.07)', borderRadius:10, padding:'8px 6px', textAlign:'center' }}>
@@ -471,24 +474,24 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
       <div style={{ padding: '16px 16px 0' }}>
         {broadcastRequests.length > 0 && (
-          <div onClick={() => setTab('requests')} style={{ background:'#FFF3E0', borderRadius:12, padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', cursor:'pointer', border:'1px solid #FFB085' }}>
+          <button type="button" onClick={() => setTab('requests')} style={{ width:'100%', font:'inherit', textAlign:'left', color:'inherit', background:'#FFF3E0', borderRadius:12, padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', cursor:'pointer', border:'1px solid #FFB085' }}>
             <span style={{ fontSize:18 }}>📢</span>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:13, fontWeight:700, color:'#E65100' }}>{tr(broadcastRequests.length > 1 ? 'sitter_openRequestsMany' : 'sitter_openRequestsOne', { n: broadcastRequests.length })}</div>
               <div style={{ fontSize:11, color:'#BF6000' }}>{tr('sitter_openRequestsHint')}</div>
             </div>
             <span style={{ color:'#FF6B35', fontSize:16 }}>›</span>
-          </div>
+          </button>
         )}
         <div style={{ background: 'white', borderRadius: 14, padding: 4, display: 'flex', gap: 4, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           {[
             { id: 'new', label: tr('tabNew') + ' (' + newBookings.length + ')' },
-            { id: 'requests', label: '📢 ' + broadcastRequests.length },
+            { id: 'requests', label: '📢 ' + broadcastRequests.length, aria: tr('sitter_openRequestsTabAria', { n: broadcastRequests.length }) },
             { id: 'upcoming', label: tr('tabUpcoming') },
             { id: 'active', label: tr('tabActive') },
             { id: 'past', label: tr('tabPast') },
           ].map(tb => (
-            <button key={tb.id} onClick={() => setTab(tb.id)}
+            <button key={tb.id} onClick={() => setTab(tb.id)} aria-label={tb.aria} aria-pressed={tab === tb.id}
               style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', background: tab === tb.id ? t.primary : 'transparent', color: tab === tb.id ? 'white' : '#888', fontSize: 12, fontWeight: tab === tb.id ? 700 : 400, cursor: 'pointer' }}>
               {tb.label}
             </button>
@@ -499,17 +502,17 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: '#E24B4A' }} />
-              New messages from pet parents
+              {tr('sitter_newMessagesTitle')}
             </div>
             {unreadMessages.map((msg, i) => (
               <div key={i} style={{ background: 'white', borderRadius: 16, padding: '12px 14px', marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1.5px solid #FFCDD2', display: 'flex', gap: 10, alignItems: 'center' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: t.light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{msg.bookings?.booking_ref || 'Booking'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{msg.bookings?.booking_ref || tr('sitter_bookingFallback')}</div>
                   <div style={{ fontSize: 12, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{msg.message}</div>
                 </div>
                 <div style={{ fontSize: 10, color: '#AAA', flexShrink: 0 }}>
-                  {new Date(msg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(msg.created_at).toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
             ))}
@@ -563,7 +566,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 </div>
                 {req.notes && <div style={{ fontSize:12, color:'#666', background:'#F8F8F8', borderRadius:10, padding:'8px 12px', marginBottom:10 }}>{req.notes}</div>}
                 <button onClick={() => acceptBroadcast(req)}
-                  style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                  style={{ width:'100%', minHeight:44, padding:'12px 0', borderRadius:12, border:'none', background:t.primary, color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                   {tr('acceptThisRequest')}
                 </button>
               </div>
@@ -575,11 +578,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
 
       {supportWa && (
         <div style={{ padding:'0 16px 16px' }}>
-          <div onClick={() => openWhatsAppSupport(supportWa, 'Hi Fursday, I am a sitter and need help with')}
-            style={{ background:'#25D366', borderRadius:14, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+          <button type="button" onClick={() => openWhatsAppSupport(supportWa, 'Hi Fursday, I am a sitter and need help with')}
+            style={{ width:'100%', font:'inherit', textAlign:'left', border:'none', minHeight:44, background:'#25D366', borderRadius:14, padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
             <span style={{ fontSize:18 }}>💬</span>
             <div style={{ fontSize:13, fontWeight:600, color:'white' }}>{tr('needHelp')}</div>
-          </div>
+          </button>
         </div>
       )}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, background: 'white', borderTop: '1px solid #E0E0E0', display: 'flex', justifyContent: 'space-around', padding: '10px 0 calc(16px + env(safe-area-inset-bottom))', zIndex: 100 }}>
@@ -589,12 +592,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           { id: 'earnings', label: tr('earningsNav'), emoji: '💰' },
           { id: 'profile', label: tr('editProfileNav'), emoji: '\u270F\uFE0F' },
         ].map(n => (
-          <div key={n.id} onClick={() => { if(n.id === 'home') onBack(); else if(n.id === 'profile') { if(onEditProfile) onEditProfile(); } else setActiveNav(n.id); }}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
+          <button type="button" key={n.id} onClick={() => { if(n.id === 'home') onBack(); else if(n.id === 'profile') { if(onEditProfile) onEditProfile(); } else setActiveNav(n.id); }}
+            aria-current={n.id === activeNav ? 'page' : undefined}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'inherit', minHeight: 44 }}>
             <span style={{ fontSize: 20 }}>{n.emoji}</span>
             <span style={{ fontSize: 10, fontWeight: n.id === activeNav ? 700 : 400, color: n.id === activeNav ? t.primary : '#BBB' }}>{n.label}</span>
             {n.id === activeNav && <div style={{ width: 4, height: 4, borderRadius: 2, background: t.primary }} />}
-          </div>
+          </button>
         ))}
       </div>
       {uploadingPhotosFor && <PhotoUploadModal booking={uploadingPhotosFor} onClose={() => setUploadingPhotosFor(null)} onSubmitted={() => { setUploadingPhotosFor(null); loadData(); }} />}

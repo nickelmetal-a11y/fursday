@@ -9,6 +9,8 @@ const THEMES = {
   Pune: { primary: '#6C5CE7', light: '#F0EEFF', grad: 'linear-gradient(135deg,#6C5CE7,#8E7CF3)' },
 };
 
+const BREED_LABEL_KEYS = { 'Indie/Mixed': 'pet_breedIndie', 'Other': 'pet_breedOther' };
+
 const BREEDS = ['Labrador','Golden Retriever','German Shepherd','Beagle','Pug','Shih Tzu','Pomeranian','Chihuahua','Jack Russell Terrier','Indie/Mixed','Husky','Doberman','Rottweiler','Cocker Spaniel','Dachshund','Boxer','Border Collie','Dalmatian','Great Dane','Saint Bernard','Maltese','Bichon Frise','Lhasa Apso','Tibetan Mastiff','Spitz','Other'];
 
 
@@ -118,18 +120,18 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
   const canSave = pet.vaccinated !== null;
 
   const Btn = ({ label, selected, onClick }) => (
-    <div onClick={onClick} style={{ flex:1, padding:'10px 6px', borderRadius:12, border:selected?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:selected?t.light:'white', textAlign:'center', cursor:'pointer', fontSize:13, fontWeight:selected?600:400, color:selected?t.primary:'#555' }}>
+    <button type="button" onClick={onClick} aria-pressed={selected} style={{ flex:1, padding:'10px 6px', borderRadius:12, border:selected?'2px solid '+t.primary:'1.5px solid #E0E0E0', background:selected?t.light:'white', textAlign:'center', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:selected?600:400, color:selected?t.primary:'#555', minHeight:44 }}>
       {label}
-    </div>
+    </button>
   );
 
   return (
     <div style={{ maxWidth:390, margin:'0 auto', minHeight:'100vh', background:'#F8F8F8', fontFamily:'-apple-system,sans-serif', paddingBottom:100 }}>
       <div style={{ background:t.grad, padding:'48px 20px 20px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div onClick={step === 0 ? onBack : () => setStep(s => s-1)} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+          <button type="button" aria-label={tr('common_back')} onClick={step === 0 ? onBack : () => setStep(s => s-1)} style={{ width:36, height:36, borderRadius:12, border:'none', padding:0, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
             <ArrowLeft size={18} color="white" />
-          </div>
+          </button>
           <div style={{ color:'white', fontSize:17, fontWeight:700 }}>
             {[tr('pet_stepAbout'), tr('pet_stepPersonality'), tr('pet_stepSafety')][step]}
           </div>
@@ -149,17 +151,17 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
               {photos.map((url, i) => (
                 <div key={i} style={{ position:'relative', width:80, height:80 }}>
                   <img src={url} alt={tr('pet_photoAlt')} style={{ width:80, height:80, borderRadius:18, objectFit:'cover' }} />
-                  <div onClick={() => setPhotos(p => p.filter((_,j) => j!==i))}
-                    style={{ position:'absolute', top:-6, right:-6, width:22, height:22, borderRadius:11, background:'#A32D2D', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                  <button type="button" aria-label={tr('pet_removePhotoAria')} onClick={() => setPhotos(p => p.filter((_,j) => j!==i))}
+                    style={{ position:'absolute', top:-6, right:-6, width:22, height:22, borderRadius:11, border:'none', padding:0, background:'#A32D2D', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                     <X size={12} color="white" />
-                  </div>
+                  </button>
                 </div>
               ))}
               {photos.length < 4 && (
-                <div onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
-                  style={{ width:80, height:80, borderRadius:18, background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
+                <button type="button" onClick={() => choosePhoto(fileInputRef, handlePhotoUpload)}
+                  style={{ width:80, height:80, borderRadius:18, padding:0, fontFamily:'inherit', background:t.light, border:'2px dashed '+t.primary, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4 }}>
                   {uploading ? <span style={{ fontSize:11, color:t.primary }}>...</span> : <><Camera size={20} color={t.primary} /><span style={{ fontSize:10, color:t.primary }}>{photos.length===0?tr('pet_addPhotoLabel'):tr('pet_morePhotoLabel')}</span></>}
-                </div>
+                </button>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display:'none' }} />
             </div>
@@ -173,7 +175,7 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
             <select value={pet.breed} onChange={e => update('breed', e.target.value)}
               style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid #E0E0E0', fontSize:15, outline:'none', marginBottom:14, background:'white', boxSizing:'border-box' }}>
               <option value="">{tr('pet_selectBreed')}</option>
-              {BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+              {BREEDS.map(b => <option key={b} value={b}>{BREED_LABEL_KEYS[b] ? tr(BREED_LABEL_KEYS[b]) : b}</option>)}
             </select>
 
             <div style={{ display:'flex', gap:10, marginBottom:14 }}>
