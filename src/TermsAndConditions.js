@@ -38,7 +38,7 @@ const SECTIONS = [
   },
   {
     title: "9. Grievance Officer",
-    content: "In line with the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021:\n\nGrievance Officer: [NAME TO BE ADDED]\nEmail: grievance@fursday.in\n\nWe acknowledge complaints within 24 hours and resolve them within 15 days.",
+    content: "In line with the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021:\n\nGrievance Officer: Neha\nEmail: grievance@fursday.in\n\nWe acknowledge complaints within 24 hours and resolve them within 15 days.",
   },
   {
     title: "10. Account deletion and termination",

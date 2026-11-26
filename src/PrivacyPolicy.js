@@ -38,7 +38,7 @@ const SECTIONS = [
   },
   {
     title: "9. Grievance Officer",
-    content: "Grievance Officer: [NAME TO BE ADDED]\nEmail: grievance@fursday.in\n\nWe acknowledge complaints within 24 hours and resolve them within 15 days.",
+    content: "Grievance Officer: Neha\nEmail: grievance@fursday.in\n\nWe acknowledge complaints within 24 hours and resolve them within 15 days.",
   },
   {
     title: "10. Changes to this policy",
