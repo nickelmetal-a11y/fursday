@@ -323,7 +323,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button onClick={() => acceptBooking(b)}
                   style={{ ...ui.primaryButton, flex: 2, minHeight: 44 }}>
-                  {tr('accept')} ✓
+                  <Icon name="check" size={16} /> {tr('accept')}
                 </button>
                 <button onClick={() => declineBooking(b)}
                   style={{ ...ui.dangerButton, flex: 1 }}>
@@ -461,7 +461,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: font.xs, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: color.faint }}>{tr('jobsNav')}</div>
-            <div style={{ fontSize: font.xl, fontWeight: 700, marginTop: 2, lineHeight: 1.3 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || tr('sitter_there')} 👋</div>
+            <div style={{ fontSize: font.xl, fontWeight: 700, marginTop: 2, lineHeight: 1.3 }}>{tr('greeting')}, {sitterProfile?.users?.name?.split(' ')[0] || tr('sitter_there')}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
               <span style={ui.badge(isLive ? 'success' : 'warning')}>{isLive ? tr('live') : tr('pendingApproval')}</span>
               <span style={{ ...ui.badge('warning'), background: color.saffronSoft }}>{tierLabel}</span>

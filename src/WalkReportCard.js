@@ -341,7 +341,7 @@ export default function WalkReportCard({ onBack, city, booking, mode }) {
               </div>
               <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
                 {[{done:r.pee,l:tr('walkReport_chipPee')},{done:r.poo,l:tr('walkReport_chipPoo')},{done:r.water,l:tr('walkReport_chipWater')},{done:r.food,l:tr('walkReport_chipTreat')}].map((x,i)=>(
-                  <span key={i} style={x.done ? ui.badge('success') : { ...ui.badge('info'), background: color.tile, color: color.muted }}>{x.l} {x.done?'✓':'✗'}</span>
+                  <span key={i} style={x.done ? ui.badge('success') : { ...ui.badge('info'), background: color.tile, color: color.muted }}><Icon name={x.done ? 'check' : 'close'} size={12} /> {x.l}</span>
                 ))}
               </div>
               {r.heat && (

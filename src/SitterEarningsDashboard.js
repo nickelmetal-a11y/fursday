@@ -110,7 +110,7 @@ export default function SitterEarningsDashboard({ city, onBack }) {
               <div style={{ ...money, fontSize: font.xxl, fontWeight: 700, color: color.ink, letterSpacing: -0.3 }}>{rs(total)}</div>
             </div>
           </div>
-          <div style={{ fontSize: font.sm, color: color.success, fontWeight: 600, marginTop: 10 }}>✓ {tr('earn_walksCount', { n: rows.length })}</div>
+          <div style={{ fontSize: font.sm, color: color.success, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={14} /> {tr('earn_walksCount', { n: rows.length })}</div>
         </div>
 
         <h2 style={{ ...heading, marginTop: 4 }}>{tr('earn_payoutStatus')}</h2>

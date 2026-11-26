@@ -184,7 +184,7 @@ describe('SitterDashboard', () => {
   test('accepting a new booking marks it confirmed', async () => {
     global.__bookings = [makeBooking({ status: 'pending' })];
     render(<SitterDashboard onBack={() => {}} city="Gurgaon" />);
-    fireEvent.click(await screen.findByText('Accept ✓'));
+    fireEvent.click(await screen.findByText('Accept'));
     await waitFor(() => expect(updateCalls).toContainEqual({ status: 'confirmed' }));
   });
 

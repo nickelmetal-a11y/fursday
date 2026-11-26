@@ -9,7 +9,7 @@ const isImage = (m) => typeof m === 'string' && /\/storage\/v1\/object\/public\/
 // stored as special strings). Shared with the sitter dashboard.
 export const messagePreview = (m, tr) => {
   if (!m) return tr('inbox_noMessages');
-  if (isImage(m)) return '📷 ' + tr('inbox_photo');
+  if (isImage(m)) return tr('inbox_photo');
   if (m.startsWith('FURSDAY_SCHEDULE::') || m.startsWith('FURSDAY_SCHEDULE_OK::')) return tr('inbox_schedule');
   return m.length > 70 ? m.slice(0, 70) + '…' : m;
 };

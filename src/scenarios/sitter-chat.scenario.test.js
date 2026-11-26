@@ -513,7 +513,7 @@ test('S27: chat photo is uploaded to storage and sent as a message both sides se
 
 // ─── S34 ──────────────────────────────────────────────────────────────────
 describe('S34: Hindi sitter dashboard', () => {
-  const ENGLISH_CHROME = ['My Jobs', 'Earnings', 'Edit profile', 'New requests', 'Your rating', 'Total walks', 'This month so far', 'Upcoming', 'Active', 'Past', 'Accept ✓', 'Decline', 'Message'];
+  const ENGLISH_CHROME = ['My Jobs', 'Earnings', 'Edit profile', 'New requests', 'Your rating', 'Total walks', 'This month so far', 'Upcoming', 'Active', 'Past', 'Accept', 'Decline', 'Message'];
   const RAW_KEYS = ['greeting', 'jobsNav', 'earningsNav', 'tabNew', 'tabUpcoming', 'newRequests', 'thisMonth', 'accept', 'decline', 'message'];
 
   test('S34: header, tabs, nav and card buttons render in Hindi', async () => {
@@ -521,7 +521,7 @@ describe('S34: Hindi sitter dashboard', () => {
     setLanguage('hi');
     const dash = await renderSitterDashboard(IDS.sunitaUser);
     const c = within(dash.container);
-    expect(c.getByText('नमस्ते, सुनीता 👋')).toBeInTheDocument();
+    expect(c.getByText('नमस्ते, सुनीता')).toBeInTheDocument();
     expect(c.getByText('● आप लाइव हैं')).toBeInTheDocument();
     expect(c.getAllByText('नई रिक्वेस्ट').length).toBeGreaterThan(0);
     ['इस महीने अब तक', 'आपकी रेटिंग', 'कुल वॉक', 'मेरे काम', 'आगामी', 'जारी', 'पुरानी', 'नई बुकिंग रिक्वेस्ट — 1 घंटे के अंदर जवाब दें']
@@ -585,7 +585,7 @@ describe('S36: sitter earnings', () => {
     const c = within(r.container);
     const total = c.getByText('Total Earnings (All Time)').nextSibling;
     expect(total.textContent).toBe('Rs. 340.00');
-    expect(c.getByText('✓ 1 completed')).toBeInTheDocument();
+    expect(c.getByText('1 completed')).toBeInTheDocument();
     expect(c.getByText('Booking: Rs. 400.00')).toBeInTheDocument();
     expect(c.getByText('1 walk · Rs. 340.00 earned')).toBeInTheDocument();
     expect(c.queryByText(/Founding Sitter/)).toBeNull();
