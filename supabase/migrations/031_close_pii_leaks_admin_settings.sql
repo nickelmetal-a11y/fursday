@@ -13,10 +13,15 @@ grant select (id, name, city_id, avatar_url, created_at, updated_at, terms_agree
 
 -- 2) sitter_profiles.upi_id duplicated the payout UPI from sitter_pii, but on a
 --    publicly readable table. Copy anything there into sitter_pii, then drop it.
-insert into public.sitter_pii (sitter_id, upi_id)
-  select id, upi_id from public.sitter_profiles where upi_id is not null
-  on conflict (sitter_id) do update set upi_id = coalesce(public.sitter_pii.upi_id, excluded.upi_id);
-alter table public.sitter_profiles drop column if exists upi_id;
+-- Guarded so a second run (column already gone) doesn't fail.
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sitter_profiles' and column_name = 'upi_id') then
+    insert into public.sitter_pii (sitter_id, upi_id)
+      select id, upi_id from public.sitter_profiles where upi_id is not null
+      on conflict (sitter_id) do update set upi_id = coalesce(public.sitter_pii.upi_id, excluded.upi_id);
+    alter table public.sitter_profiles drop column upi_id;
+  end if;
+end $$;
 
 -- 3) Admins need to see Aadhaar/UPI to verify sitters and pay them.
 drop policy if exists "Admins can view sitter PII" on public.sitter_pii;
