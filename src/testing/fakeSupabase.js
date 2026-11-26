@@ -189,6 +189,20 @@ const defaultRpcs = {
     if (p.max_discount_amount) d = Math.min(d, p.max_discount_amount);
     return { promo_id: p.id, code: p.code, discount: Math.round(Math.min(d, p_amount_rupees)) };
   },
+  // Mirrors apply_referral_code (migration 035).
+  apply_referral_code: ({ p_code }) => {
+    if (!currentUser) return { error: 'not_signed_in' };
+    const r = db.table('referrals').find(x => String(x.referral_code).toUpperCase() === String(p_code || '').trim().toUpperCase());
+    if (!r) return { error: 'invalid' };
+    if (r.referrer_id === currentUser.id) return { error: 'own_code' };
+    if (db.table('referrals').some(x => x.referred_user_id === currentUser.id)) return { error: 'already_referred' };
+    const setting = (k, d) => Number(db.one('app_settings', { key: k })?.value || d);
+    const reward = setting('referral_reward_rs', 100), signup = setting('referral_signup_rs', 50);
+    db.insert('referrals', { referrer_id: r.referrer_id, referred_user_id: currentUser.id, referral_code: r.referral_code + '-' + currentUser.id.slice(0, 6), status: 'used' });
+    db.insert('referral_bonuses', { user_id: r.referrer_id, amount: reward, type: 'referral_reward', status: 'pending' });
+    db.insert('referral_bonuses', { user_id: currentUser.id, amount: signup, type: 'signup_bonus', status: 'pending' });
+    return { ok: true, reward, signup };
+  },
   apply_promo_to_booking: ({ p_booking_id, p_code }) => {
     const b = db.one('bookings', { id: p_booking_id });
     if (!b || b.pet_parent_id !== currentUser?.id) return { error: 'not_your_booking' };
