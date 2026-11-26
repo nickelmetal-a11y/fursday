@@ -263,6 +263,19 @@ vercel --prod
 - Admin: Pending shows the photo and Aadhaar; Approve is disabled without an Aadhaar and sets `aadhaar_verified` (before, new sitters never got the badge). New Settings tab (`AdminSettings.js`) edits support phone/WhatsApp.
 - **Scenario test harness:** `src/testing/fakeSupabase.js` (an in-memory Supabase that real screens run against; no RLS) + `src/testing/seed.js` (parents, English/Hindi sitters, a pending sitter, an admin, bookings at every stage). Scenario suites live in `src/scenarios/*.scenario.test.js`, written to assert correct behaviour, so a failure is a bug. Live multi-user tests aren't possible from Claude: email signup needs confirmation, and the service-role key is off-limits.
 
+**Scenario testing + fixes (2026-11-25/26, commits `0e6da84`, `7cb8c14`, `98266f5`):** 3 parallel agents wrote 66 scenario tests (`src/scenarios/parent-money|sitter-chat|admin-trust|sitter-broadcast`). The first run was 35 pass / 31 fail; all 27 bugs and 4 missing features found are now fixed, and the full suite is **310/310**. The biggest fixes:
+- refunds were always Rs.0 and ignored the time slot;
+- the quick Cancel button skipped the refund policy;
+- checkout used hardcoded prices instead of each sitter's `sitter_services`;
+- disputes targeted `sitter_profiles.id`;
+- accept/decline never notified the parent;
+- proposed times couldn't be accepted (they can now, and the booking updates);
+- sitters had no cancel and no complaint path;
+- pending sitters could answer broadcasts;
+- sitter-side Hindi was incomplete.
+
+**Payout rule now:** sitter earnings and admin payouts use `sitter_payout_paise` (pre-promo), never `gross_amount_paise`. Terms/Privacy were rewritten to match the app (DPDP Act 2023, the 72h/24h refund tiers, the Founding perk); the unverified Rs.25K insurance claim was removed everywhere; the **Grievance Officer name is still a placeholder**. New `HelpScreen.js` (FAQ, EN/HI), `SosSheet.js` (call, WhatsApp with GPS, 112, nearest vet; invalid support numbers are hidden). `SettingsScreen.js` was rebuilt: private profile (Aadhaar masked to the **last 3** digits per the user, masked UPI, approval date + "for N months", member-since duration, completeness) and a public profile preview, plus in-app account deletion. **Migration `032` must be run on prod** (sitter `approved_at`/`aadhaar_verified_at`, `account_deletion_requests`, a reviews→rating trigger); code works before it runs. **Lesson:** `npm test` passing does not mean the build passes (ESLint `no-undef` only fails the build), so always run `npm run build` before committing; one deploy failed this way.
+
 **Parked: admin website + domain setup** (user: "add that to our develop… but you can park it, as it will be admin side"):
 1. Move `fursday.in` DNS from GoDaddy to Vercel nameservers (`ns1/ns2.vercel-dns.com`), after first recreating every existing record in Vercel (apex A, `www` CNAME, Resend/SES `send` MX + SPF, `resend._domainkey`, `_dmarc`), so the site and email sending don't break. The user does the nameserver switch in GoDaddy; Claude prepares the records.
 2. Split AdminPanel into its own Vercel project at `admin.fursday.in` (same repo + Supabase, admin-only build). Remove `#admin` from the consumer app and the native bundles.
