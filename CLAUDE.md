@@ -300,7 +300,7 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - **Phase 1 — Before launch.** Must all be done before real customers:
   1. **Admin two-factor sign-in** (built, OFF). To turn it on: run migration `034_admin_requires_two_factor.sql`, set `REACT_APP_ADMIN_REQUIRE_2FA=true` for the admin build (e.g. in `package.json` `build:admin`), set `ADMIN_REQUIRE_2FA=true` in Vercel env for the `fursday` project, then redeploy both. Each admin enrolls in an authenticator app on first sign-in. Tests live in `AdminApp.test.js` and `testLoginLinksApi.test.js`.
   2. Razorpay merchant account and live keys.
-  3. Grievance Officer name in Terms/Privacy.
+  3. ~~Grievance Officer name in Terms/Privacy~~ done 2026-11-26: "Neha" (owner: "for now"; add a full name and grievance@fursday.in inbox before launch).
   4. Set Supabase Email OTP Expiration back from 86400 (raised for testing) to 3600.
   5. On-device testing on iOS and Android, then store submission.
   6. Remove or disable `api/test-login-links.js` (test-account logins only).
