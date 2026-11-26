@@ -277,7 +277,6 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
                     <Field label={tr('settings_aadhaar')} value={maskAadhaar(pii?.aadhaar_number) || tr('settings_notAdded')}
                       pill={pii?.aadhaar_number ? (sitter.aadhaar_verified ? { text: tr('settings_verified') + (sitter.aadhaar_verified_at ? ' · ' + fmtDate(sitter.aadhaar_verified_at) : ''), bg: '#E8F5E9', fg: '#2E7D32' } : { text: tr('settings_inReview'), bg: '#FFF3E0', fg: '#E65100' }) : null} />
                     <Field label={tr('settings_upi')} value={maskUpi(pii?.upi_id) || tr('settings_notAdded')} />
-                    <Field label={tr('settings_commission')} value={sitter.is_founding_sitter ? tr('settings_commissionFounding') : tr('settings_commissionStandard')} />
                     <Field label={tr('settings_jobsDone')} value={String(sitter.completedJobs)} />
                     <Field label={tr('settings_rating')} value={rating ? '★ ' + rating.toFixed(1) + ' · ' + tr('settings_reviewsCount', { n: sitter.review_count || 0 }) : tr('settings_noReviews')} />
                     {sitter.languages?.length > 0 && <Field label={tr('settings_languages')} value={sitter.languages.join(', ')} />}

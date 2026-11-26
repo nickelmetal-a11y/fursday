@@ -8,7 +8,7 @@ export const whatsappMessage = (a) => [
   '🐾 Fursday test login',
   a.name + ' (' + (a.role === 'sitter' ? 'sitter' + (a.sitterStatus && a.sitterStatus !== 'active' ? ', ' + a.sitterStatus : '') : 'pet parent') + ')',
   '',
-  'Tap this link on your phone to sign in. It works once and expires in about 1 hour:',
+  'Tap this link on your phone to sign in. It works once and expires in 24 hours:',
   a.link,
 ].join('\n');
 
@@ -42,7 +42,7 @@ function TestLogins() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>Test logins</div>
-          <div style={{ fontSize: 12, color: '#888' }}>One-time links for the TEST accounts only. Each works once and expires in about an hour.</div>
+          <div style={{ fontSize: 12, color: '#888' }}>One-time links for the TEST accounts only. Each works once and expires in 24 hours (Supabase Email OTP Expiration = 86400).</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {accounts && accounts.length > 0 && <button onClick={() => copy(all, 'all')} style={{ minHeight: 38, padding: '0 14px', borderRadius: 8, border: '1px solid #DDD', background: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{copied === 'all' ? 'Copied ✓' : 'Copy all messages'}</button>}

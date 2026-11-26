@@ -84,12 +84,13 @@ describe('sitter profile', () => {
     expect(screen.getByText('Aadhaar').nextSibling.textContent).toMatch(/^XXXX XXXX X333/);
     expect(screen.queryByText(/111122223333/)).toBeNull();
     expect(screen.getByText('pr•••@okaxis')).toBeInTheDocument();
-    expect(screen.getByText('15% per booking')).toBeInTheDocument();
+    // Commission lives in Terms & Conditions, not on the profile.
+    expect(screen.queryByText(/15% per booking/)).toBeNull();
   });
 
-  test('a Founding Sitter sees 0% commission and the public badge', async () => {
+  test('a Founding Sitter gets the public badge; commission is not shown on the profile', async () => {
     await renderAs(IDS.sunitaUser, 'सुनीता देवी');
-    expect(screen.getByText('0% (Founding Sitter)')).toBeInTheDocument();
+    expect(screen.queryByText('0% (Founding Sitter)')).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /Public/ }));
     expect(screen.getByText('Founding Sitter')).toBeInTheDocument();
     expect(screen.getByText('Aadhaar verified')).toBeInTheDocument();
