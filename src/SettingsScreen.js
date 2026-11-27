@@ -4,8 +4,10 @@ import { useLanguage } from './i18n';
 import HelpScreen from './HelpScreen';
 import SosSheet from './SosSheet';
 import ReferralScreen from './ReferralScreen';
+import PhoneVerify from './PhoneVerify';
 import { color, font, radius, shadow, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
+import { enablePushNotifications, disablePushNotifications } from './pushNotifications';
 
 const SITTER_STATUS = {
   active: { key: 'settings_statusActive', tone: 'success' },
@@ -149,6 +151,22 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
     if (error) console.error('Could not save notification preferences:', error.message);
   };
 
+  const handleTogglePush = async (checked) => {
+    setNotificationsEnabled(checked);
+    saveNotificationPrefs({ push_enabled: checked });
+    if (checked) {
+      const { granted } = await enablePushNotifications(user?.id);
+      if (!granted) {
+        // iOS denied the permission (or the user dismissed the prompt) — reflect that in the UI
+        // instead of leaving the toggle on with no real notifications behind it.
+        setNotificationsEnabled(false);
+        saveNotificationPrefs({ push_enabled: false });
+      }
+    } else {
+      await disablePushNotifications(user?.id);
+    }
+  };
+
   const handleSignOut = async () => {
     if (window.confirm(tr('settings_signOutConfirm'))) {
       await supabase.auth.signOut();
@@ -286,7 +304,7 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
                 <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 4 }}>{tr('settings_privateNote')}</div>
                 <Field label={tr('settings_fullName')} value={userNameEdit || tr('settings_notSet')} />
                 <Field label={tr('settings_email')} value={userEmail} />
-                <Field label={tr('settings_phone')} value={userPhone || tr('settings_notAdded')} pill={userPhone ? { text: tr('settings_notVerified'), tone: 'warning' } : null} />
+                <PhoneVerify phone={userPhone} onVerified={setUserPhone} />
                 <Field label={tr('settings_memberSince')} value={fmtDate(joinedAt) ? fmtDate(joinedAt) + ' · ' + tr('settings_forDuration', { d: durationSince(joinedAt, hi) }) : '—'} />
                 {sitter ? (
                   <>
@@ -375,7 +393,7 @@ export default function SettingsScreen({ onBack, city, userName, onNav, activeNa
         {/* Notifications */}
         <div style={{ ...card, padding: '16px 16px 10px' }}>
           <div style={{ ...sectionLabel, marginBottom: 4 }}>{tr('settings_notifications')}</div>
-          <Toggle label={tr('settings_push')} sub={tr('settings_pushSub')} checked={notificationsEnabled} onChange={e => { setNotificationsEnabled(e.target.checked); saveNotificationPrefs({ push_enabled: e.target.checked }); }} />
+          <Toggle label={tr('settings_push')} sub={tr('settings_pushSub')} checked={notificationsEnabled} onChange={e => handleTogglePush(e.target.checked)} />
           <Toggle label={tr('settings_emailNotif')} sub={tr('settings_emailNotifSub')} checked={emailNotifications} onChange={e => { setEmailNotifications(e.target.checked); saveNotificationPrefs({ email_enabled: e.target.checked }); }} />
           <Toggle label={tr('settings_sms')} sub={tr('settings_smsSub')} checked={smsNotifications} onChange={e => { setSmsNotifications(e.target.checked); saveNotificationPrefs({ sms_enabled: e.target.checked }); }} />
         </div>

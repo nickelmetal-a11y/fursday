@@ -3,7 +3,16 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
-import { cancelBooking as cancelOnServer, moneyInHand, serverUnavailable } from './paymentsClient';
+import { cancelBooking as cancelOnServer, moneyInHand, serverUnavailable, policyOf, refundPercentFor } from './paymentsClient';
+
+const POLICY_NAME = { flexible: 'cancelPolicy_policyFlexible', moderate: 'cancelPolicy_policyModerate', strict: 'cancelPolicy_policyStrict' };
+// The refund table shown for each policy: [label, refund text, tone].
+const POLICY_ROWS = {
+  flexible: [['cancelPolicy_flex24Label', 'cancelPolicy_tier72Refund', 'success'], ['cancelPolicy_flexLateLabel', 'cancelPolicy_tier024Refund', 'danger']],
+  moderate: [['cancelPolicy_tier72Label', 'cancelPolicy_tier72Refund', 'success'], ['cancelPolicy_tier2472Label', 'cancelPolicy_tier2472Refund', 'warning'], ['cancelPolicy_tier024Label', 'cancelPolicy_tier024Refund', 'danger']],
+  strict: [['cancelPolicy_strict7dLabel', 'cancelPolicy_tier72Refund', 'success'], ['cancelPolicy_strict2dLabel', 'cancelPolicy_tier50Refund', 'warning'], ['cancelPolicy_strictLateLabel', 'cancelPolicy_tier024Refund', 'danger']],
+};
+const REFUND_LABEL = { 100: 'cancelPolicy_refundFull100', 75: 'cancelPolicy_tier2472Refund', 50: 'cancelPolicy_tier50Refund', 0: 'cancelPolicy_tier024Refund' };
 
 // booking_date is a plain 'YYYY-MM-DD' and time_slot e.g. '7:00 AM'. Parsing the
 // date alone gives UTC midnight, which ignored the time and could push a parent
@@ -18,14 +27,12 @@ export const serviceStartTime = (booking) => {
   return new Date(d + 'T' + String(h).padStart(2, '0') + ':' + min + ':00+05:30');
 };
 
-const calculateRefund = (booking) => {
+// An estimate for the screen; the payments server computes the real refund.
+const calculateRefund = (booking, policy) => {
   // Nothing has been charged until the sitter accepts, so cancelling a hold returns all of it.
   if (booking.payment_status === 'authorized') return { percentage: 100, labelKey: 'cancelPolicy_holdReleased' };
-  const hoursUntil = (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60);
-
-  if (hoursUntil >= 72) return { percentage: 100, labelKey: 'cancelPolicy_refundFull100' };
-  if (hoursUntil >= 24) return { percentage: 75, labelKey: 'cancelPolicy_tier2472Refund' };
-  return { percentage: 0, labelKey: 'cancelPolicy_tier024Refund' };
+  const percentage = refundPercentFor(policy, (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60));
+  return { percentage, labelKey: REFUND_LABEL[percentage] || 'cancelPolicy_tier024Refund' };
 };
 
 const CANCEL_REASONS = [
@@ -42,7 +49,9 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
   const [step, setStep] = useState('policy'); // policy, reason, confirming
   const [reason, setReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const refund = calculateRefund(booking);
+  const [outcome, setOutcome] = useState(null);
+  const policy = policyOf(booking);
+  const refund = calculateRefund(booking, policy);
   // Only money actually paid can be refunded.
   const paidRupees = moneyInHand(booking) ? (booking.gross_amount_paise || 0) / 100 : 0;
   const isHold = booking.payment_status === 'authorized';
@@ -62,10 +71,11 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       // recorded and Fursday refunds the held money by hand.
       let refundPaise = Math.round(refundAmount * 100);
       let handled = false;
+      let serverResult = null;
       if (moneyInHand(booking)) {
         try {
-          const res = await cancelOnServer(booking.id, reason);
-          refundPaise = res.refund_amount_paise ?? refundPaise;
+          serverResult = await cancelOnServer(booking.id, reason);
+          refundPaise = serverResult.refund_amount_paise ?? refundPaise;
           handled = true;
         } catch (e) {
           if (!serverUnavailable(e)) {
@@ -145,6 +155,12 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
         }
       } catch(notifErr) { console.error('Cancellation notification failed:', notifErr); }
 
+      // Show what the server actually refunded before closing.
+      if (serverResult) {
+        setOutcome({ ...serverResult, refund_amount_paise: refundPaise });
+        setCancelling(false);
+        return;
+      }
       onCancelled && onCancelled();
       onClose();
     } catch (e) {
@@ -162,6 +178,29 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
     </button>
   );
 
+  if (outcome) {
+    const pct = outcome.refund_percentage ?? refund.percentage;
+    const amount = '₹' + Math.round((outcome.refund_amount_paise || 0) / 100);
+    const key = outcome.outcome === 'voided' ? 'cancelPolicy_doneHold'
+      : outcome.outcome === 'refund_manual' ? 'cancelPolicy_doneManual'
+      : outcome.refund_amount_paise > 0 ? 'cancelPolicy_doneRefund' : 'cancelPolicy_doneNoRefund';
+    const done = () => { onCancelled && onCancelled(); onClose(); };
+    return (
+      <div style={backdrop}>
+        <div role="dialog" aria-modal="true" aria-labelledby="cancel-done-title" style={sheet}>
+          <div style={{ width: 56, height: 56, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '4px auto 12px' }}>
+            <Icon name="check" size={28} strokeWidth={2.4} />
+          </div>
+          <div id="cancel-done-title" style={{ fontSize: font.lg, fontWeight: 700, color: color.ink, textAlign: 'center', marginBottom: 8 }}>{tr('cancelPolicy_doneTitle')}</div>
+          <div role="status" style={{ fontSize: font.md, color: color.text, lineHeight: 1.6, textAlign: 'center', marginBottom: 20 }}>
+            {tr(key, { amount, pct, policy: tr(POLICY_NAME[outcome.policy] || POLICY_NAME[policy]).toLowerCase() })}
+          </div>
+          <button type="button" onClick={done} style={{ ...ui.primaryButton, width: '100%' }}>{tr('common_done')}</button>
+        </div>
+      </div>
+    );
+  }
+
   if (step === 'policy') {
     return (
       <div style={backdrop}>
@@ -177,22 +216,23 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
           <div style={{ background: color.infoSoft, borderRadius: radius.md, padding: '12px 14px', marginBottom: 16, display: 'flex', gap: 10 }}>
             <Icon name="info" size={18} color={color.info} style={{ marginTop: 1 }} />
             <div style={{ fontSize: 13, color: color.info, lineHeight: 1.5 }}>
-              {tr('cancelPolicy_advisory')}
+              {tr(policy === 'strict' ? 'cancelPolicy_advisoryStrict' : 'cancelPolicy_advisory')}
             </div>
           </div>
 
           <div style={{ border: `1px solid ${color.line}`, borderRadius: radius.md, padding: '12px 14px', marginBottom: 16 }}>
-            <div style={{ fontSize: font.xs, color: color.muted, marginBottom: 6, fontWeight: 600, letterSpacing: 0.5 }}>{tr('cancelPolicy_refundRulesHeading')}</div>
-            {[
-              ['cancelPolicy_tier72Label', 'cancelPolicy_tier72Refund', color.success],
-              ['cancelPolicy_tier2472Label', 'cancelPolicy_tier2472Refund', color.warning],
-              ['cancelPolicy_tier024Label', 'cancelPolicy_tier024Refund', color.danger],
-            ].map(([label, value, tone], i) => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: font.xs, color: color.muted, fontWeight: 600, letterSpacing: 0.5 }}>{tr('cancelPolicy_refundRulesHeading')}</span>
+              <span style={{ ...ui.badge(), background: color.navySoft, color: color.navy }}>{tr(POLICY_NAME[policy])}</span>
+            </div>
+            <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 4 }}>{tr('cancelPolicy_setBySitter')}</div>
+            {POLICY_ROWS[policy].map(([label, value, tone], i) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, padding: '8px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
                 <span style={{ color: color.text }}>{tr(label)}</span>
-                <span style={{ fontWeight: 600, color: tone }}>{tr(value)}</span>
+                <span style={{ fontWeight: 600, color: color[tone] }}>{tr(value)}</span>
               </div>
             ))}
+            <div style={{ fontSize: font.sm, color: color.muted, paddingTop: 8, borderTop: `1px solid ${color.line}` }}>{tr('cancelPolicy_sitterCancels')}</div>
           </div>
 
           <div style={{ background: color.tile, borderRadius: radius.md, padding: '14px 16px', marginBottom: 20 }}>

@@ -8,7 +8,13 @@ import ReviewModal from './ReviewModal';
 import CancellationPolicyModal from './CancellationPolicyModal';
 import ReceiptModal from './ReceiptModal';
 import DisputeForm from './DisputeForm';
-import { moneyLine, moneyInHand, moneyCaptured } from './paymentsClient';
+import TipSheet from './TipSheet';
+import StayTimeline from './StayTimeline';
+import { moneyLine, moneyInHand, moneyCaptured, cancelBooking as cancelOnServer, serverUnavailable } from './paymentsClient';
+
+const NIGHT_SERVICES = ['boarding', 'housesit'];
+// 4 Jan 2026 is a Sunday, so 4 + n is weekday n.
+const weekdayLabel = (wd, lang) => new Date(2026, 0, 4 + wd).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'short' });
 
 const SERVICE_NAME_KEYS = {
   walk30: 'service_walk',
@@ -58,6 +64,9 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
   const [viewingReceipt, setViewingReceipt] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
   const [filingDispute, setFilingDispute] = useState(null);
+  const [seriesMeta, setSeriesMeta] = useState({});
+  const [seriesBusy, setSeriesBusy] = useState(null);
+  const [tipping, setTipping] = useState(null);
 
   const submitReport = async (bookingId, sitterName) => {
     if (!reportReason) return;
@@ -113,6 +122,13 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
         return { ...b, sitter_profiles: { ...b.sitter_profiles, users: { ...b.sitter_profiles.users, phone: contact?.[0]?.phone } } };
       }));
       setBookings(dataWithContact);
+      const seriesIds = [...new Set((data || []).map(b => b.series_id).filter(Boolean))];
+      if (seriesIds.length) {
+        try {
+          const { data: rows } = await supabase.from('booking_series').select('*').in('id', seriesIds);
+          setSeriesMeta(Object.fromEntries((rows || []).map(r => [r.id, r])));
+        } catch (e) { /* plan status unknown: shown as active */ }
+      }
       const { data: myReviews } = await supabase.from('reviews').select('booking_id').eq('reviewer_id', user.id);
       setReviewedIds(new Set((myReviews || []).map(r => r.booking_id)));
 
@@ -162,11 +178,60 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
 
   useEffect(() => { loadBookings(); }, []);
 
-  const upcoming = bookings.filter(b => ['pending','confirmed'].includes(b.status));
+  const upcomingAll = bookings.filter(b => ['pending','confirmed'].includes(b.status));
   const active = bookings.filter(b => b.status === 'active');
   const past = bookings.filter(b => ['completed','cancelled'].includes(b.status));
 
+  // A weekly plan shows as one card for its remaining visits.
+  const seriesGroups = Object.values(upcomingAll.filter(b => b.series_id).reduce((acc, b) => {
+    (acc[b.series_id] = acc[b.series_id] || { id: b.series_id, items: [] }).items.push(b);
+    return acc;
+  }, {})).map(g => ({ ...g, items: [...g.items].sort((a, b) => String(a.booking_date).localeCompare(String(b.booking_date))) }));
+  const upcoming = upcomingAll.filter(b => !b.series_id);
+  const upcomingCount = upcoming.length + seriesGroups.length;
   const tabBookings = tab === 'upcoming' ? upcoming : tab === 'active' ? active : past;
+  const showSeries = tab === 'upcoming' ? seriesGroups : [];
+
+  const notifySitter = async (b, title, body) => {
+    try {
+      const to = b.sitter_profiles?.user_id;
+      if (!to) return;
+      const { createNotification } = await import('./notificationService');
+      await createNotification(to, 'series_update', title, body);
+    } catch (e) { console.error('Plan notification failed:', e); }
+  };
+
+  const setSeriesStatus = async (group, status) => {
+    setSeriesBusy(group.id);
+    const { error } = await supabase.from('booking_series').update({ status }).eq('id', group.id);
+    setSeriesBusy(null);
+    if (error) { alert(tr('bookings_seriesFailed')); return; }
+    setSeriesMeta(m => ({ ...m, [group.id]: { ...(m[group.id] || {}), id: group.id, status } }));
+    await notifySitter(group.items[0], status === 'paused' ? 'Walk plan paused' : 'Walk plan resumed',
+      status === 'paused' ? 'The pet parent paused the plan. Please hold off until they resume it.' : 'The pet parent resumed the plan. Visits continue as booked.');
+  };
+
+  const cancelRemaining = async (group) => {
+    if (!window.confirm(tr('bookings_seriesCancelConfirm', { n: group.items.length }))) return;
+    setSeriesBusy(group.id);
+    let failed = false;
+    for (const b of group.items) {
+      let handled = false;
+      if (moneyInHand(b)) {
+        try { await cancelOnServer(b.id, 'Plan cancelled by parent'); handled = true; }
+        catch (e) { if (!serverUnavailable(e)) { failed = true; continue; } }
+      }
+      if (!handled) {
+        const { error } = await supabase.from('bookings').update({ status: 'cancelled', cancellation_reason: 'Plan cancelled by parent', cancelled_at: new Date().toISOString() }).eq('id', b.id);
+        if (error) failed = true;
+      }
+    }
+    try { await supabase.from('booking_series').update({ status: 'ended' }).eq('id', group.id); } catch (e) { /* no series table yet */ }
+    setSeriesBusy(null);
+    if (failed) alert(tr('bookings_seriesFailed'));
+    await notifySitter(group.items[0], 'Walk plan cancelled', 'The remaining ' + group.items.length + ' visits in this plan were cancelled.');
+    loadBookings();
+  };
 
   const smallButton = { minHeight:44, padding:'0 12px', fontSize:13 };
   const rowButton = { ...ui.secondaryButton, ...smallButton, flex:1 };
@@ -191,7 +256,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
       <div style={{ padding:'16px 16px 0' }}>
         <div style={{ background:color.tile, borderRadius:radius.md, padding:4, display:'flex', gap:4, marginBottom:16 }}>
           {[
-            { id:'upcoming', label:tr('bookings_tabUpcoming'), count:upcoming.length },
+            { id:'upcoming', label:tr('bookings_tabUpcoming'), count:upcomingCount },
             { id:'active', label:tr('bookings_tabActive'), count:active.length },
             { id:'past', label:tr('bookings_tabPast'), count:past.length },
           ].map(tb => {
@@ -219,7 +284,48 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           </div>
         )}
 
-        {!loading && tabBookings.length === 0 && (
+        {!loading && showSeries.map(g => {
+          const first = g.items[0];
+          const meta = seriesMeta[g.id] || {};
+          const paused = meta.status === 'paused';
+          const name = first.sitter_profiles?.users?.name || tr('bookings_sitterFallback');
+          const weekdays = (Array.isArray(meta.weekdays) && meta.weekdays.length ? meta.weekdays : [...new Set(g.items.map(b => new Date(b.booking_date + 'T00:00:00').getDay()))])
+            .map(Number).sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+          const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+          const remaining = g.items.reduce((a, b) => a + Math.round((b.gross_amount_paise || 0) / 100), 0);
+          const busy = seriesBusy === g.id;
+          return (
+            <section key={g.id} aria-label={tr('bookings_seriesTitle', { service: SERVICE_NAME_KEYS[first.service_type] ? tr(SERVICE_NAME_KEYS[first.service_type]) : first.service_type, days: weekdays.map(w => weekdayLabel(w, lang)).join(', '), name })}
+              style={{ ...ui.card, marginBottom:12, border:`1px solid ${paused ? color.line : color.navy}` }}>
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start', marginBottom:10 }}>
+                <div style={{ ...ui.iconTile, width:44, height:44 }}><Icon name="repeat" size={22} /></div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:15, fontWeight:700, color:color.ink, lineHeight:1.35 }}>
+                    {tr('bookings_seriesTitle', { service: SERVICE_NAME_KEYS[first.service_type] ? tr(SERVICE_NAME_KEYS[first.service_type]) : first.service_type, days: weekdays.map(w => weekdayLabel(w, lang)).join(', '), name })} · {tr('bookings_seriesLeft', { n: g.items.length })}
+                  </div>
+                  <div style={{ fontSize:font.sm, color:color.muted, marginTop:2 }}>{tr('bookings_seriesNext', { date: fmt(first.booking_date), time: first.time_slot })}</div>
+                </div>
+                <span style={ui.badge(paused ? 'warning' : 'success')}>{tr(paused ? 'bookings_seriesPaused' : 'bookings_seriesActive')}</span>
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
+                {g.items.slice(0, 4).map(b => <span key={b.id} style={{ ...ui.badge(statusTone[b.status] || 'info'), fontSize:font.sm }}>{fmt(b.booking_date)}</span>)}
+                {g.items.length > 4 && <span style={{ ...ui.badge('info'), fontSize:font.sm }}>{tr('bookings_seriesMore', { n: g.items.length - 4 })}</span>}
+              </div>
+              <div style={{ fontSize:font.sm, color:color.text, marginBottom:10, fontVariantNumeric:'tabular-nums' }}>{tr('bookings_seriesTotal', { amount: remaining })}</div>
+              {paused && <div role="status" style={{ background:color.warningSoft, color:color.warning, borderRadius:radius.md, padding:'9px 12px', fontSize:font.sm, lineHeight:1.5, marginBottom:10 }}>{tr('bookings_seriesPausedNote', { name })}</div>}
+              <div style={{ display:'flex', gap:8 }}>
+                <button type="button" disabled={busy} onClick={() => setSeriesStatus(g, paused ? 'active' : 'paused')} style={{ ...rowButton, color:color.navy }}>
+                  <Icon name={paused ? 'play' : 'pause'} size={16} /> {tr(paused ? 'bookings_seriesResume' : 'bookings_seriesPause')}
+                </button>
+                <button type="button" disabled={busy} onClick={() => cancelRemaining(g)} style={{ ...ui.dangerButton, flex:1, border:`1px solid ${color.line}` }}>
+                  {tr('bookings_seriesCancelRest')}
+                </button>
+              </div>
+            </section>
+          );
+        })}
+
+        {!loading && tabBookings.length === 0 && showSeries.length === 0 && (
           <div style={{ ...ui.card, textAlign:'center', padding:28 }}>
             <div style={{ ...ui.iconTile, margin:'0 auto 12px' }}><Icon name="calendar" /></div>
             <div style={{ fontSize:font.lg, fontWeight:600, color:color.ink, marginBottom:4 }}>
@@ -321,6 +427,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                         {tr('bookings_emergencyContactCta', { phone: sitterPhone })}
                       </a>
                     )}
+                    {NIGHT_SERVICES.includes(b.service_type) && <div style={{ marginBottom:8 }}><StayTimeline booking={b} /></div>}
                     {['boarding','daycare'].includes(b.service_type) && (
                       <div style={{ background:color.tile, borderRadius:radius.md, padding:'12px 14px' }}>
                         <div style={{ fontSize:13, fontWeight:600, color:color.ink, marginBottom:4 }}>{tr('bookings_confirmPickupTitle')}</div>
@@ -374,6 +481,12 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                         {tr('bookings_cancelThisBooking')}
                       </button>
                     )}
+                    {NIGHT_SERVICES.includes(b.service_type) && ['confirmed', 'completed'].includes(b.status) && <StayTimeline booking={b} />}
+                    {b.status === 'completed' && (b.tip_paise > 0
+                      ? <div role="status" style={{ ...ui.badge('success'), alignSelf:'flex-start', fontSize:font.sm, padding:'6px 10px' }}><Icon name="heart" size={14} />{tr('bookings_tipped', { amount: Math.round(b.tip_paise / 100) })}</div>
+                      : <button type="button" onClick={() => setTipping(b)} style={{ ...ui.secondaryButton, ...smallButton, width:'100%', color:color.navy }}>
+                          <Icon name="heart" size={16} /> {tr('bookings_addTip')}
+                        </button>)}
                     {b.status === 'completed' && b.sitter_uploaded_photos && (
                       <button type="button" onClick={() => viewPhotoReport(b)} style={{ ...ui.secondaryButton, ...smallButton, width:'100%', color:color.navy }}>
                         {tr('bookings_viewWalkProof')}
@@ -486,6 +599,11 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           pet={receiptData.pet}
           onClose={() => { setViewingReceipt(false); setReceiptData(null); }}
         />
+      )}
+
+      {tipping && (
+        <TipSheet booking={{ ...tipping, sitterName: tipping.sitter_profiles?.users?.name || tr('bookings_sitterFallback') }}
+          onDone={(res) => { setTipping(null); if (res) loadBookings(); }} />
       )}
 
       {filingDispute && (

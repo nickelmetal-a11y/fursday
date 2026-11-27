@@ -158,7 +158,12 @@ describe('CancellationPolicyModal - refund tiers', () => {
     fireEvent.click(screen.getByText('Cancel booking'));
     fireEvent.click(screen.getByText('Change of plans'));
     fireEvent.click(screen.getByText('Yes, cancel this booking'));
-    await waitFor(() => expect(onCancelled).toHaveBeenCalled());
+    expect(await screen.findByText('Booking cancelled')).toBeInTheDocument();
+    expect(screen.getByRole('status').textContent).toContain('₹262 (75%)');
+    expect(onCancelled).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Done'));
+    expect(onCancelled).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
     expect(global.__cancelOnServer).toHaveBeenCalledWith('booking-1', 'Change of plans');
     expect(updateCalls).toHaveLength(0);
   });

@@ -104,10 +104,13 @@ async function logEvent(bookingId, kind, amount, gatewayRef, note) {
   catch (e) { console.error('payment_events insert failed:', e.message); }
 }
 
+// Lazy require: api/notify.js requires this file too.
 async function notify(userId, type, title, body, bookingId) {
   if (!userId) return;
-  try { await rest('notifications', 'POST', { user_id: userId, type, title, body, booking_id: bookingId || null }, 'return=minimal'); }
-  catch (e) { console.error('notification failed:', e.message); }
+  try {
+    const rows = await rest('notifications', 'POST', { user_id: userId, type, title, body, booking_id: bookingId || null });
+    if (rows?.[0]) await require('../notify').deliver(rows[0]);
+  } catch (e) { console.error('notification failed:', e.message); }
 }
 
 // booking_date is an IST calendar date and time_slot e.g. '7:00 AM' or '07:00'.
@@ -131,34 +134,81 @@ function payoutReleaseAt(b) {
   return new Date(end.getTime() + RELEASE_DELAY_HOURS * HOUR).toISOString();
 }
 
-// Same tiers as Terms section 3 and CancellationPolicyModal: >=72h 100%, >=24h 75%, else 0.
-function refundPercent(b, now = new Date()) {
+// The host's cancellation policy: [hours before the start, refund %] from the
+// most generous tier down; anything later refunds nothing. Mirrored in
+// src/CancellationPolicyModal.js and the Terms.
+const POLICIES = {
+  flexible: [[24, 100]],
+  moderate: [[72, 100], [24, 75]],
+  strict: [[168, 100], [48, 50]],
+};
+const DEFAULT_POLICY = 'moderate';
+
+function refundPercent(b, policy = DEFAULT_POLICY, now = new Date()) {
   const start = serviceStart(b);
   if (!start) return 0;
   const hours = (start - now) / HOUR;
-  if (hours >= 72) return 100;
-  if (hours >= 24) return 75;
-  return 0;
+  const tier = (POLICIES[policy] || POLICIES[DEFAULT_POLICY]).find(([h]) => hours >= h);
+  return tier ? tier[1] : 0;
 }
 
-// Takes the held money. Simulated (test-account) payments never touch Razorpay.
-async function capture(b) {
+// The policy fixed on the booking (migration 038), else the sitter's current one.
+async function policyFor(b) {
+  if (POLICIES[b.cancellation_policy]) return b.cancellation_policy;
+  if (!b.sitter_id) return DEFAULT_POLICY;
+  try {
+    const rows = await rest('sitter_profiles?select=*&id=eq.' + encodeURIComponent(b.sitter_id));
+    return POLICIES[rows?.[0]?.cancellation_policy] ? rows[0].cancellation_policy : DEFAULT_POLICY;
+  } catch { return DEFAULT_POLICY; }
+}
+
+// Bookings paid together (a repeat plan) share one Razorpay payment id.
+async function paymentGroup(b) {
+  if (!b.payment_id) return [b];
+  const rows = await rest('bookings?select=*&payment_id=eq.' + encodeURIComponent(b.payment_id));
+  return rows?.length ? rows : [b];
+}
+
+// Takes the held money. A payment covering several bookings is captured once,
+// for all of them: accepting any booking of a plan accepts the whole plan.
+// Shares of bookings cancelled while on hold are refunded straight after.
+// Simulated (test-account) payments never touch Razorpay.
+async function capture(given) {
+  const group = await paymentGroup(given);
+  const b = group.find(x => x.id === given.id) || given;
   if (['held', 'paid'].includes(b.payment_status)) {
     if (b.payout_status) return b;
     return updateBooking(b.id, { payout_status: 'on_hold', payout_release_at: payoutReleaseAt(b) });
   }
   if (b.payment_status !== 'authorized') throw new HttpError(409, 'There is no payment to capture', 'not_paid');
-  let ref = b.payment_id;
+  const take = group.filter(x => x.payment_status === 'authorized' && x.status !== 'cancelled');
+  if (!take.some(x => x.id === b.id)) throw new HttpError(409, 'There is no payment to capture', 'not_paid');
+  const share = take.reduce((s, x) => s + (x.gross_amount_paise || 0), 0);
+  let ref = b.payment_id, leftover = 0;
   if (b.payment_mode !== 'simulated') {
-    const p = await razorpay('/payments/' + encodeURIComponent(b.payment_id) + '/capture', 'POST', { amount: b.gross_amount_paise, currency: 'INR' });
+    const total = group.length > 1 ? Number((await razorpay('/payments/' + encodeURIComponent(b.payment_id))).amount) : b.gross_amount_paise;
+    const p = await razorpay('/payments/' + encodeURIComponent(b.payment_id) + '/capture', 'POST', { amount: total, currency: 'INR' });
     ref = p.id || ref;
+    leftover = total - share;
   }
-  const releaseAt = payoutReleaseAt(b);
-  const fields = { payment_status: 'held', captured_at: new Date().toISOString(), payout_status: 'on_hold', payout_release_at: releaseAt };
-  if (b.status === 'pending') fields.status = 'confirmed';
-  const updated = await updateBooking(b.id, fields);
-  await logEvent(b.id, 'captured', b.gross_amount_paise, ref, 'Payout releases ' + releaseAt);
-  return updated;
+  const now = new Date().toISOString();
+  let mine = null;
+  for (const x of take) {
+    const releaseAt = payoutReleaseAt(x);
+    const fields = { payment_status: 'held', captured_at: now, payout_status: 'on_hold', payout_release_at: releaseAt };
+    if (x.status === 'pending') fields.status = 'confirmed';
+    const updated = await updateBooking(x.id, fields);
+    await logEvent(x.id, 'captured', x.gross_amount_paise, ref, 'Payout releases ' + releaseAt);
+    if (x.id === b.id) mine = updated;
+  }
+  if (leftover > 0) {
+    const r = await refund(b, leftover, 'Bookings cancelled before the sitter accepted');
+    for (const x of group.filter(y => y.payment_status === 'voided')) {
+      await updateBooking(x.id, { payment_status: 'refunded', refunded_amount_paise: x.gross_amount_paise || 0 });
+      await logEvent(x.id, 'refunded', x.gross_amount_paise, r.ref, (r.manual ? 'Refund by hand: ' : '') + 'cancelled before the plan was accepted');
+    }
+  }
+  return mine;
 }
 
 // Gives back `amount` of a captured payment. Payments from before order-based
@@ -212,7 +262,8 @@ function cors(req, res) {
 const readBody = (req) => (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}));
 
 module.exports = {
-  HttpError, TEST_EMAIL, HOUR, NO_REPLY_HOURS, IN_HAND, CLOSED_DISPUTE,
+  HttpError, TEST_EMAIL, HOUR, NO_REPLY_HOURS, IN_HAND, CLOSED_DISPUTE, POLICIES, SUPABASE_URL,
   razorpayKeys, gatewayMode, rest, razorpay, signatureValid, callerFrom, isAdmin, loadBooking, sitterUserId,
-  updateBooking, logEvent, notify, payoutReleaseAt, refundPercent, capture, refund, releaseFully, cors, readBody, serviceKey,
+  updateBooking, logEvent, notify, istTime, payoutReleaseAt, refundPercent, policyFor, paymentGroup, capture, refund, releaseFully,
+  cors, readBody, serviceKey,
 };

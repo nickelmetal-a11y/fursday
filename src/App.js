@@ -22,7 +22,12 @@ import BroadcastRequest from './BroadcastRequest';
 import SettingsScreen from './SettingsScreen';
 import LanguageToggle from './LanguageToggle';
 import FeedbackTab from './FeedbackTab';
-import { useLanguage, translate } from './i18n';
+import GuestPrompt from './GuestPrompt';
+import ConversationScreen from './ConversationScreen';
+import SitterRating from './SitterRating';
+import { SITTER_CARD_SELECT, toSitterCard } from './sitterCard';
+import { findSitterBySlug, slugFromPath } from './ShareProfileCard';
+import { useLanguage } from './i18n';
 import { checkLocationRestriction } from './geolocationService';
 import BottomNav, { PARENT_TABS, SITTER_TABS } from './ui/BottomNav';
 import Icon from './ui/Icon';
@@ -57,6 +62,8 @@ export default function App() {
   const [editingPetId, setEditingPetId] = useState(null);
   const [repeatBookingData, setRepeatBookingData] = useState(null);
   const [broadcastPrefill, setBroadcastPrefill] = useState(null);
+  const [sitterConversation, setSitterConversation] = useState(null);
+  const [certFromBooking, setCertFromBooking] = useState(false);
   const [openRequest, setOpenRequest] = useState(null);
   const [broadcastRequestId, setBroadcastRequestId] = useState(null);
   const [showWalkReport, setShowWalkReport] = useState(false);
@@ -95,6 +102,13 @@ export default function App() {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showAddressBook, setShowAddressBook] = useState(false);
   const [cityNames, setCityNames] = useState({});
+  // Visitors browse Home, Explore and profiles; anything that needs an account
+  // stores what they were doing here, shows the login screen, then resumes it.
+  const [showLogin, setShowLogin] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [askSitter, setAskSitter] = useState(null);
+  const [profileFromExplore, setProfileFromExplore] = useState(false);
+  const [sharedSlug, setSharedSlug] = useState(() => slugFromPath(window.location.pathname));
   // Keep the loading screen up for at least one walk cycle so everyone sees it (owner: at least 2 seconds).
   const [splashDone, setSplashDone] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSplashDone(true), process.env.NODE_ENV === 'test' ? 0 : 2000); return () => clearTimeout(t); }, []);
@@ -193,34 +207,56 @@ export default function App() {
       if (cityRow) {
         const { data } = await supabase
           .from('sitter_profiles')
-          .select('*, users(name), sitter_services(service_type, price_paise), lat, lng')
+          .select(SITTER_CARD_SELECT)
           .eq('city_id', cityRow.id)
           .eq('status', 'active');
-        if (data) {
-          setRealSitters(data.map((s, i) => ({
-            id: s.id,
-            name: s.users?.name || translate('sitterProfile_nameFallback'),
-            city, area: s.base_area || city,
-            headline: s.headline ?? null, highlights: s.highlights || [],
-            base_area: s.base_area || null, service_radius_km: s.service_radius_km ?? null,
-            rating: s.rating || 5.0,
-            reviews: s.total_bookings || 0,
-            provider_type: s.provider_type || 'sitter', home_details: s.home_details || {}, home_photos: s.home_photos || [],
-            price: (() => { const b = s.sitter_services?.find(sv => sv.service_type === 'boarding'); return s.provider_type === 'boarding' && b ? translate('boardingProfile_pricePerNight').replace('{n}', Math.round(b.price_paise/100)) : translate('home_pricePerWalk').replace('{n}', s.sitter_services?.[0] ? Math.round(s.sitter_services[0].price_paise/100) : 299); })(),
-            tags: s.sitter_services?.map(sv => sv.service_type) || [],
-            verified: s.aadhaar_verified || false,
-            emoji: (s.users?.name || 'S')[0].toUpperCase(),
-            isTopSitter: s.is_top_sitter || false,
-            profilePhoto: s.profile_photo_url || null,
-            lat: s.lat || null,
-            lng: s.lng || null,
-          })));
-        }
+        if (data) setRealSitters(data.map(s => toSitterCard(s, city)));
       }
       setSittersLoading(false);
     };
     fetchSitters();
   }, [city]);
+
+  useEffect(() => {
+    if (!sharedSlug) return undefined;
+    let cancelled = false;
+    (async () => {
+      const row = await findSitterBySlug(sharedSlug);
+      if (cancelled) return;
+      setSharedSlug(null);
+      if (!row) { window.history.replaceState(null, '', '/'); return; }
+      let sitterCity = city;
+      try {
+        const { data } = await supabase.from('cities').select('name').eq('id', row.city_id).maybeSingle();
+        if (data?.name && CITY_CONFIG[data.name]) { sitterCity = data.name; setCity(data.name); }
+      } catch (e) { /* keep the current city */ }
+      if (!cancelled) setSelectedSitter(toSitterCard(row, sitterCity));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedSlug]);
+
+  useEffect(() => {
+    if (user) { setShowLogin(false); return; }
+    setIsSitterMode(false); setIsSitter(false); setSitterStatus(null); setUserName(null); setAskSitter(null);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !pendingAction) return;
+    const action = pendingAction;
+    setPendingAction(null);
+    (async () => {
+      if (action.type === 'favorite' && action.sitter?.id) {
+        try { await supabase.from('favorites').insert({ sitter_id: action.sitter.id, pet_parent_id: user.id }); } catch (e) { /* favourites are optional */ }
+      }
+      if (action.type === 'book') { setSelectedSitter(action.sitter || null); setSelectedServiceType(action.service || null); setShowExplore(false); setShowBooking(true); }
+      else if (action.type === 'broadcast') setShowBroadcast(true);
+      else if (action.type === 'ask') { setSelectedSitter(action.sitter); setAskSitter(action.sitter); }
+      else if (action.type === 'tab') goParentTab(action.tab);
+      else if (action.type === 'becomeSitter') setShowOnboarding(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, pendingAction]);
 
   useEffect(() => {
     if (!user || isSitterMode || showBroadcast) return;
@@ -278,12 +314,8 @@ export default function App() {
 
   // Auth
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
-        setUserName(data?.name || null);
-      }
       setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -292,6 +324,31 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  const isGuest = !user;
+  const requireSignIn = (action) => { setPendingAction(action); setShowLogin(true); };
+  const bookSitter = (sitter, service) => {
+    if (isGuest) { requireSignIn({ type: 'book', sitter, service }); return; }
+    setSelectedSitter(sitter); setSelectedServiceType(service || null); setShowExplore(false); setShowBooking(true);
+  };
+  const askQuestion = (sitter) => { if (isGuest) requireSignIn({ type: 'ask', sitter }); else setAskSitter(sitter); };
+  const closeProfile = () => {
+    setSelectedSitter(null);
+    if (window.location.pathname.startsWith('/s/')) window.history.replaceState(null, '', '/');
+    if (profileFromExplore) setProfileFromExplore(false); else goHome();
+  };
+
+  // The name decides whether FirstLoginPrompt shows, so nothing renders for a
+  // signed-in user until it has been looked up (else returning users would
+  // see the signup prompt flash on every sign-in).
+  const [nameFor, setNameFor] = useState(null);
+  useEffect(() => {
+    if (!user) { setNameFor(null); return undefined; }
+    let off = false;
+    const done = (name) => { if (!off) { setUserName(name); setNameFor(user.id); } };
+    supabase.from('users').select('name').eq('id', user.id).single().then(({ data }) => done(data?.name || null), () => done(null));
+    return () => { off = true; };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCityChange = c => { setCity(c); setNeighbourhood(''); localStorage.setItem('fursday_city', c); localStorage.setItem('fursday_city_manual', '1'); setShowCityPicker(false); };
   const useMyLocation = () => {
@@ -370,8 +427,9 @@ export default function App() {
     </div>
   );
 
-  if (loading || !splashDone) floatingToggle = false;
-  if (loading || !splashDone) return (
+  const nameLoading = !!user && nameFor !== user.id;
+  if (loading || !splashDone || nameLoading) floatingToggle = false;
+  if (loading || !splashDone || nameLoading) return (
     <div role="status" aria-label={tr('common_loading')} style={{ minHeight:'100vh', background:color.navy, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', fontFamily:font.family, textAlign:'center', padding:24 }}>
       <WalkingPaws color="#F3B77A" />
       <div style={{ color:'white', fontSize:28, fontWeight:700, letterSpacing:-0.3, marginTop:28 }}>Fursday</div>
@@ -379,11 +437,9 @@ export default function App() {
     </div>
   );
 
-  if (!user) return <LoginScreen onLogin={async u => {
-    setUser(u);
+  if (!user && showLogin) return <LoginScreen reason={!!pendingAction} onBrowse={() => { setShowLogin(false); setPendingAction(null); }} onLogin={async u => {
     await supabase.from('users').upsert({ id:u.id, email:u.email }, { onConflict:'id', ignoreDuplicates:true });
-    const { data } = await supabase.from('users').select('name').eq('id', u.id).single();
-    setUserName(data?.name || null);
+    setUser(u);
   }} />;
 
   // A DB-side default/trigger backfills users.name to the login email when
@@ -425,11 +481,19 @@ export default function App() {
   );
 
 
+  if (isGuest && (showSettings || showUserProfile || showBookings)) {
+    navMode = 'parent';
+    const tab = showSettings ? 'account' : showUserProfile ? 'pets' : 'bookings';
+    return <GuestPrompt tab={tab} onSignIn={() => requireSignIn({ type: 'tab', tab })} />;
+  }
+  if (askSitter && user) return <ConversationScreen sitter={askSitter} city={city} onBack={() => setAskSitter(null)} onBookNow={s => { setAskSitter(null); bookSitter(s || askSitter); }} />;
+
   if (isSitterMode) {
     navMode = 'sitter';
     if (sitterTab === 'jobs') floatingToggle = false;
     if (sitterTab === 'earnings') return <SitterEarningsDashboard city={city} onBack={() => setSitterTab('jobs')} />;
-    if (sitterTab === 'messages') return <InboxScreen role="sitter" onOpenChat={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
+    if (sitterConversation) return <ConversationScreen role="sitter" conversation={sitterConversation} city={city} onBack={() => setSitterConversation(null)} />;
+    if (sitterTab === 'messages') return <InboxScreen role="sitter" onOpenConversation={(conv, name) => setSitterConversation({ ...conv, parentName: name })} onOpenChat={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
     if (sitterTab === 'profile') return <SitterEditProfile onBack={() => setSitterTab('jobs')} city={city} />;
     if (sitterTab === 'account') return <SettingsScreen onBack={() => setSitterTab('jobs')} city={city} userName={userName} onNav={() => {}} onSwitchRole={() => { setIsSitterMode(false); setSitterTab('jobs'); goHome(); }} switchRoleLabel={tr('sitterMode_backToParent')} />;
     return <SitterDashboard onBack={() => { setIsSitterMode(false); goHome(); }} onEditProfile={() => setSitterTab('profile')} onOpenNotifications={() => setShowNotifications(true)} city={city} onMessage={b => { setChatBooking({ id:b.id, service:b.service_type, parentName:b.users?.name||tr('chat_defaultParentName'), otherPhone:b.users?.phone||'', fromSitter:true, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:b.pet_parent_id }); setIsSitterMode(false); setShowChat(true); }} />;
@@ -444,17 +508,35 @@ export default function App() {
   if (showSitterEdit) return <SitterEditProfile onBack={() => { setShowSitterEdit(false); goHome(); }} city={city} />;
   if (showUserProfile) navMode = 'parent';
   if (showUserProfile) return <UserProfile onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onAddPet={() => { setShowUserProfile(false); setEditingPetId(null); setShowPetProfile(true); }} onEditPet={(pet) => { setShowUserProfile(false); setEditingPetId(pet?.id || null); setShowPetProfile(true); }} onSignOut={async () => { await supabase.auth.signOut(); setUser(null); setShowUserProfile(false); }} onNav={goParentTab} />;
-  if (showExplore) navMode = 'parent';
-  if (showExplore) return <ExploreScreen onBack={() => goParentTab('home')} city={city} userLocation={userLocation} activeNav={activeNav} onBook={sitter => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} onNav={goParentTab} />;
+  // The profile opens over Explore, which stays mounted (hidden) so its
+  // filters, view and scroll survive the round trip.
+  if (showExplore && !showBooking) {
+    const overProfile = !!selectedSitter && profileFromExplore;
+    if (!overProfile) navMode = 'parent';
+    return (
+      <>
+        <div hidden={overProfile}>
+          <ExploreScreen onBack={() => goParentTab('home')} city={city} userLocation={userLocation} isGuest={isGuest} onRequireSignIn={requireSignIn}
+            onBook={sitter => bookSitter(sitter)} onViewProfile={sitter => { setProfileFromExplore(true); setSelectedSitter(sitter); }} />
+        </div>
+        {overProfile && <SitterProfile onBack={closeProfile} onBook={() => bookSitter(selectedSitter)} sitter={selectedSitter} city={city}
+          isGuest={isGuest} onRequireSignIn={requireSignIn} onAskQuestion={askQuestion} />}
+      </>
+    );
+  }
   if (showChat) return <ChatScreen onBack={() => { setShowChat(false); if(chatBooking?.fromSitter) setIsSitterMode(true); else { setShowBookings(true); } }} city={city} booking={chatBooking} userType={chatBooking?.fromSitter?'sitter':'parent'} />;
   if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={(paymentId, result) => { setShowPayment(false); if(paymentBooking?.id) sendBookingEmail(paymentBooking); setReceiptData({ ...paymentBooking, paymentId, payment_status: result?.payment_status }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
   if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
   if (showBookings) navMode = 'parent';
   if (showBookings) return <BookingsDashboard onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id, sitterName:b.sitter_profiles?.users?.name }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { if (!(id==='book' && payload?.repeatBooking)) { goParentTab(id); return; } setShowBookings(false); if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
-  if (showPetProfile) return <PetProfile onBack={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} city={city} petId={editingPetId} onSave={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} />;
-  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setBroadcastPrefill(null); goHome(); }}
+  if (showPetProfile) {
+    const closePet = () => { setShowPetProfile(false); setEditingPetId(null); if (certFromBooking) setCertFromBooking(false); else goHome(); };
+    return <PetProfile onBack={closePet} city={city} petId={editingPetId} onSave={closePet} />;
+  }
+  if (showBooking) return <BookingFlow onAddCertificate={pet => { setEditingPetId(pet?.id || null); setCertFromBooking(true); setShowPetProfile(true); }} onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setBroadcastPrefill(null); goHome(); }}
     initialDate={broadcastPrefill?.dateISO} initialEndDate={broadcastPrefill?.endDateISO} initialTime={broadcastPrefill?.time} agreedPriceRupees={broadcastPrefill?.priceRupees} broadcastRequestId={broadcastPrefill?.requestId} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} onChooseSitter={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setSelectedSitter(null); goParentTab('explore'); }} />;
-  if (selectedSitter && !showBooking) return <SitterProfile onBack={() => { setSelectedSitter(null); goHome(); }} onBook={() => setShowBooking(true)} sitter={selectedSitter} city={city} />;
+  if (selectedSitter && !showBooking) return <SitterProfile onBack={closeProfile} onBook={() => bookSitter(selectedSitter)} sitter={selectedSitter} city={city}
+    isGuest={isGuest} onRequireSignIn={requireSignIn} onAskQuestion={askQuestion} />;
 
   navMode = 'parent';
   floatingToggle = false;
@@ -469,8 +551,11 @@ export default function App() {
     { id: 'daycare', icon: 'sun', label: tr('home_svcDaycare') },
     { id: 'broadcast', icon: 'megaphone', label: tr('home_svcAnyone') },
   ];
-  const openService = (id) => { if (id === 'broadcast') { setShowBroadcast(true); return; } setSelectedServiceType(id); setShowBooking(true); };
-  const topSitters = [...realSitters].sort((x, y) => (y.isTopSitter - x.isTopSitter) || (y.rating - x.rating)).slice(0, 3);
+  const openService = (id) => {
+    if (id === 'broadcast') { if (isGuest) requireSignIn({ type: 'broadcast' }); else setShowBroadcast(true); return; }
+    bookSitter(null, id);
+  };
+  const topSitters = [...realSitters].sort((x, y) => (y.isTopSitter - x.isTopSitter) || ((y.rating ?? 0) - (x.rating ?? 0)) || (y.reviewCount - x.reviewCount)).slice(0, 3);
 
   // ── Home ─────────────────────────────────────────────────────────────────
   return (
@@ -499,8 +584,8 @@ export default function App() {
                 </button>
               );
             })}
-            {savedAddresses.length > 0 && <div style={{ fontSize:14, fontWeight:700, color:color.ink, margin:'16px 0 8px' }}>{tr('addr_yourSaved')}</div>}
-            {savedAddresses.length > 0 && (
+            {!isGuest && savedAddresses.length > 0 && <div style={{ fontSize:14, fontWeight:700, color:color.ink, margin:'16px 0 8px' }}>{tr('addr_yourSaved')}</div>}
+            {!isGuest && savedAddresses.length > 0 && (
               <div style={{ border:`1px solid ${color.line}`, borderRadius:radius.md, marginBottom:8, overflow:'hidden' }}>
                 {savedAddresses.map((a, i) => (
                   <button key={a.id} type="button" onClick={() => pickSavedAddress(a)} aria-pressed={!!a.is_default}
@@ -515,10 +600,12 @@ export default function App() {
                 ))}
               </div>
             )}
-            <button type="button" onClick={() => { setShowCityPicker(false); setShowAddressBook(true); }}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, minHeight:48, padding:'0 14px', marginTop:savedAddresses.length ? 0 : 8, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg, cursor:'pointer', fontFamily:font.family, fontSize:14, fontWeight:600, color:color.navy, textAlign:'left' }}>
-              <Icon name={savedAddresses.length ? 'edit' : 'plus'} size={18} />{tr(savedAddresses.length ? 'addr_manage' : 'addr_addNew')}
-            </button>
+            {!isGuest && (
+              <button type="button" onClick={() => { setShowCityPicker(false); setShowAddressBook(true); }}
+                style={{ width:'100%', display:'flex', alignItems:'center', gap:12, minHeight:48, padding:'0 14px', marginTop:savedAddresses.length ? 0 : 8, borderRadius:radius.md, border:`1px solid ${color.line}`, background:color.bg, cursor:'pointer', fontFamily:font.family, fontSize:14, fontWeight:600, color:color.navy, textAlign:'left' }}>
+                <Icon name={savedAddresses.length ? 'edit' : 'plus'} size={18} />{tr(savedAddresses.length ? 'addr_manage' : 'addr_addNew')}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -536,14 +623,23 @@ export default function App() {
           </button>
           <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
             <LanguageToggle inline />
-            <button type="button" aria-label={tr('nav_notifications')} onClick={() => setShowNotifications(true)}
-              style={{ width:40, height:40, borderRadius:radius.pill, border:`1px solid ${color.line}`, background:color.surface, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:color.text }}>
-              <Icon name="bell" size={19} />
-            </button>
-            <button type="button" aria-label={tr('nav_account')} onClick={() => goParentTab('account')}
-              style={{ width:40, height:40, borderRadius:radius.pill, border:'none', background:color.navy, color:'white', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:font.family }}>
-              {initials}
-            </button>
+            {isGuest ? (
+              <button type="button" onClick={() => requireSignIn(null)}
+                style={{ minHeight:44, padding:'0 14px', borderRadius:radius.pill, border:'none', background:color.navy, color:'white', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:font.family }}>
+                {tr('guest_signIn')}
+              </button>
+            ) : (
+              <>
+                <button type="button" aria-label={tr('nav_notifications')} onClick={() => setShowNotifications(true)}
+                  style={{ width:40, height:40, borderRadius:radius.pill, border:`1px solid ${color.line}`, background:color.surface, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:color.text }}>
+                  <Icon name="bell" size={19} />
+                </button>
+                <button type="button" aria-label={tr('nav_account')} onClick={() => goParentTab('account')}
+                  style={{ width:40, height:40, borderRadius:radius.pill, border:'none', background:color.navy, color:'white', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:font.family }}>
+                  {initials}
+                </button>
+              </>
+            )}
           </div>
         </div>
         {firstName && <div style={{ fontSize:22, fontWeight:700, color:color.ink, margin:'16px 0 0', letterSpacing:-0.3 }}>{tr('greeting')}, {firstName}</div>}
@@ -568,7 +664,7 @@ export default function App() {
         </div>
       </section>
 
-      <div style={{ padding:'16px 16px 0' }}>
+      {!isGuest && <div style={{ padding:'16px 16px 0' }}>
         <button type="button" onClick={() => { setBroadcastRequestId(openRequest?.id || null); setShowBroadcast(true); }}
           style={{ width:'100%', display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:radius.lg, border:`1px solid ${color.line}`, background:color.surface, cursor:'pointer', fontFamily:font.family, textAlign:'left', boxShadow:shadow.card }}>
           <span style={{ ...ui.iconTile, background:color.saffronSoft, color:color.saffron, flexShrink:0 }}><Icon name="megaphone" size={22} /></span>
@@ -580,7 +676,7 @@ export default function App() {
           </span>
           <span style={{ ...ui.badge(openRequest?.offers ? 'success' : 'info'), flexShrink:0 }}>{openRequest ? tr('home_requestView') : tr('home_requestSend')}</span>
         </button>
-      </div>
+      </div>}
 
       {featuredPromo && (
         <div style={{ padding:'16px 16px 0' }}>
@@ -602,7 +698,7 @@ export default function App() {
         {!sittersLoading && realSitters.length === 0 && <div style={{ ...ui.card, color:color.muted, fontSize:13 }}>{tr('home_noSittersYet')}</div>}
         {sittersLoading && [0,1].map(i => <div key={i} style={{ height:64, borderRadius:radius.md, background:color.tile, marginBottom:10 }} />)}
         {topSitters.map((s, i) => (
-          <div key={s.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+          <div key={s.id} role="group" aria-label={s.name} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
             <button type="button" onClick={() => setSelectedSitter(s)} aria-label={s.name}
               style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0, background:'none', border:'none', padding:0, cursor:'pointer', textAlign:'left', fontFamily:font.family }}>
               <span style={{ width:52, height:52, borderRadius:radius.md, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:18, overflow:'hidden', flexShrink:0 }}>
@@ -614,11 +710,11 @@ export default function App() {
                   {s.verified && <Icon name="shield" size={14} color={color.success} title={tr('home_trustVerified')} />}
                 </span>
                 <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:color.muted, marginTop:2 }}>
-                  <Icon name="star" size={13} color={color.saffron} />{Number(s.rating).toFixed(1)} · {tr('home_sitterWalks', { n: s.reviews })} · {s.price}
+                  <SitterRating rating={s.rating} count={s.reviewCount} /> · {tr('home_sitterWalks', { n: s.walks })} · {s.price}
                 </span>
               </span>
             </button>
-            <button type="button" onClick={() => { setSelectedSitter(s); setShowBooking(true); }}
+            <button type="button" onClick={() => bookSitter(s)}
               style={{ minHeight:36, padding:'0 14px', borderRadius:radius.sm, border:`1px solid ${color.navy}`, background:color.surface, color:color.navy, fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:font.family, flexShrink:0 }}>
               {tr('common_book')}
             </button>
@@ -627,7 +723,7 @@ export default function App() {
       </section>
 
       <div style={{ padding:'20px 16px 8px' }}>
-        <button type="button" onClick={() => { if (isSitter) { closeTabScreens(); setSitterTab('jobs'); setIsSitterMode(true); } else setShowOnboarding(true); }}
+        <button type="button" onClick={() => { if (isGuest) requireSignIn({ type: 'becomeSitter' }); else if (isSitter) { closeTabScreens(); setSitterTab('jobs'); setIsSitterMode(true); } else setShowOnboarding(true); }}
           style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:14, borderRadius:radius.lg, border:`1px solid ${color.line}`, background:color.bg, cursor:'pointer', textAlign:'left', fontFamily:font.family }}>
           <span style={ui.iconTile}><Icon name={isSitter ? 'briefcase' : 'wallet'} /></span>
           <span style={{ flex:1, minWidth:0 }}>
@@ -647,7 +743,7 @@ export default function App() {
 
   const feedbackScreen = isSitterMode ? 'sitter_' + sitterTab : showAddressBook ? 'addresses' : showSettings ? 'settings' : showReceipt ? 'receipt'
     : showBroadcast ? 'nearby_request' : showOnboarding ? 'sitter_signup' : showSitterEdit ? 'sitter_edit' : showUserProfile ? 'pets' : showExplore ? 'explore'
-    : showChat ? 'chat' : showWalkReport ? 'walk_report' : showBookings ? 'bookings' : showPetProfile ? 'pet_profile' : showBooking ? 'booking'
+    : askSitter ? 'ask_sitter' : showChat ? 'chat' : showWalkReport ? 'walk_report' : showBookings ? 'bookings' : showPetProfile ? 'pet_profile' : showBooking ? 'booking'
     : selectedSitter ? 'sitter_profile' : 'home';
   const showFeedback = user && splashDone && !loading && !regionRestricted && !outsideCity && !showPayment
     && userName && userName.trim().toLowerCase() !== user.email?.toLowerCase();

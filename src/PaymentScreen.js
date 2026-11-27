@@ -8,7 +8,7 @@ import { createOrder, verifyPayment, simulatePayment, serverUnavailable, CHECKOU
 const eyebrow = { fontSize: font.xs, color: color.muted, marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 };
 const centred = { ...ui.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'calc(40px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))', textAlign: 'center', boxSizing: 'border-box' };
 
-// Checkout for one booking. The price always comes from the server's order,
+// Checkout for one booking, or a repeat plan paid at once (booking.ids). The price always comes from the server's order,
 // and the money is only authorized here; the sitter's acceptance captures it.
 // `order` may be passed in when the caller already created it (BookingFlow).
 export default function PaymentScreen({ onBack, onSuccess, onUnavailable, city, booking, order: givenOrder }) {
@@ -31,9 +31,10 @@ export default function PaymentScreen({ onBack, onSuccess, onUnavailable, city, 
   useEffect(() => {
     if (givenOrder || !booking?.id) return;
     let cancelled = false;
-    createOrder(booking.id).then((o) => {
+    createOrder(booking.ids || booking.id).then((o) => {
       if (cancelled) return;
       if (CHECKOUT_MODES.includes(o.mode)) setOrder(o);
+      else if (o.mode === 'free') setBlocked('free');
       else if (onUnavailable) onUnavailable(o.mode);
       else setBlocked('unavailable');
     }).catch((e) => {
@@ -147,7 +148,7 @@ export default function PaymentScreen({ onBack, onSuccess, onUnavailable, city, 
     setFailReason('');
     if (gateway) { payWithRazorpay(); return; }
     try {
-      const result = await simulatePayment(booking.id);
+      const result = await simulatePayment(booking.ids || booking.id);
       await succeed(result, result.payment_id || 'simulated');
     } catch (e) {
       fail(e.message || tr('payment_failedFallbackMsg'));
@@ -163,10 +164,10 @@ export default function PaymentScreen({ onBack, onSuccess, onUnavailable, city, 
   if (blocked) return (
     <div style={centred}>
       <div style={{ ...ui.iconTile, width: 64, height: 64, borderRadius: radius.pill, marginBottom: 16 }}>
-        <Icon name={blocked === 'already_paid' ? 'check' : 'info'} size={30} />
+        <Icon name={blocked === 'unavailable' ? 'info' : 'check'} size={30} />
       </div>
-      <div style={{ fontSize: font.xl, fontWeight: 700, color: color.ink, marginBottom: 8 }}>{tr(blocked === 'already_paid' ? 'pay_alreadyPaidTitle' : 'pay_unavailableTitle')}</div>
-      <div style={{ fontSize: font.md, color: color.muted, marginBottom: 24, lineHeight: 1.6, maxWidth: 340 }}>{tr(blocked === 'already_paid' ? 'pay_alreadyPaidBody' : 'pay_unavailableBody')}</div>
+      <div style={{ fontSize: font.xl, fontWeight: 700, color: color.ink, marginBottom: 8 }}>{tr({ already_paid: 'pay_alreadyPaidTitle', free: 'pay_freeTitle' }[blocked] || 'pay_unavailableTitle')}</div>
+      <div style={{ fontSize: font.md, color: color.muted, marginBottom: 24, lineHeight: 1.6, maxWidth: 340 }}>{tr({ already_paid: 'pay_alreadyPaidBody', free: 'pay_freeBody' }[blocked] || 'pay_unavailableBody')}</div>
       {backButton}
     </div>
   );

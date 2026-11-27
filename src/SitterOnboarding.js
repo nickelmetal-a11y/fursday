@@ -6,7 +6,7 @@ import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
 import ServiceAreaPicker from './ServiceAreaPicker';
-import BoardingHomeEditor, { PROVIDER_TYPES } from './BoardingHomeEditor';
+import BoardingHomeEditor, { PROVIDER_TYPES, MAX_GUEST_DOGS } from './BoardingHomeEditor';
 import { compressImage } from './compressImage';
 import { nearestLocality } from './geo';
 
@@ -14,6 +14,11 @@ const CITY_DATA = {
   Gurgaon: { avg: 22000, top: 45000 },
   Pune: { avg: 19000, top: 40000 },
 };
+
+// A typical nightly boarding price, used for the estimate until the host sets their own.
+const CITY_NIGHTLY = { Gurgaon: 900, Pune: 800 };
+const DEFAULT_NIGHTLY = 850;
+const MAX_NIGHTS = 30;
 
 const SERVICES = [
   { id: 'walk30', name: 'Request a walker', sub: '30 min per walk', icon: 'walk', avg: 320, default: 299, min: 149, max: 599, bookings: 20, nameKey: 'sitterOnboarding_serviceWalkName', subKey: 'sitterOnboarding_serviceWalkSub' },
@@ -114,6 +119,9 @@ export default function SitterOnboarding({ onDone, city }) {
   const [homeDaycare, setHomeDaycare] = useState(false);
   const [homeDetails, setHomeDetails] = useState({});
   const [homePhotos, setHomePhotos] = useState([]);
+  const [boardingDogs, setBoardingDogs] = useState(2);
+  const [boardingNights, setBoardingNights] = useState(8);
+  const [boardingPriceKnown, setBoardingPriceKnown] = useState(false);
   const photoInputRef = useRef(null);
 
   // Resume-in-progress onboarding: a closed tab/app used to lose the whole
@@ -151,6 +159,7 @@ export default function SitterOnboarding({ onDone, city }) {
           if (svcRows?.length) {
             setServices(svcTypes);
             setPrices(prev => { const next = { ...prev }; svcRows.forEach(r => { next[r.service_type] = Math.round(r.price_paise / 100); }); return next; });
+            if (svcTypes.includes('boarding')) setBoardingPriceKnown(true);
           }
           const step = Math.max(draft.onboarding_step || 1, 1);
           const type = PROVIDER_TYPES.includes(draft.provider_type) ? draft.provider_type : inferProviderType(svcTypes, step);
@@ -249,7 +258,10 @@ export default function SitterOnboarding({ onDone, city }) {
   const goNext = async (from) => { const to = nextOf(from); await saveDraft(to); setScreen(to); };
   const boardingOnly = providerType === 'boarding';
 
+  const typicalNightly = CITY_NIGHTLY[city] || DEFAULT_NIGHTLY;
+  const estimateNightly = boardingPriceKnown ? prices.boarding : typicalNightly;
   const beginSignup = () => {
+    if (providerType !== 'sitter' && !boardingPriceKnown) { setPrices(prev => ({ ...prev, boarding: typicalNightly })); setBoardingPriceKnown(true); }
     if (providerType === 'boarding') setServices(['boarding', ...(homeDaycare ? ['daycare'] : [])]);
     else if (providerType === 'both') setServices(prev => [...new Set([...prev, 'walk30', 'boarding'])]);
     setScreen(1);
@@ -257,7 +269,8 @@ export default function SitterOnboarding({ onDone, city }) {
 
   const cityInfo = CITY_DATA[city];
   const activeServices = SERVICES.filter(s => services.includes(s.id));
-  const estimated = activeServices.reduce((sum, s) => sum + prices[s.id] * s.bookings, 0);
+  const monthlyFor = (s) => (s.id === 'boarding' ? prices.boarding * boardingDogs * boardingNights : prices[s.id] * s.bookings);
+  const estimated = activeServices.reduce((sum, s) => sum + monthlyFor(s), 0);
   const pricingService = activeServices[pricingIdx];
 
   const toggleService = id => setServices(prev =>
@@ -406,6 +419,35 @@ export default function SitterOnboarding({ onDone, city }) {
     </div>
   );
 
+  const stepper = (label, value, set, min, max, lessKey, moreKey) => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: font.xs, color: color.faint, marginBottom: 6 }}>{tr(label)}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={tr(lessKey)}
+          style={{ width: 44, height: 44, borderRadius: radius.md, border: 'none', background: color.navyHover, color: color.surface, fontSize: font.xl, cursor: value <= min ? 'default' : 'pointer', opacity: value <= min ? 0.5 : 1, fontFamily: 'inherit' }}>−</button>
+        <span aria-live="polite" aria-label={tr(label) + ': ' + value} style={{ ...money, minWidth: 28, textAlign: 'center', fontSize: font.lg, fontWeight: 700 }}>{value}</span>
+        <button type="button" onClick={() => set(Math.min(max, value + 1))} disabled={value >= max} aria-label={tr(moreKey)}
+          style={{ width: 44, height: 44, borderRadius: radius.md, border: 'none', background: color.navyHover, color: color.surface, fontSize: font.xl, cursor: value >= max ? 'default' : 'pointer', opacity: value >= max ? 0.5 : 1, fontFamily: 'inherit' }}>+</button>
+      </div>
+    </div>
+  );
+  const boardingEstimate = (alsoWalks) => (
+    <section aria-label={tr(alsoWalks ? 'onbEst_titleBoth' : 'onbEst_title')} style={{ background: color.navy, color: color.surface, borderRadius: radius.lg, padding: 20, marginBottom: 16 }}>
+      <div style={{ fontSize: font.sm, fontWeight: 600, color: color.faint }}>{tr(alsoWalks ? 'onbEst_titleBoth' : 'onbEst_title')}</div>
+      <div style={{ fontSize: font.md, fontWeight: 600, marginTop: 6 }}>{tr(boardingDogs === 1 ? 'onbEst_lineOne' : 'onbEst_line', { dogs: boardingDogs, nights: boardingNights })}</div>
+      <div data-testid="boarding-estimate" style={{ ...money, fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5, marginTop: 4 }}>
+        ≈ Rs.{(estimateNightly * boardingDogs * boardingNights).toLocaleString('en-IN')} <span style={{ fontSize: font.md, fontWeight: 600 }}>{tr('onbEst_perMonth')}</span>
+      </div>
+      <div style={{ fontSize: font.sm, color: color.faint, marginTop: 6, lineHeight: 1.5 }}>
+        {boardingPriceKnown ? tr('onbEst_priceOwn', { price: estimateNightly }) : tr('onbEst_price', { price: estimateNightly, city: city || 'Gurgaon' })} {tr('onbEst_fee')}
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+        {stepper('onbEst_dogs', boardingDogs, setBoardingDogs, 1, MAX_GUEST_DOGS, 'onbEst_fewerDogs', 'onbEst_moreDogs')}
+        {stepper('onbEst_nights', boardingNights, setBoardingNights, 1, MAX_NIGHTS, 'onbEst_fewerNights', 'onbEst_moreNights')}
+      </div>
+    </section>
+  );
+
   // SCREEN 0 — City + earnings
   if (screen === 0) return wrap(
     <div style={{ padding: 'calc(20px + env(safe-area-inset-top)) 16px 24px', display: 'flex', flexDirection: 'column', minHeight: '100vh', boxSizing: 'border-box' }}>
@@ -419,11 +461,14 @@ export default function SitterOnboarding({ onDone, city }) {
           <Icon name="pin" size={20} color={color.navy} />
           <span style={{ fontSize: font.lg, fontWeight: 600, color: color.ink }}>{city || 'Gurgaon'}</span>
         </div>
-        <div style={{ background: color.navy, color: color.surface, borderRadius: radius.lg, padding: 20, marginBottom: 16 }}>
-          <div style={{ ...money, fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5 }}>Rs.{cityInfo.avg.toLocaleString('en-IN')}</div>
-          <div style={{ fontSize: font.lg, fontWeight: 600, marginTop: 6 }}>{tr('sitterOnboarding_averagePerMonth')}</div>
-          <div style={{ fontSize: font.sm, color: color.faint, marginTop: 4, lineHeight: 1.5 }}>{tr('sitterOnboarding_topSittersEarn', { amount: cityInfo.top.toLocaleString('en-IN'), city })}</div>
-        </div>
+        {boardingOnly ? boardingEstimate(false) : (
+          <div style={{ background: color.navy, color: color.surface, borderRadius: radius.lg, padding: 20, marginBottom: 16 }}>
+            <div style={{ ...money, fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5 }}>Rs.{cityInfo.avg.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: font.lg, fontWeight: 600, marginTop: 6 }}>{tr('sitterOnboarding_averagePerMonth')}</div>
+            <div style={{ fontSize: font.sm, color: color.faint, marginTop: 4, lineHeight: 1.5 }}>{tr('sitterOnboarding_topSittersEarn', { amount: cityInfo.top.toLocaleString('en-IN'), city })}</div>
+          </div>
+        )}
+        {providerType === 'both' && boardingEstimate(true)}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24 }}>
           {[
             { icon: 'calendar', v: tr('sitterOnboarding_statSetOwnSchedule'), s: tr('sitterOnboarding_statSetOwnScheduleSub') },
@@ -545,7 +590,7 @@ export default function SitterOnboarding({ onDone, city }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr(s.nameKey)}</div>
                 <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr(s.subKey)} · {tr('sitterOnboarding_avgPrice', { amount: s.avg })}</div>
-                {sel && <div style={{ ...money, fontSize: font.sm, fontWeight: 700, color: color.success, marginTop: 4 }}>+Rs.{(prices[s.id] * s.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>}
+                {sel && <div style={{ ...money, fontSize: font.sm, fontWeight: 700, color: color.success, marginTop: 4 }}>+Rs.{monthlyFor(s).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>}
               </div>
               <span style={{ width: 28, height: 28, borderRadius: radius.sm, border: sel ? 'none' : `1.5px solid ${color.line}`, background: sel ? color.navy : color.surface, color: sel ? color.surface : color.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon name={sel ? 'check' : 'plus'} size={16} strokeWidth={2.2} />
@@ -605,7 +650,7 @@ export default function SitterOnboarding({ onDone, city }) {
               </div>
               <div style={{ background: color.navySoft, borderRadius: radius.md, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                 <div style={{ fontSize: font.sm, color: color.text }}>{tr('sitterOnboarding_monthlyEstimate')}</div>
-                <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.navy }}>Rs.{(prices[pricingService.id] * pricingService.bookings).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
+                <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.navy }}>Rs.{monthlyFor(pricingService).toLocaleString('en-IN')}{tr('sitterOnboarding_perMonthShort')}</div>
               </div>
             </div>
           </div>

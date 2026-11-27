@@ -34,15 +34,37 @@ async function call(action, body) {
   return reply;
 }
 
-export const createOrder = (bookingId) => call('create-order', { booking_id: bookingId });
+// One booking id, or an array of them to pay several (a repeat plan) in one order.
+const ids = (bookingIds) => (Array.isArray(bookingIds) ? { booking_ids: bookingIds } : { booking_id: bookingIds });
+
+export const createOrder = (bookingIds) => call('create-order', ids(bookingIds));
 export const verifyPayment = (bookingId, rz) => call('verify', { booking_id: bookingId, ...rz });
-export const simulatePayment = (bookingId) => call('simulate', { booking_id: bookingId });
+export const simulatePayment = (bookingIds) => call('simulate', ids(bookingIds));
 export const capturePayment = (bookingId) => call('capture', { booking_id: bookingId });
 export const releaseHold = (bookingId, reason) => call('release-hold', { booking_id: bookingId, reason });
 export const cancelBooking = (bookingId, reason) => call('cancel', { booking_id: bookingId, reason });
 export const runReleaseCheck = () => call('sweep', {});
+export const startTip = (bookingId, amountPaise) => call('tip', { booking_id: bookingId, amount_paise: amountPaise });
+export const verifyTip = (bookingId, rz) => call('verify', { booking_id: bookingId, purpose: 'tip', ...rz });
+export const simulateTip = (bookingId, amountPaise) => call('simulate', { booking_id: bookingId, purpose: 'tip', amount_paise: amountPaise });
 
 export const CHECKOUT_MODES = ['live', 'test', 'simulated'];
+export const TIP_MIN_RUPEES = 20;
+export const TIP_MAX_RUPEES = 2000;
+
+// Refund tiers per host policy: [hours before the start, refund %], most
+// generous first; later than the last tier refunds nothing. Same table as
+// api/payments/_lib.js POLICIES, which decides the real refund.
+export const CANCELLATION_POLICIES = {
+  flexible: [[24, 100]],
+  moderate: [[72, 100], [24, 75]],
+  strict: [[168, 100], [48, 50]],
+};
+export const policyOf = (b) => [b?.cancellation_policy, b?.sitter_profiles?.cancellation_policy].find(p => CANCELLATION_POLICIES[p]) || 'moderate';
+export const refundPercentFor = (policy, hoursBefore) => {
+  const tier = (CANCELLATION_POLICIES[policy] || CANCELLATION_POLICIES.moderate).find(([h]) => hoursBefore >= h);
+  return tier ? tier[1] : 0;
+};
 export const moneyInHand = (b) => ['authorized', 'held', 'paid'].includes(b?.payment_status);
 export const moneyCaptured = (b) => ['held', 'paid'].includes(b?.payment_status);
 

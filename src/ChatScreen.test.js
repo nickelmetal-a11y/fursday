@@ -127,7 +127,7 @@ describe('ChatScreen - sitter <-> parent interaction', () => {
       sender_type: 'parent',
       message: 'What time will you arrive?',
     });
-    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('sitter-user-9', null, 'Rahul'));
+    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('sitter-user-9', null, 'Rahul', 'booking-1'));
   });
 
   test('sitter sends a message: inserted with sender_type "sitter" and notifies the parent', async () => {
@@ -143,7 +143,7 @@ describe('ChatScreen - sitter <-> parent interaction', () => {
       sender_type: 'sitter',
       message: 'On my way now',
     });
-    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('parent-9', null, 'Priya'));
+    await waitFor(() => expect(notifyMessageReceivedMock).toHaveBeenCalledWith('parent-9', null, 'Priya', 'booking-1'));
   });
 
   test('a quick reply fills the input instead of sending immediately', async () => {

@@ -7,6 +7,7 @@ import { createNotification } from './notificationService';
 import { writeWithFallback } from './schemaFallback';
 import { formatKm, sitterCovers } from './geo';
 import { isExpired, requestPoint, dateRangeLabel, formatLeft, TIME_SLOTS } from './broadcastMatching';
+import { DogHistoryLine, loadParentReviews } from './ParentReviews';
 
 const SERVICE_NAME_KEYS = { walk30: 'service_walk', boarding: 'service_boarding', daycare: 'service_daycare', dropin: 'service_dropin', housesit: 'service_housesit' };
 const SERVICE_ICONS = { walk30: 'walk', boarding: 'boarding', daycare: 'sun', dropin: 'bell', housesit: 'home' };
@@ -66,6 +67,7 @@ export default function SitterRequestsFeed({ profile, onChange }) {
   const [drafts, setDrafts] = useState({});
   const [busy, setBusy] = useState(null);
   const [notes, setNotes] = useState({});
+  const [histories, setHistories] = useState({});
 
   const publish = (list, isLegacy) => { setItems(list); setLegacy(isLegacy); if (onChange) onChange(list); };
   const refresh = async () => { const res = await loadInvitedRequests(profile); publish(res.items, res.legacy); return res; };
@@ -81,6 +83,7 @@ export default function SitterRequestsFeed({ profile, onChange }) {
       if (off) return;
       publish(res.items, res.legacy);
       setServices(svc || []);
+      loadParentReviews(res.items.map(it => it.request.pet_parent_id)).then(h => { if (!off) setHistories(h); });
       const stamp = new Date().toISOString();
       await Promise.all(res.items.filter(it => it.invite && !it.invite.viewed_at).map(it =>
         supabase.from('broadcast_recipients').update({ viewed_at: stamp }).eq('request_id', it.request.id).eq('sitter_id', profile.id)));
@@ -222,6 +225,7 @@ export default function SitterRequestsFeed({ profile, onChange }) {
                 </div>
               </div>
             )}
+            <DogHistoryLine reviews={histories[req.pet_parent_id]} petId={pet.id || req.pet_id} style={{ marginBottom: 10 }} />
             {req.budget_max_paise ? <div style={{ ...ui.badge('success'), marginBottom:10, ...money }}>{tr('nearby_feed_budget', { n: rupees(req.budget_max_paise) })}</div> : null}
             {req.notes && <div style={{ fontSize:font.sm, color:color.text, background:color.bg, borderRadius:radius.md, padding:'10px 12px', marginBottom:10, lineHeight:1.5 }}>{req.notes}</div>}
 

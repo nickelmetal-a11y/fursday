@@ -17,10 +17,6 @@ import AdminBookings from '../AdminBookings';
 
 jest.mock('../supabase', () => require('../testing/fakeSupabase'));
 jest.mock('../paymentsClient', () => require('../testing/fakePayments'));
-jest.mock('../emailService', () => {
-  const ok = () => Promise.resolve({ success: true });
-  return new Proxy({}, { get: (_t, k) => (k === '__esModule' ? true : ok) });
-});
 
 const DAY = 24 * 3600 * 1000;
 const isoDate = (offsetMs) => new Date(Date.now() + offsetMs).toISOString().split('T')[0];
@@ -254,6 +250,9 @@ describe('Parent cancels a paid booking', () => {
     await waitFor(() => expect(db.one('bookings', { id: 'bk-can' }).status).toBe('cancelled'));
     expect(db.one('bookings', { id: 'bk-can' })).toMatchObject({ payment_status: 'partially_refunded', refunded_amount_paise: 30000, refund_percentage: 75, payout_status: null });
     expect(payments.calls.find(c => c.action === 'cancel')).toEqual({ action: 'cancel', booking_id: 'bk-can', reason: 'Change of plans' });
+    // The sheet confirms the refund the server made before closing.
+    expect(await screen.findByText(/₹300 \(75%\) is on its way back/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(within(parent.container).getByRole('button', { name: /^Past/ })).toBeInTheDocument());
     fireEvent.click(within(parent.container).getByRole('button', { name: /^Past/ }));
     expect(await within(parent.container).findByText('Refunded Rs.300 of Rs.400')).toBeInTheDocument();

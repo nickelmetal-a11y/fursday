@@ -1,6 +1,6 @@
 import { toISODate } from './AvailabilityCalendar';
 import {
-  matchCarers, nextWave, requestDates, expiryFor, startsAt, petSize, petSummary, waveRadius, dateRangeLabel, formatLeft,
+  matchCarers, nextWave, requestDates, dogsByNight, roomOn, hostCapacity, loadNightsTaken, expiryFor, startsAt, petSize, petSummary, waveRadius, dateRangeLabel, formatLeft,
   WAVE_GAP_MS, URGENT_WINDOW_MS, COMPARE_WINDOW_MS,
 } from './broadcastMatching';
 
@@ -161,5 +161,53 @@ describe('dates, expiry and pets', () => {
     const tr = (k, v) => (k === 'nearby_hm' ? v.h + 'h ' + v.m + 'm' : v.m + ' min');
     expect(formatLeft(102 * 60000, tr)).toBe('1h 42m');
     expect(formatLeft(9 * 60000 + 1, tr)).toBe('10 min');
+  });
+});
+
+describe('boarding capacity', () => {
+  const stay = (extra = {}) => request({ service_type: 'boarding', scheduled_date: WED, end_date: toISODate(plusDays(nextWeekday(3), 3)), scheduled_time: null, pet_summary: {}, ...extra });
+  const booked = (sitterId, from, to, extra = {}) => ({ sitter_id: sitterId, service_type: 'boarding', status: 'confirmed', booking_date: toISODate(from), end_date: toISODate(to), ...extra });
+
+  test('skips a host who is full on any requested night, keeps one with room', () => {
+    const wed = nextWeekday(3);
+    const sitters = [sitter('full', { home_details: { max_dogs: 2 } }), sitter('room', { home_details: { max_dogs: 3 } }), sitter('noLimit')];
+    // Two dogs already stay Thu night with both hosts.
+    const bookings = [
+      booked('full', plusDays(wed, 1), plusDays(wed, 2), { pet_ids: ['a', 'b'] }),
+      booked('room', plusDays(wed, 1), plusDays(wed, 2), { pet_ids: ['a', 'b'] }),
+      booked('noLimit', wed, plusDays(wed, 3), { pet_ids: ['a', 'b', 'c', 'd'] }),
+    ];
+    expect(ids(matchCarers({ sitters, bookings, request: stay() })).sort()).toEqual(['noLimit', 'room']);
+    expect(ids(matchCarers({ sitters, request: stay() })).sort()).toEqual(['full', 'noLimit', 'room']);
+  });
+
+  test('pending requests count, cancelled ones and walks do not; a request for two dogs needs two spots', () => {
+    const wed = nextWeekday(3);
+    const sitters = [sitter('h', { max_dogs: 2 })];
+    const pending = [booked('h', wed, plusDays(wed, 1), { status: 'pending' })];
+    expect(ids(matchCarers({ sitters, bookings: pending, request: stay() }))).toEqual(['h']);
+    expect(ids(matchCarers({ sitters, bookings: pending, request: stay({ pet_summary: { dogs: 2 } }) }))).toEqual([]);
+    const ignored = [booked('h', wed, plusDays(wed, 3), { status: 'cancelled', pet_ids: ['a', 'b'] }), { ...booked('h', wed, wed), service_type: 'walk30', pet_ids: ['a', 'b'] }];
+    expect(ids(matchCarers({ sitters, bookings: ignored, request: stay({ pet_summary: { dogs: 2 } }) }))).toEqual(['h']);
+  });
+
+  test('helpers: dogs per night, room left and capacity', () => {
+    const wed = nextWeekday(3);
+    const taken = dogsByNight([booked('h', wed, plusDays(wed, 2), { pet_ids: ['a', 'b'] }), booked('h', plusDays(wed, 1), plusDays(wed, 2))], 'h');
+    expect(taken).toEqual({ [toISODate(wed)]: 2, [toISODate(plusDays(wed, 1))]: 3 });
+    expect(roomOn({ home_details: { max_dogs: 4 } }, taken, toISODate(plusDays(wed, 1)))).toBe(1);
+    expect(roomOn({}, taken, toISODate(wed))).toBe(Infinity);
+    expect(hostCapacity({ home_details: { max_dogs: 3 }, max_dogs: 1 })).toBe(3);
+    expect(hostCapacity({ max_dogs: 0 })).toBeNull();
+  });
+
+  test('loadNightsTaken uses the RPC when it exists, else reads bookings', async () => {
+    const rpcClient = { rpc: jest.fn().mockResolvedValue({ data: [{ sitter_id: 'h', night: '2026-12-02', dogs: 2 }], error: null }) };
+    expect(dogsByNight(await loadNightsTaken(rpcClient, ['h'], '2026-12-01', '2026-12-09'), 'h')).toEqual({ '2026-12-02': 2 });
+    const rows = [{ sitter_id: 'h', service_type: 'boarding', status: 'confirmed', booking_date: '2026-12-03', end_date: '2026-12-04' }];
+    const chain = { select: () => chain, in: () => chain, then: (r) => Promise.resolve({ data: rows }).then(r) };
+    const fallback = { rpc: () => Promise.resolve({ data: null, error: { message: 'Could not find the function' } }), from: () => chain };
+    expect(await loadNightsTaken(fallback, ['h'], '2026-12-01', '2026-12-09')).toEqual(rows);
+    expect(await loadNightsTaken({}, ['h'], 'a', 'b')).toEqual([]);
   });
 });

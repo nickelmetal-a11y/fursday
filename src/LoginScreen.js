@@ -4,7 +4,9 @@ import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
 
-export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
+// trustGps and bookingFlow_svcWalkDesc used to promise live GPS tracking,
+// which the app doesn't have.
+export default function LoginScreen({ onLogin, onBrowse, reason }) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState('email');
@@ -81,12 +83,17 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
         <div style={{ fontSize: font.md, color: color.muted, lineHeight: 1.5, marginBottom: 20 }}>
           {step === 'email' ? tr('taglineEmail') : tr('taglineOtp')}
         </div>
+        {reason && step === 'email' && (
+          <div role="status" style={{ display: 'flex', gap: 10, alignItems: 'center', background: color.navySoft, borderRadius: radius.md, padding: '10px 12px', marginBottom: 18, fontSize: 13, color: color.navy, fontWeight: 600, lineHeight: 1.5 }}>
+            <Icon name="lock" size={16} />{tr('login_signInToContinue')}
+          </div>
+        )}
 
         {step === 'email' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
             {[
               { icon: 'shield', text: tr('trustAadhaar') },
-              { icon: 'pin', text: tr('trustGps') },
+              { icon: 'camera', text: tr('trustGps') },
               { icon: 'sos', text: tr('trustInsurance') },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -143,6 +150,11 @@ export default function LoginScreen({ onLogin, onShowTerms, onShowPrivacy }) {
               <Icon name="lock" size={13} color={color.faint} />
               <span style={{ fontSize: font.xs, color: color.muted }}>{tr('noPasswordNeeded')}</span>
             </div>
+            {onBrowse && (
+              <button type="button" onClick={onBrowse} style={{ ...ui.secondaryButton, width: '100%', marginTop: 16 }}>
+                <Icon name="search" size={18} />{tr('login_lookAround')}
+              </button>
+            )}
           </div>
         )}
 

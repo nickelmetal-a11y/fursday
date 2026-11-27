@@ -10,7 +10,7 @@ import { createNotification } from './notificationService';
 import { writeWithFallback } from './schemaFallback';
 import {
   matchCarers, nextWave, waveRadius, lastWave, petSummary, expiryFor, startsAt, isExpired,
-  requestPoint, dateRangeLabel, formatLeft, TIME_SLOTS, NIGHT_SERVICES,
+  requestPoint, dateRangeLabel, formatLeft, TIME_SLOTS, NIGHT_SERVICES, loadNightsTaken,
 } from './broadcastMatching';
 
 const SERVICES = [
@@ -34,7 +34,7 @@ const rupees = (paise) => (paise == null ? null : Math.round(paise / 100));
 // Invited sitters can read the request row, so only a ~1 km point is stored, never the exact pin.
 const coarse = (v) => (v == null ? null : Math.round(Number(v) * 100) / 100);
 
-async function loadCandidates(cityId) {
+async function loadCandidates(cityId, request) {
   let q = supabase.from('sitter_profiles').select('*, users(name), sitter_services(service_type, price_paise, is_active)').eq('status', 'active');
   if (cityId) q = q.eq('city_id', cityId);
   const { data } = await q;
@@ -44,7 +44,10 @@ async function loadCandidates(cityId) {
     const { data: rows, error } = await supabase.from('sitter_availability').select('*').in('sitter_id', sitters.map(s => s.id));
     if (!error && Array.isArray(rows)) availability = rows;
   }
-  return { sitters, availability };
+  const bookings = sitters.length && NIGHT_SERVICES.includes(request?.service_type)
+    ? await loadNightsTaken(supabase, sitters.map(s => s.id), request.scheduled_date, request.end_date || request.scheduled_date)
+    : [];
+  return { sitters, availability, bookings };
 }
 
 function inviteTitle(req, km) {
@@ -58,12 +61,12 @@ function inviteBody(req) {
 // Invites the next batch of carers. If a wave finds nobody new it moves
 // straight on to the wider one, so a quiet area doesn't wait 15 minutes for nothing.
 async function dispatchWave(request, fromWave, alreadyInvited = []) {
-  const { sitters, availability } = await loadCandidates(request.city_id);
+  const { sitters, availability, bookings } = await loadCandidates(request.city_id, request);
   let wave = Math.min(fromWave, lastWave);
-  let picks = matchCarers({ sitters, availability, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
+  let picks = matchCarers({ sitters, availability, bookings, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
   while (!picks.length && wave < lastWave) {
     wave += 1;
-    picks = matchCarers({ sitters, availability, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
+    picks = matchCarers({ sitters, availability, bookings, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
   }
   if (picks.length) {
     const { error } = await supabase.from('broadcast_recipients').insert(picks.map(p => ({

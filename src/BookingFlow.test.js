@@ -150,7 +150,7 @@ describe('BookingFlow', () => {
     const dateCells = document.querySelectorAll('div[style*="width: 54px"]');
     const firstCellDateNum = parseInt(dateCells[0].querySelector('div:nth-child(2)').textContent, 10);
     expect(firstCellDateNum).toBe(today.getDate());
-    expect(dateCells.length).toBe(14); // today + next 13 days, nothing earlier
+    expect(dateCells.length).toBe(60); // today + next 59 days, nothing earlier
   });
 
   // UT-BKG-04

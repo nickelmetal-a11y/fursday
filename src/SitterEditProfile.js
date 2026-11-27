@@ -9,6 +9,8 @@ import ServiceAreaPicker from './ServiceAreaPicker';
 import AvailabilityCalendar from './AvailabilityCalendar';
 import BoardingHomeEditor, { PROVIDER_TYPES, HOME_OPTIONS, homeOptionKey, homeStrength, isBoardingHost } from './BoardingHomeEditor';
 import { compressImage } from './compressImage';
+import ShareProfileCard from './ShareProfileCard';
+import HostSettings, { RULE_FIELDS, DEFAULT_POLICY, CANCELLATION_POLICIES, upcomingHolidays, formatHoliday } from './HostSettings';
 
 const SERVICES = [
   { id: 'walk30', nameKey: 'sitterEdit_svcWalkName', subKey: 'sitterEdit_svcWalkSub', icon: 'walk', min: 149, max: 599, step: 50 },
@@ -111,6 +113,12 @@ export function profileSnapshot(s) {
   };
   SERVICES.forEach(svc => { snap['svc_' + svc.id] = (s.activeServices || []).includes(svc.id) ? (s.prices?.[svc.id] || 299) : null; });
   snap.provider_type = s.providerType || 'sitter';
+  const rules = s.pricingRules || {};
+  RULE_FIELDS.forEach(f => { snap['rule:' + f.id] = rules[f.id] == null || rules[f.id] === '' ? null : Number(rules[f.id]); });
+  snap['rule:holidays'] = rules.holidays || [];
+  snap.cancellation_policy = s.cancellationPolicy || DEFAULT_POLICY;
+  snap.instant_book = !!s.instantBook;
+  snap.requires_vaccination = !!s.requiresVaccination;
   return isBoardingHost(snap.provider_type) ? { ...snap, ...homeSnapshot(s.homeDetails, s.homePhotos) } : snap;
 }
 
@@ -164,6 +172,10 @@ export default function SitterEditProfile({ onBack, city }) {
   const [providerType, setProviderType] = useState('sitter');
   const [homeDetails, setHomeDetails] = useState({});
   const [homePhotos, setHomePhotos] = useState([]);
+  const [pricingRules, setPricingRules] = useState({});
+  const [cancellationPolicy, setCancellationPolicy] = useState(DEFAULT_POLICY);
+  const [instantBook, setInstantBook] = useState(false);
+  const [requiresVaccination, setRequiresVaccination] = useState(false);
   const savedSnapshot = useRef(null);
   const changesRef = useRef(null);
 
@@ -197,6 +209,12 @@ export default function SitterEditProfile({ onBack, city }) {
       setProviderType(loadedType);
       setHomeDetails(profile.home_details || {});
       setHomePhotos(profile.home_photos || []);
+      const loadedRules = { holidays: upcomingHolidays(), ...(profile.pricing_rules || {}) };
+      const loadedPolicy = CANCELLATION_POLICIES.includes(profile.cancellation_policy) ? profile.cancellation_policy : DEFAULT_POLICY;
+      setPricingRules(loadedRules);
+      setCancellationPolicy(loadedPolicy);
+      setInstantBook(!!profile.instant_book);
+      setRequiresVaccination(!!profile.requires_vaccination);
       const loadedArea = { base_area: profile.base_area || '', base_pincode: profile.base_pincode || '', lat: profile.lat ?? null, lng: profile.lng ?? null, service_radius_km: Number(profile.service_radius_km) || 5 };
       setArea(loadedArea);
       const { data: photoData } = await supabase.from('sitter_profile_photos').select('*').eq('sitter_id', profile.id).order('display_order');
@@ -218,6 +236,7 @@ export default function SitterEditProfile({ onBack, city }) {
         photoUrl: profile.profile_photo_url, photos: loadedPhotos, activeServices: (services || []).map(s => s.service_type), prices: priceMap,
         upiId: piiData?.upi_id || '',
         providerType: loadedType, homeDetails: profile.home_details || {}, homePhotos: profile.home_photos || [],
+        pricingRules: loadedRules, cancellationPolicy: loadedPolicy, instantBook: !!profile.instant_book, requiresVaccination: !!profile.requires_vaccination,
       });
       const { data: bookings } = await supabase.from('bookings').select('gross_amount_paise, pet_parent_id, status').eq('sitter_id', profile.id);
       if (bookings) {
@@ -291,7 +310,7 @@ export default function SitterEditProfile({ onBack, city }) {
   const currentSnapshot = () => profileSnapshot({
     headline, bio, highlights, area, experience, languages, availableDays, morningSlot, afternoonSlot, eveningSlot,
     maxDogs, advanceNotice, isPaused, photoUrl, photos, activeServices, prices, upiId,
-    providerType, homeDetails, homePhotos,
+    providerType, homeDetails, homePhotos, pricingRules, cancellationPolicy, instantBook, requiresVaccination,
   });
 
   const handleSave = async () => {
@@ -310,6 +329,7 @@ export default function SitterEditProfile({ onBack, city }) {
         lat: area.lat ?? null, lng: area.lng ?? null, service_radius_km: Number(area.service_radius_km) || 5,
         profile_updated_at: new Date().toISOString(),
         provider_type: providerType, home_details: homeDetails, home_photos: homePhotos,
+        pricing_rules: pricingRules, cancellation_policy: cancellationPolicy, instant_book: instantBook, requires_vaccination: requiresVaccination,
       };
       const { error: profileError } = await writeWithFallback(row => supabase.from('sitter_profiles').update(row).eq('user_id', user.id), updateData);
       if (profileError) throw profileError;
@@ -366,9 +386,11 @@ export default function SitterEditProfile({ onBack, city }) {
     profile_photo: 'changes_profilePhoto', portfolio: 'changes_portfolio', upi: 'changes_upi',
     svc_walk30: 'sitterEdit_svcWalkName', svc_boarding: 'sitterEdit_svcBoardingName', svc_daycare: 'sitterEdit_svcDaycareName',
     provider_type: 'sitterEdit_providerTitle', 'home:photos': 'changes_homePhotos',
+    'rule:holidays': 'host_holidaysTitle', cancellation_policy: 'host_policyTitle', instant_book: 'host_instantBook', requires_vaccination: 'host_requireVacc',
   };
+  const ruleField = (field) => (field.startsWith('rule:') ? RULE_FIELDS.find(f => 'rule:' + f.id === field) : null);
   const homeField = (field) => (field.startsWith('home:') ? field.slice(5) : null);
-  const listLabel = (field, v) => homeField(field) ? t(homeOptionKey(homeField(field), v)) : field === 'highlights' ? t(HIGHLIGHT_KEYS[v] || v) : field === 'languages' ? t(LANGUAGE_KEYS[v] || v) : field === 'availability_days' ? t(DAY_KEYS[v] || v) : v;
+  const listLabel = (field, v) => field === 'rule:holidays' ? formatHoliday(v, lang === 'hi' ? 'hi-IN' : 'en-IN') : homeField(field) ? t(homeOptionKey(homeField(field), v)) : field === 'highlights' ? t(HIGHLIGHT_KEYS[v] || v) : field === 'languages' ? t(LANGUAGE_KEYS[v] || v) : field === 'availability_days' ? t(DAY_KEYS[v] || v) : v;
   const clip = (s) => (s.length > 60 ? s.slice(0, 57) + '…' : s);
   const fmtValue = (field, v) => {
     if (v == null || v === '') return field.startsWith('svc_') ? t('changes_off') : t('changes_empty');
@@ -377,6 +399,9 @@ export default function SitterEditProfile({ onBack, city }) {
     if (hf === 'vet_km') return t('area_km', { n: v });
     if (hf && HOME_OPTIONS[hf]) return t(homeOptionKey(hf, v));
     if (field === 'provider_type') return t('bhome_type_' + v);
+    if (field === 'cancellation_policy') return t('host_policy_' + v);
+    const rf = ruleField(field);
+    if (rf) return rf.unit === 'pct' ? v + '%' : rf.unit === 'rupees' ? t('sitterEdit_currencyPrefix') + v : t('host_nightsN', { n: v });
     if (typeof v === 'boolean') return v ? t('changes_on') : t('changes_off');
     if (field === 'service_radius_km') return t('area_km', { n: v });
     if (field.startsWith('svc_')) return t('sitterEdit_currencyPrefix') + v;
@@ -386,7 +411,7 @@ export default function SitterEditProfile({ onBack, city }) {
     return "'" + clip(String(v)) + "'";
   };
   const changeLine = (c) => {
-    const label = t(FIELD_KEYS[c.field] || (homeField(c.field) ? 'bhome_field_' + homeField(c.field) : c.field));
+    const label = t(FIELD_KEYS[c.field] || (ruleField(c.field) ? 'host_rule_' + ruleField(c.field).id : homeField(c.field) ? 'bhome_field_' + homeField(c.field) : c.field));
     if (c.added || c.removed) {
       const parts = [];
       if (c.added.length) parts.push(t('changes_added', { items: c.added.map(v => listLabel(c.field, v)).join(', ') }));
@@ -564,6 +589,7 @@ export default function SitterEditProfile({ onBack, city }) {
 
         {tab === 'profile' && (
           <div>
+            <ShareProfileCard />
             <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ ...ui.iconTile, width: 40, height: 40, background: color[aadhaarTone + 'Soft'], color: color[aadhaarTone] }}>
                 <Icon name={sitterProfile?.aadhaar_verified ? 'shield' : sitterProfile?.aadhaar_number ? 'clock' : 'card'} size={20} />
@@ -714,6 +740,14 @@ export default function SitterEditProfile({ onBack, city }) {
                 </div>
               );
             })}
+            <HostSettings nightly={prices.boarding || Math.round((BOARDING.min + BOARDING.max) / 2)} isBoarding={isBoardingHost(providerType)}
+              rules={pricingRules} policy={cancellationPolicy} instantBook={instantBook} requiresVaccination={requiresVaccination} houseRules={(homeDetails.rules || '').trim()}
+              onChange={patch => {
+                if ('rules' in patch) setPricingRules(patch.rules);
+                if ('policy' in patch) setCancellationPolicy(patch.policy);
+                if ('instantBook' in patch) setInstantBook(patch.instantBook);
+                if ('requiresVaccination' in patch) setRequiresVaccination(patch.requiresVaccination);
+              }} />
           </div>
         )}
         {tab === 'home' && isBoardingHost(providerType) && (

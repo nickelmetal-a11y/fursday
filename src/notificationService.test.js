@@ -1,457 +1,95 @@
-/**
- * Unit Tests for notificationService.js
- * Tests all 25+ notification functions
- */
-
+// notificationService: every alert is one in-app row, then a fire-and-forget
+// POST to /api/notify (which emails/pushes on the server). The browser never
+// calls an email or SMS provider itself.
 import * as notificationService from './notificationService';
+import { createNotification } from './notificationService';
 
-// Mock Supabase
+const inserted = [];
+
 jest.mock('./supabase', () => ({
   supabase: {
-    from: jest.fn(() => ({
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockResolvedValue({ data: { id: '123' } }),
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({ data: { id: '123' } }),
-    })),
+    auth: { getSession: () => Promise.resolve({ data: { session: global.__session } }) },
+    from: () => ({
+      insert: (row) => { global.__inserted.push(row); return Promise.resolve({ error: global.__insertError }); },
+      select: () => ({ eq: () => ({ eq: () => Promise.resolve({ count: 3 }) }) }),
+    }),
   },
 }));
 
-// Mock email and SMS services
-jest.mock('./emailService');
-jest.mock('./smsService');
-
-describe('notificationService', () => {
-
-  // Test Tier 1 Notifications
-  describe('Tier 1 - Critical Notifications', () => {
-
-    test('notifyBookingConfirmed - sends to both parties with multi-channel', async () => {
-      const data = {
-        sitterId: 'sitter-1',
-        sitterEmail: 'sitter@test.com',
-        sitterPhone: '9876543210',
-        petParentId: 'parent-1',
-        petParentEmail: 'parent@test.com',
-        petParentPhone: '9123456789',
-        petName: 'Buddy',
-        sitterName: 'John',
-        serviceType: 'walk30',
-        dateTime: '2026-10-25 10:00 AM',
-        amount: 34900,
-        bookingRef: 'FUR123456',
-      };
-
-      await notificationService.notifyBookingConfirmed(data);
-
-      // Verify Supabase called
-      expect(notificationService.createNotification).toBeDefined();
-    });
-
-    test('notifyReviewReceived - sends to sitter with rating', async () => {
-      await notificationService.notifyReviewReceived(
-        'sitter-1',
-        'sitter@test.com',
-        5,
-        'John Doe',
-        'Buddy',
-        'Great service!'
-      );
-
-      expect(notificationService.notifyReviewReceived).toBeDefined();
-    });
-
-    test('notifyMessageReceived - creates in-app notification', async () => {
-      await notificationService.notifyMessageReceived(
-        'user-1',
-        'user@test.com',
-        'John Doe'
-      );
-
-      expect(notificationService.notifyMessageReceived).toBeDefined();
-    });
-
-    test('notifyWalkProofReceived - sends to parent', async () => {
-      await notificationService.notifyWalkProofReceived(
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'John'
-      );
-
-      expect(notificationService.notifyWalkProofReceived).toBeDefined();
-    });
-
-    test('notifyBookingCancelled - sends to both parties', async () => {
-      const data = {
-        userId: 'parent-1',
-        userEmail: 'parent@test.com',
-        userPhone: '9123456789',
-        otherUserName: 'John',
-        reason: 'Schedule conflict',
-        refundAmount: '349.00',
-        refundStatus: 'Processing',
-        bookingRef: 'FUR123456',
-      };
-
-      await notificationService.notifyBookingCancelled(data);
-
-      expect(notificationService.notifyBookingCancelled).toBeDefined();
-    });
-  });
-
-  // Test Tier 2 Notifications
-  describe('Tier 2 - High Priority Notifications', () => {
-
-    test('notifyWalkStarted - alerts both parties', async () => {
-      await notificationService.notifyWalkStarted(
-        'sitter-1',
-        '9876543210',
-        'parent-1',
-        '9123456789',
-        'Buddy',
-        'John'
-      );
-
-      expect(notificationService.notifyWalkStarted).toBeDefined();
-    });
-
-    test('notifyWalkCompleted - confirms completion', async () => {
-      await notificationService.notifyWalkCompleted(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'Buddy',
-        'John'
-      );
-
-      expect(notificationService.notifyWalkCompleted).toBeDefined();
-    });
-
-    test('notifySitterRejected - handles rejection', async () => {
-      await notificationService.notifySitterRejected(
-        'sitter-1',
-        'sitter@test.com',
-        'Application requirements not met'
-      );
-
-      expect(notificationService.notifySitterRejected).toBeDefined();
-    });
-
-    test('notifySitterSuspended - alerts suspension', async () => {
-      await notificationService.notifySitterSuspended(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'Policy violation detected'
-      );
-
-      expect(notificationService.notifySitterSuspended).toBeDefined();
-    });
-
-    test('notifyTopSitterAwarded - celebrates achievement', async () => {
-      await notificationService.notifyTopSitterAwarded(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210'
-      );
-
-      expect(notificationService.notifyTopSitterAwarded).toBeDefined();
-    });
-
-    test('notifyDisputeFiled - alerts reported user', async () => {
-      await notificationService.notifyDisputeFiled(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'Pet Parent',
-        'quality_complaint',
-        'Service not as expected'
-      );
-
-      expect(notificationService.notifyDisputeFiled).toBeDefined();
-    });
-
-    test('notifyDisputeResolved - sends resolution', async () => {
-      await notificationService.notifyDisputeResolved(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'Admin',
-        'refund_full',
-        34900
-      );
-
-      expect(notificationService.notifyDisputeResolved).toBeDefined();
-    });
-
-    test('notifyPayoutMarked - confirms payment', async () => {
-      await notificationService.notifyPayoutMarked(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        34900,
-        5,
-        '2026-10-25'
-      );
-
-      expect(notificationService.notifyPayoutMarked).toBeDefined();
-    });
-  });
-
-  // Test Tier 3 Notifications
-  describe('Tier 3 - Medium Priority Notifications', () => {
-
-    test('notifyHeatAdvisory - alerts both parties', async () => {
-      await notificationService.notifyHeatAdvisory(
-        'sitter-1',
-        '9876543210',
-        'parent-1',
-        '9123456789',
-        'Buddy',
-        '2026-10-25'
-      );
-
-      expect(notificationService.notifyHeatAdvisory).toBeDefined();
-    });
-
-    test('notifyBookingReminder12h - 12-hour reminder', async () => {
-      await notificationService.notifyBookingReminder12h(
-        'sitter-1',
-        '9876543210',
-        'parent-1',
-        '9123456789',
-        'Buddy',
-        'John',
-        '10:00 AM'
-      );
-
-      expect(notificationService.notifyBookingReminder12h).toBeDefined();
-    });
-
-    test('notifyBookingReminder1h - 1-hour reminder', async () => {
-      await notificationService.notifyBookingReminder1h(
-        'sitter-1',
-        '9876543210',
-        'parent-1',
-        '9123456789',
-        'Buddy',
-        'John',
-        '10:00 AM'
-      );
-
-      expect(notificationService.notifyBookingReminder1h).toBeDefined();
-    });
-
-    test('notifyWeeklyEarnings - sends summary', async () => {
-      await notificationService.notifyWeeklyEarnings(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        5000000,
-        8,
-        4.8
-      );
-
-      expect(notificationService.notifyWeeklyEarnings).toBeDefined();
-    });
-
-    test('notifyRatingUpdate - alerts rating change', async () => {
-      await notificationService.notifyRatingUpdate(
-        'sitter-1',
-        '9876543210',
-        4.2,
-        4.5
-      );
-
-      expect(notificationService.notifyRatingUpdate).toBeDefined();
-    });
-
-    test('notifyNoShow - alerts no-show', async () => {
-      await notificationService.notifyNoShow(
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'John',
-        'FUR123456'
-      );
-
-      expect(notificationService.notifyNoShow).toBeDefined();
-    });
-
-    test('notifyCancellationReminder - reminds of deadline', async () => {
-      await notificationService.notifyCancellationReminder(
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'John',
-        12
-      );
-
-      expect(notificationService.notifyCancellationReminder).toBeDefined();
-    });
-
-    test('notifyPaymentFailed - alerts failure', async () => {
-      await notificationService.notifyPaymentFailed(
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'Card declined'
-      );
-
-      expect(notificationService.notifyPaymentFailed).toBeDefined();
-    });
-
-    test('notifyResponseTimeout - alerts expiry', async () => {
-      await notificationService.notifyResponseTimeout(
-        'sitter-1',
-        '9876543210',
-        'John Doe',
-        30
-      );
-
-      expect(notificationService.notifyResponseTimeout).toBeDefined();
-    });
-
-    test('notifySitterUnavailable - alerts alternative', async () => {
-      await notificationService.notifySitterUnavailable(
-        'parent-1',
-        'parent@test.com',
-        '9123456789',
-        'John',
-        '2026-10-25'
-      );
-
-      expect(notificationService.notifySitterUnavailable).toBeDefined();
-    });
-
-    test('notifyReferralBonusPaid - celebrates bonus', async () => {
-      await notificationService.notifyReferralBonusPaid(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        50000,
-        'Jane Doe'
-      );
-
-      expect(notificationService.notifyReferralBonusPaid).toBeDefined();
-    });
-
-    test('notifyPerformanceBadge - celebrates badge', async () => {
-      await notificationService.notifyPerformanceBadge(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'lightning_response'
-      );
-
-      expect(notificationService.notifyPerformanceBadge).toBeDefined();
-    });
-
-    test('notifyAdminAction - logs admin action', async () => {
-      await notificationService.notifyAdminAction(
-        'sitter-1',
-        'sitter@test.com',
-        '9876543210',
-        'warning',
-        'Multiple cancellations detected'
-      );
-
-      expect(notificationService.notifyAdminAction).toBeDefined();
-    });
-  });
-
-  // Test utility functions
-  describe('Utility Functions', () => {
-
-    test('createNotification - creates in-app notification', async () => {
-      const result = await notificationService.createNotification(
-        'user-1',
-        'booking_confirmed',
-        'Booking Confirmed',
-        'Your booking is confirmed'
-      );
-
-      expect(result).toBeDefined();
-    });
-
-    test('getUserUnreadNotificationCount - gets unread count', async () => {
-      const count = await notificationService.getUserUnreadNotificationCount('user-1');
-
-      expect(typeof count).toBe('number');
-    });
-  });
-
-  // Test multi-channel delivery
-  describe('Multi-Channel Delivery', () => {
-
-    test('All functions handle missing email gracefully', async () => {
-      await notificationService.notifyBookingConfirmed({
-        sitterId: 'sitter-1',
-        sitterEmail: null,
-        sitterPhone: '9876543210',
-        petParentId: 'parent-1',
-        petParentEmail: null,
-        petParentPhone: '9123456789',
-        petName: 'Buddy',
-        sitterName: 'John',
-        serviceType: 'walk30',
-        dateTime: '2026-10-25 10:00 AM',
-        amount: 34900,
-        bookingRef: 'FUR123456',
-      });
-
-      // Should not throw, just skip email
-      expect(notificationService.notifyBookingConfirmed).toBeDefined();
-    });
-
-    test('All functions handle missing phone gracefully', async () => {
-      await notificationService.notifyBookingConfirmed({
-        sitterId: 'sitter-1',
-        sitterEmail: 'sitter@test.com',
-        sitterPhone: null,
-        petParentId: 'parent-1',
-        petParentEmail: 'parent@test.com',
-        petParentPhone: null,
-        petName: 'Buddy',
-        sitterName: 'John',
-        serviceType: 'walk30',
-        dateTime: '2026-10-25 10:00 AM',
-        amount: 34900,
-        bookingRef: 'FUR123456',
-      });
-
-      // Should not throw, just skip SMS
-      expect(notificationService.notifyBookingConfirmed).toBeDefined();
-    });
-  });
-
-  // Test error handling
-  describe('Error Handling', () => {
-
-    test('Functions have try-catch for database errors', async () => {
-      // All functions should be wrapped in try-catch
-      // This tests that they don't throw unhandled errors
-
-      const testFunctions = [
-        () => notificationService.notifyBookingConfirmed({}),
-        () => notificationService.notifyWalkStarted(),
-        () => notificationService.notifyReviewReceived(),
-      ];
-
-      for (const fn of testFunctions) {
-        expect(async () => {
-          try {
-            await fn();
-          } catch (e) {
-            // Should be caught
-          }
-        }).toBeDefined();
-      }
-    });
-  });
+const flush = () => new Promise(r => setTimeout(r, 0));
+
+beforeEach(() => {
+  inserted.length = 0;
+  global.__inserted = inserted;
+  global.__insertError = null;
+  global.__session = { access_token: 'tok-123' };
+});
+
+test('inserts the row with an id made in the browser and returns it, without reading it back', async () => {
+  const row = await createNotification('u-sitter', 'booking_request', 'New request', 'Accept or decline', null, 'bk-1');
+  expect(inserted).toHaveLength(1);
+  expect(inserted[0]).toMatchObject({ user_id: 'u-sitter', type: 'booking_request', title: 'New request', booking_id: 'bk-1' });
+  expect(inserted[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  expect(row).toEqual(inserted[0]);
+});
+
+test('asks /api/notify to deliver it, with the caller\'s session token', async () => {
+  const row = await createNotification('u-parent', 'booking_accepted', 'Accepted', 'See you soon');
+  await flush();
+  const [url, opts] = global.fetch.mock.calls.find(([u]) => String(u).endsWith('/api/notify'));
+  expect(url).toBe('https://fursday.vercel.app/api/notify');
+  expect(opts.headers.Authorization).toBe('Bearer tok-123');
+  expect(JSON.parse(opts.body)).toEqual({ notification_id: row.id });
+});
+
+test('signed out: the row is still written but nothing is posted', async () => {
+  global.__session = null;
+  await createNotification('u-parent', 'booking_accepted', 'Accepted', 'See you soon');
+  await flush();
+  expect(inserted).toHaveLength(1);
+  expect(global.fetch.mock.calls.some(([u]) => String(u).endsWith('/api/notify'))).toBe(false);
+});
+
+test('a failed insert returns null and posts nothing; a failed delivery never throws', async () => {
+  global.__insertError = { message: 'denied' };
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  expect(await createNotification('u-parent', 't', 'x', 'y')).toBeNull();
+  await flush();
+  expect(global.fetch).not.toHaveBeenCalled();
+
+  global.__insertError = null;
+  global.fetch = jest.fn(() => Promise.reject(new Error('offline')));
+  await expect(createNotification('u-parent', 't', 'x', 'y')).resolves.toBeTruthy();
+  await flush();
+  console.error.mockRestore();
+});
+
+test('no recipient: nothing happens', async () => {
+  expect(await createNotification(null, 't', 'x', 'y')).toBeNull();
+  expect(inserted).toHaveLength(0);
+});
+
+test('the in-app row is written even when the person turned push off (push only controls the phone alert)', async () => {
+  await notificationService.notifyBookingCancelled({ userId: 'u-parent', otherUserName: 'Priya', reason: 'Sick' });
+  expect(inserted).toEqual([expect.objectContaining({ user_id: 'u-parent', type: 'booking_cancelled', title: 'Priya cancelled the booking', body: 'Sick' })]);
+});
+
+test('the notify* API other screens use still exists and writes one row per recipient', async () => {
+  await notificationService.notifyBookingConfirmed({ sitterId: 's', petParentId: 'p', petName: 'Bruno', sitterName: 'Priya', dateTime: 'Mon 7:00 AM' });
+  await notificationService.notifyWalkStarted('s', null, 'p', null, 'Bruno', 'Priya');
+  await notificationService.notifyPayoutMarked('s', 'x@y.z', '9', 34000, 1, 'today');
+  await notificationService.notifyMessageReceived('p', null, 'Priya', 'bk-9');
+  expect(inserted.map(r => [r.user_id, r.type])).toEqual([
+    ['s', 'booking_confirmed'], ['p', 'booking_confirmed'], ['s', 'walk_started'], ['p', 'walk_started'], ['s', 'payout_marked'], ['p', 'message_received'],
+  ]);
+  expect(inserted[4].body).toBe('Rs. 340 marked as paid');
+  expect(inserted[5].booking_id).toBe('bk-9');
+  for (const name of ['notifyReviewReceived', 'notifyScheduleProposed', 'notifySitterArriving', 'notifyWalkProofReceived', 'notifyBookingCompleted',
+    'notifyWalkCompleted', 'notifySitterRejected', 'notifySitterSuspended', 'notifyTopSitterAwarded', 'notifyDisputeFiled', 'notifyDisputeResolved',
+    'notifyHeatAdvisory', 'notifyBookingReminder12h', 'notifyBookingReminder1h', 'notifyWeeklyEarnings', 'notifyRatingUpdate', 'notifyNoShow',
+    'notifyCancellationReminder', 'notifyPaymentFailed', 'notifyResponseTimeout', 'notifySitterUnavailable', 'notifyReferralBonusPaid',
+    'notifyPerformanceBadge', 'notifyAdminAction', 'getUserUnreadNotificationCount']) {
+    expect(typeof notificationService[name]).toBe('function');
+  }
+  expect(await notificationService.getUserUnreadNotificationCount('p')).toBe(3);
 });

@@ -41,7 +41,8 @@ describe('pet parent profile', () => {
     db.one('users', { id: IDS.ananya }).created_at = monthsAgo(4);
     await renderAs(IDS.ananya, 'Ananya Sharma');
     expect(screen.getByText('ananya@test.example')).toBeInTheDocument();
-    expect(screen.getByText('9810000001')).toBeInTheDocument();
+    expect(screen.getByText('+91 98100 00001')).toBeInTheDocument();
+    expect(await screen.findByText('Not verified')).toBeInTheDocument();
     expect(screen.getByText(/· 4 months$/)).toBeInTheDocument();
     expect(screen.getByText('Bruno')).toBeInTheDocument();
     expect(screen.getByText('Bookings completed').nextSibling.textContent).toBe('1');
@@ -52,7 +53,7 @@ describe('pet parent profile', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Public/ }));
     expect(screen.getByText('Ananya S.')).toBeInTheDocument();
     expect(screen.queryByText('ananya@test.example')).toBeNull();
-    expect(screen.queryByText('9810000001')).toBeNull();
+    expect(screen.queryByText('+91 98100 00001')).toBeNull();
     expect(screen.getByText(/never public/)).toBeInTheDocument();
   });
 

@@ -94,7 +94,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [booking?.id]);
+  }, [booking?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -125,7 +125,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
           const { data: senderProfile } = await supabase.from('users').select('name').eq('id', user?.id).single();
           const senderName = senderProfile?.name || (userType === 'sitter' ? 'Your sitter' : 'Pet parent');
           const { notifyMessageReceived } = await import('./notificationService');
-          await notifyMessageReceived(booking.recipientUserId, null, senderName);
+          await notifyMessageReceived(booking.recipientUserId, null, senderName, booking.id);
         }
       } catch(notifErr) { console.error('Message notification failed:', notifErr); }
     } catch(e) { console.log('Send error:', e); }
@@ -191,7 +191,7 @@ export default function ChatScreen({ onBack, city, booking, userType }) {
         try {
           const { data: senderProfile } = await supabase.from('users').select('name').eq('id', user?.id).single();
           const { notifyMessageReceived } = await import('./notificationService');
-          await notifyMessageReceived(booking.recipientUserId, null, senderProfile?.name || 'The other party');
+          await notifyMessageReceived(booking.recipientUserId, null, senderProfile?.name || 'The other party', booking.id);
         } catch (notifErr) { console.error('Photo notification failed:', notifErr); }
       }
     } catch (err) {

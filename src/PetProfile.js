@@ -4,6 +4,11 @@ import { choosePhoto } from './photoPicker';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
+import { writeWithFallback } from './schemaFallback';
+
+// Health columns from migration 038; dropped from the save until it runs.
+const PET_038_COLUMNS = ['size', 'is_puppy', 'vaccination_cert_url', 'vaccinated_until', 'vet_name', 'vet_phone', 'feeding_notes', 'medication_notes', 'emergency_vet_consent'];
+const SIZES = [['small', 'pet_sizeSmall'], ['medium', 'pet_sizeMedium'], ['large', 'pet_sizeLarge'], ['giant', 'pet_sizeGiant']];
 
 const BREED_LABEL_KEYS = { 'Indie/Mixed': 'pet_breedIndie', 'Other': 'pet_breedOther' };
 
@@ -35,11 +40,14 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const certInputRef = useRef(null);
+  const [certUploading, setCertUploading] = useState(false);
 
   const [pet, setPet] = useState({
     name: '', breed: '', age: '', weight: '', gender: '',
     energy: '', strangers: '', leash: '',
     vaccinated: null, emergency: '', notes: '',
+    size: '', puppy: false, certUrl: '', vaccinatedUntil: '', vetName: '', vetPhone: '', feeding: '', medication: '', vetConsent: false,
   });
 
   const update = (k, v) => setPet(prev => ({ ...prev, [k]: v }));
@@ -53,6 +61,8 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
             name: data.name || '', breed: data.breed || '', age: data.age_years || '', weight: data.weight_kg || '', gender: data.gender || '',
             energy: data.energy_level || '', strangers: data.behavior_strangers || '', leash: data.behavior_leash || '',
             vaccinated: data.vaccinated || null, emergency: data.emergency_contact || '', notes: data.notes || '',
+            size: data.size || '', puppy: !!data.is_puppy, certUrl: data.vaccination_cert_url || '', vaccinatedUntil: data.vaccinated_until ? String(data.vaccinated_until).slice(0, 10) : '',
+            vetName: data.vet_name || '', vetPhone: data.vet_phone || '', feeding: data.feeding_notes || '', medication: data.medication_notes || '', vetConsent: !!data.emergency_vet_consent,
           });
           if (data.photo_url) setPhotos([data.photo_url]);
         }
@@ -78,6 +88,26 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
     setUploading(false);
   };
 
+  const handleCertUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCertUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      const upload = isPdf ? file : await compressImage(file);
+      const path = (user?.id || 'anon') + '/vaccination/' + Date.now() + (isPdf ? '.pdf' : '.jpg');
+      const { error } = await supabase.storage.from('pet-photos').upload(path, upload, { contentType: isPdf ? 'application/pdf' : 'image/jpeg' });
+      if (error) throw error;
+      const { data } = supabase.storage.from('pet-photos').getPublicUrl(path);
+      update('certUrl', data.publicUrl);
+    } catch (err) {
+      alert(tr('pet_vaccineCertFailed'));
+    }
+    setCertUploading(false);
+    if (certInputRef.current) certInputRef.current.value = '';
+  };
+
   const savePet = async () => {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -96,10 +126,18 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
         emergency_contact: pet.emergency || null,
         notes: pet.notes || '',
         photo_url: photos[0] || null,
+        size: pet.size || null,
+        is_puppy: !!pet.puppy,
+        vaccination_cert_url: pet.certUrl || null,
+        vaccinated_until: pet.vaccinatedUntil || null,
+        vet_name: pet.vetName.trim() || null,
+        vet_phone: pet.vetPhone.trim() || null,
+        feeding_notes: pet.feeding.trim() || null,
+        medication_notes: pet.medication.trim() || null,
+        emergency_vet_consent: !!pet.vetConsent,
       };
-      const { error } = petId
-        ? await supabase.from('pet_profiles').update(insertData).eq('id', petId)
-        : await supabase.from('pet_profiles').insert(insertData);
+      const write = (row) => (petId ? supabase.from('pet_profiles').update(row).eq('id', petId) : supabase.from('pet_profiles').insert(row));
+      const { error } = await writeWithFallback(write, insertData, PET_038_COLUMNS);
       if (error) { alert(tr('pet_errorSaving') + error.message); setSaving(false); return; }
     } else {
       alert(tr('pet_notLoggedIn'));
@@ -187,10 +225,21 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
               </div>
 
               <div style={fieldLabel}>{tr('pet_genderLabel')} *</div>
-              <div style={{ display:'flex', gap:8 }}>
+              <div style={{ display:'flex', gap:8, marginBottom:14 }}>
                 <Btn label={tr('pet_genderMale')} selected={pet.gender==='male'} onClick={() => update('gender','male')} />
                 <Btn label={tr('pet_genderFemale')} selected={pet.gender==='female'} onClick={() => update('gender','female')} />
               </div>
+
+              <div style={fieldLabel}>{tr('pet_sizeLabel')}</div>
+              <div role="group" aria-label={tr('pet_sizeLabel')} style={{ display:'flex', gap:8, marginBottom:14 }}>
+                {SIZES.map(([id, key]) => <Btn key={id} label={tr(key)} selected={pet.size===id} onClick={() => update('size', pet.size===id ? '' : id)} />)}
+              </div>
+
+              <label style={{ display:'flex', alignItems:'center', gap:10, minHeight:44, cursor:'pointer' }}>
+                <input type="checkbox" checked={pet.puppy} onChange={e => update('puppy', e.target.checked)}
+                  style={{ width:20, height:20, accentColor:color.navy, cursor:'pointer', flexShrink:0 }} />
+                <span style={{ fontSize:font.md, fontWeight:600, color:color.ink }}>{tr('pet_puppyLabel')}</span>
+              </label>
             </div>
           </div>
         )}
@@ -242,6 +291,59 @@ export default function PetProfile({ onBack, city, onSave, petId }) {
             <textarea id="pet-notes" value={pet.notes} onChange={e => update('notes', e.target.value)}
               placeholder={tr('pet_notesPlaceholder')}
               rows={3} style={{ ...ui.input, fontSize:14, resize:'none', lineHeight:1.5 }} />
+          </div>
+        )}
+
+        {step === 2 && (
+          <div style={{ ...ui.card, marginBottom:16 }}>
+            <h2 style={{ ...ui.sectionTitle, display:'flex', alignItems:'center', gap:8 }}><Icon name="stethoscope" size={18} color={color.navy} />{tr('pet_healthHeading')}</h2>
+
+            <div style={fieldLabel}>{tr('pet_vaccineCertLabel')}</div>
+            <div style={{ fontSize:font.sm, color:color.muted, marginBottom:8 }}>{tr('pet_vaccineCertHint')}</div>
+            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:12 }}>
+              {pet.certUrl && (
+                <a href={pet.certUrl} target="_blank" rel="noopener noreferrer" style={{ ...ui.secondaryButton, minHeight:44, textDecoration:'none', color:color.navy, fontSize:14 }}>
+                  <Icon name="fileText" size={18} />{tr('pet_vaccineCertView')}
+                </a>
+              )}
+              <button type="button" onClick={() => choosePhoto(certInputRef, handleCertUpload)} disabled={certUploading}
+                style={{ ...ui.secondaryButton, minHeight:44, fontSize:14, borderStyle:pet.certUrl ? 'solid' : 'dashed', color:color.navy }}>
+                <Icon name={pet.certUrl ? 'refresh' : 'plus'} size={18} />
+                {certUploading ? tr('pet_vaccineCertUploading') : pet.certUrl ? tr('pet_vaccineCertReplace') : tr('pet_vaccineCertUpload')}
+              </button>
+              <input ref={certInputRef} type="file" accept="image/*,application/pdf" onChange={handleCertUpload} style={{ display:'none' }} data-testid="pet-cert-input" />
+            </div>
+            <label htmlFor="pet-vaccinated-until" style={fieldLabel}>{tr('pet_vaccinatedUntilLabel')}</label>
+            <input id="pet-vaccinated-until" type="date" value={pet.vaccinatedUntil} onChange={e => update('vaccinatedUntil', e.target.value)}
+              style={{ ...ui.input, marginBottom:14 }} />
+
+            <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <label htmlFor="pet-vet-name" style={fieldLabel}>{tr('pet_vetNameLabel')}</label>
+                <input id="pet-vet-name" value={pet.vetName} onChange={e => update('vetName', e.target.value)} placeholder={tr('pet_vetNamePlaceholder')} style={ui.input} />
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <label htmlFor="pet-vet-phone" style={fieldLabel}>{tr('pet_vetPhoneLabel')}</label>
+                <input id="pet-vet-phone" value={pet.vetPhone} onChange={e => update('vetPhone', e.target.value)} type="tel" inputMode="tel" style={ui.input} />
+              </div>
+            </div>
+
+            <label htmlFor="pet-feeding" style={fieldLabel}>{tr('pet_feedingLabel')}</label>
+            <textarea id="pet-feeding" value={pet.feeding} onChange={e => update('feeding', e.target.value)} placeholder={tr('pet_feedingPlaceholder')}
+              rows={2} style={{ ...ui.input, fontSize:14, resize:'none', lineHeight:1.5, marginBottom:14 }} />
+
+            <label htmlFor="pet-medication" style={fieldLabel}>{tr('pet_medicationLabel')}</label>
+            <textarea id="pet-medication" value={pet.medication} onChange={e => update('medication', e.target.value)} placeholder={tr('pet_medicationPlaceholder')}
+              rows={2} style={{ ...ui.input, fontSize:14, resize:'none', lineHeight:1.5, marginBottom:14 }} />
+
+            <label style={{ display:'flex', alignItems:'flex-start', gap:10, minHeight:44, cursor:'pointer' }}>
+              <input type="checkbox" checked={pet.vetConsent} onChange={e => update('vetConsent', e.target.checked)}
+                style={{ width:20, height:20, marginTop:1, accentColor:color.navy, cursor:'pointer', flexShrink:0 }} />
+              <span>
+                <span style={{ display:'block', fontSize:font.md, fontWeight:600, color:color.ink }}>{tr('pet_vetConsentLabel')}</span>
+                <span style={{ display:'block', fontSize:font.sm, color:color.muted, marginTop:2 }}>{tr('pet_vetConsentHint')}</span>
+              </span>
+            </label>
           </div>
         )}
 

@@ -8,10 +8,6 @@ import AdminBookings from '../AdminBookings';
 import { payoutGroups, weekOverWeek } from '../adminInsights';
 
 jest.mock('../supabase', () => require('../testing/fakeSupabase'));
-jest.mock('../emailService', () => ({
-  ...jest.requireActual('../emailService'),
-  sendPayoutNotificationEmail: jest.fn(),
-}));
 
 const DAY = 24 * 3600 * 1000;
 const isoDate = (offsetMs) => new Date(Date.now() + offsetMs).toISOString().split('T')[0];

@@ -10,18 +10,9 @@ import ExploreScreen from '../ExploreScreen';
 import SettingsScreen from '../SettingsScreen';
 import BroadcastRequest from '../BroadcastRequest';
 import DisputeForm from '../DisputeForm';
-import * as emailService from '../emailService';
 import { notifyBookingCancelled } from '../notificationService';
 
 jest.mock('../supabase', () => require('../testing/fakeSupabase'));
-jest.mock('../emailService', () => ({
-  ...jest.requireActual('../emailService'),
-  sendBookingConfirmationEmail: jest.fn(),
-  sendReviewReceivedEmail: jest.fn(),
-  sendPayoutNotificationEmail: jest.fn(),
-  sendCancellationEmail: jest.fn(),
-  sendPhotosUploadedEmail: jest.fn(),
-}));
 
 beforeEach(() => {
   db.reset(buildSeed());
@@ -160,8 +151,8 @@ describe('Admin trust & safety scenarios', () => {
     expect(db.one('bookings', { id: 'bk-done-hi' }).payout_status).toBeUndefined();
     const reasons = db.rows('admin_audit_logs', { action: 'mark_payout_paid' }).map(r => r.reason);
     expect(reasons).toEqual(expect.arrayContaining(['Marked Rs.340 as paid', 'Marked Rs.300 as paid']));
-    expect(emailService.sendPayoutNotificationEmail).toHaveBeenCalledWith('priya@test.example', expect.objectContaining({ amount: 340 }));
-    expect(emailService.sendPayoutNotificationEmail).toHaveBeenCalledWith('sunita@test.example', expect.objectContaining({ amount: 300 }));
+    // The email itself is sent by /api/notify from this row (see notifyApi.test.js).
+    expect(notesFor(IDS.priyaUser, 'payout_marked')[0].body).toMatch(/Rs\.? ?340\b/);
   });
 
   test('S28b: Payout in-app notification shows the rupee amount the sitter actually receives', async () => {
@@ -285,6 +276,7 @@ describe('Admin trust & safety scenarios', () => {
     }
   });
 
+  // /api/notify reads this notification_preferences row before emailing (notifyApi.test.js).
   test('S37: Ananya turns email off in Settings; later notifications skip email for her only', async () => {
     db.signInAs(IDS.ananya);
     render(<SettingsScreen city="Gurgaon" userName="Ananya Sharma" onBack={jest.fn()} onNav={jest.fn()} />);
@@ -299,12 +291,10 @@ describe('Admin trust & safety scenarios', () => {
     expect(db.rows('notification_preferences')).toHaveLength(1);
 
     await notifyBookingCancelled({ userId: IDS.ananya, userEmail: 'ananya@test.example', otherUserName: 'Priya', reason: 'Sick', refundAmount: 400, refundStatus: 'processed', bookingRef: 'FUR-FAR' });
-    expect(emailService.sendCancellationEmail).not.toHaveBeenCalled();
-    expect(notesFor(IDS.ananya, 'booking_cancelled')).toHaveLength(1);
-
     await notifyBookingCancelled({ userId: IDS.rohit, userEmail: 'rohit@test.example', otherUserName: 'Priya', reason: 'Sick', refundAmount: 400, refundStatus: 'processed', bookingRef: 'FUR-PAID' });
-    expect(emailService.sendCancellationEmail).toHaveBeenCalledTimes(1);
-    expect(emailService.sendCancellationEmail).toHaveBeenCalledWith('rohit@test.example', expect.anything());
+    expect(notesFor(IDS.ananya, 'booking_cancelled')).toHaveLength(1);
+    expect(notesFor(IDS.rohit, 'booking_cancelled')).toHaveLength(1);
+    expect(db.one('notification_preferences', { user_id: IDS.rohit })).toBeUndefined();
   });
 
   // --- broadcast -------------------------------------------------------------

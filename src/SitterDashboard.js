@@ -11,6 +11,9 @@ import { messagePreview } from './InboxScreen';
 import { capturePayment, releaseHold, moneyInHand, moneyCaptured, serverUnavailable } from './paymentsClient';
 import LanguageToggle from './LanguageToggle';
 import SitterRequestsFeed, { loadInvitedRequests, openInvites } from './SitterRequestsFeed';
+import StayHandover, { DailyUpdateCard, isStay, postedToday } from './StayHandover';
+import { RateBookingCard, DogHistoryLine, loadParentReviews } from './ParentReviews';
+import PetCareCard from './PetCareCard';
 
 const SERVICE_NAME_KEYS = {
   walk30: 'service_walk',
@@ -54,6 +57,9 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const [uploadingPhotosFor, setUploadingPhotosFor] = useState(null);
   const [sosFor, setSosFor] = useState(null);
   const [reportingBooking, setReportingBooking] = useState(null);
+  const [handover, setHandover] = useState(null);
+  const [stayUpdates, setStayUpdates] = useState({});
+  const [parentReviews, setParentReviews] = useState({});
 
   const loadUnreadMessages = async () => {
     if (!sitterProfile || bookings.length === 0) { setUnreadMessages([]); return; }
@@ -86,7 +92,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       if (profile) {
         const { data: bkgs } = await supabase
           .from('bookings')
-          .select('*, users(name)')
+          .select('*, users(name), pet_profiles(name)')
           .eq('sitter_id', profile.id)
           .order('created_at', { ascending: false });
         const bkgsWithContact = await Promise.all((bkgs || []).map(async (b) => {
@@ -95,6 +101,14 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           return { ...b, users: { ...b.users, phone: contact?.[0]?.phone, email: contact?.[0]?.email } };
         }));
         setBookings(bkgsWithContact);
+        setParentReviews(await loadParentReviews(bkgsWithContact.map(b => b.pet_parent_id)));
+        const stayIds = bkgsWithContact.filter(b => b.status === 'active' && isStay(b)).map(b => b.id);
+        if (stayIds.length) {
+          try {
+            const { data: ups, error: upsError } = await supabase.from('stay_updates').select('*').in('booking_id', stayIds).order('created_at', { ascending: true });
+            if (!upsError) setStayUpdates((ups || []).reduce((m, u) => { (m[u.booking_id] = m[u.booking_id] || []).push(u); return m; }, {}));
+          } catch (e) { /* stay_updates arrives with migration 038 */ }
+        }
 
         const { items } = await loadInvitedRequests(profile);
         setBroadcastRequests(openInvites(items));
@@ -291,10 +305,11 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           )}
           {b.status === 'active' && (
             <div style={notice('success')}>
-              <Icon name="walk" size={16} />
-              <span>{tr('walkInProgress')}</span>
+              <Icon name={isStay(b) ? 'boarding' : 'walk'} size={16} />
+              <span>{tr(isStay(b) ? 'stay_inProgress' : 'walkInProgress')}</span>
             </div>
           )}
+          {['pending', 'confirmed'].includes(b.status) && <DogHistoryLine reviews={parentReviews[b.pet_parent_id]} petId={b.pet_id} style={{ marginTop: 10, paddingLeft: 56 }} />}
         </div>
         <div style={{ padding: '0 16px 16px' }}>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -321,7 +336,22 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 </button>
               </div>
             )}
-            {b.status === 'confirmed' && (
+            {b.status === 'confirmed' && isStay(b) && (
+              handover?.id === b.id ? (
+                <StayHandover booking={b} mode="checkin" sitterName={sitterName()} petName={b.pet_profiles?.name}
+                  onCancel={() => setHandover(null)} onDone={() => { setHandover(null); loadData(); }} />
+              ) : (
+                <div style={{ marginTop: 12 }}>
+                  <button onClick={(e) => { e.stopPropagation(); setHandover({ id: b.id, mode: 'checkin' }); }} style={{ ...ui.primaryButton, width: '100%' }}>
+                    <Icon name="key" size={16} />{tr('stay_checkInButton')}
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); sitterCancel(b); }} style={{ ...ui.dangerButton, width: '100%', marginTop: 10 }}>
+                    {tr('sitter_cancelJob')}
+                  </button>
+                </div>
+              )
+            )}
+            {b.status === 'confirmed' && !isStay(b) && (
               <div style={{ marginTop: 12, background: color.bg, border: `1px solid ${color.line}`, borderRadius: radius.md, padding: 14 }}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                   <button onClick={() => markArrival(b, 'on_way')} disabled={!!arrival}
@@ -360,7 +390,20 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                     {tr('sos')}
                   </button>
                 )}
-                {isDropOff(b) ? (
+                {isStay(b) ? (
+                  <>
+                    <DailyUpdateCard booking={b} sitterProfile={sitterProfile} petName={b.pet_profiles?.name} parentName={b.users?.name} updates={stayUpdates[b.id]}
+                      onPosted={(u) => setStayUpdates(prev => ({ ...prev, [b.id]: [...(prev[b.id] || []), u] }))} />
+                    {handover?.id === b.id ? (
+                      <StayHandover booking={b} mode="checkout" sitterName={sitterName()} petName={b.pet_profiles?.name}
+                        onCancel={() => setHandover(null)} onDone={() => { setHandover(null); loadData(); }} />
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setHandover({ id: b.id, mode: 'checkout' }); }} style={{ ...ui.primaryButton, width: '100%', marginTop: 12 }}>
+                        <Icon name="check" size={16} />{tr('stay_checkOutButton')}
+                      </button>
+                    )}
+                  </>
+                ) : isDropOff(b) ? (
                   <div style={{ background: color.successSoft, borderRadius: radius.md, padding: 14 }}>
                     <div style={{ fontSize: font.md, fontWeight: 600, color: color.success, marginBottom: 4 }}>{tr('pickupOtpTitle')}</div>
                     <div style={{ fontSize: font.sm, color: color.text, marginBottom: 10, lineHeight: 1.5 }}>{tr('pickupOtpHint', { name: b.users?.name || tr('sitter_theParent') })}</div>
@@ -389,6 +432,10 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                 <span>{tr('photosUploaded')}</span>
               </div>
             )}
+            {b.status === 'completed' && sitterProfile && (
+              <RateBookingCard booking={b} sitterId={sitterProfile.id} existing={(parentReviews[b.pet_parent_id] || []).find(r => r.booking_id === b.id)}
+                onSaved={(r) => setParentReviews(prev => ({ ...prev, [b.pet_parent_id]: [...(prev[b.pet_parent_id] || []), r] }))} />
+            )}
             {['confirmed','active','completed'].includes(b.status) && (
               <button onClick={(e) => { e.stopPropagation(); setReportingBooking(b); }}
                 style={{ ...fullWidth, minHeight: 44, borderRadius: radius.md, border: 'none', background: 'none', color: color.muted, fontSize: font.sm, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -409,6 +456,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                     <span style={{ fontSize: font.sm, color: color.ink, fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{x.val}</span>
                   </div>
                 ))}
+                {(b.pet_ids?.length || b.pet_id) && <div style={{ marginTop: 10 }}><PetCareCard petIds={b.pet_ids?.length ? b.pet_ids : [b.pet_id]} /></div>}
               </div>
             )}
         </div>
@@ -429,6 +477,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const tierMin = prevTier ? prevTier.max : 0;
   const tierPct = tier ? Math.min(100, Math.round((completedCount - tierMin) / (tier.max - tierMin) * 100)) : 100;
   const isLive = sitterProfile?.status === 'active';
+  const stayNeedingUpdate = activeBookings.find(b => isStay(b) && !postedToday(stayUpdates[b.id]));
 
   const emptyIcon = tab === 'new' ? 'briefcase' : tab === 'upcoming' ? 'calendar' : tab === 'active' ? 'walk' : 'check';
   const emptyState = (icon, title, hint) => (
@@ -507,6 +556,18 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr(broadcastRequests.length > 1 ? 'sitter_openRequestsMany' : 'sitter_openRequestsOne', { n: broadcastRequests.length })}</div>
               <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('sitter_openRequestsHint')}</div>
+            </div>
+            <Icon name="chevronRight" size={18} color={color.muted} />
+          </button>
+        )}
+
+        {stayNeedingUpdate && tab !== 'active' && (
+          <button type="button" onClick={() => { setTab('active'); setExpanded(stayNeedingUpdate.id); }}
+            style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', background: color.warningSoft, borderRadius: radius.lg, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', border: `1px solid ${color.line}` }}>
+            <span style={{ ...ui.iconTile, width: 40, height: 40, background: color.surface, color: color.warning }}><Icon name="camera" size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr('stay_bannerOne', { pet: stayNeedingUpdate.pet_profiles?.name || tr('stay_yourPet') })}</div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('stay_bannerHint')}</div>
             </div>
             <Icon name="chevronRight" size={18} color={color.muted} />
           </button>

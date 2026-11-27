@@ -220,7 +220,8 @@ export default function BoardingHomeEditor({ details, photos, onChange, onPhotos
 
       <div style={card}>
         <label htmlFor="bhome-rules" style={{ ...cardTitle, display: 'block', marginBottom: 4 }}>{tr('bhome_field_rules')}</label>
-        <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 8 }}>{tr('bhome_rulesHint')}</div>
+        <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 6 }}>{tr('bhome_rulesHint')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: font.sm, color: color.navy, fontWeight: 600, marginBottom: 8 }}><Icon name="shield" size={15} />{tr('bhome_rulesAccept')}</div>
         <textarea id="bhome-rules" value={d.rules || ''} maxLength={RULES_MAX} placeholder={tr('bhome_rulesPlaceholder')}
           onChange={e => set('rules', e.target.value.slice(0, RULES_MAX))}
           style={{ ...ui.input, fontSize: font.md, resize: 'vertical', minHeight: 96, lineHeight: 1.6 }} />

@@ -6,9 +6,14 @@ import Icon from './ui/Icon';
 import { distanceKm, formatKm, nearestLocality, pointFor, sitterCovers } from './geo';
 import { LOCALITIES } from './data/localities';
 import { loadSavedAddresses, addressLabelText } from './AddressBook';
-import { homeSummary, isBoardingHost } from './BoardingHomeEditor';
+import { HOME_OPTIONS, homeOptionKey, homeSummary, isBoardingHost } from './BoardingHomeEditor';
+import { isSitterAvailable, toISODate } from './AvailabilityCalendar';
+import { SITTER_CARD_SELECT, toSitterCard } from './sitterCard';
+import SitterRating from './SitterRating';
+import SitterMap from './SitterMap';
 
 const BOARDING_REACH_KM = 15;
+const MAX_RANGE_DAYS = 31;
 
 const SERVICES = [
   { id: 'all', key: 'explore_filterAll', icon: 'paw' },
@@ -23,10 +28,29 @@ const SERVICE_NAME_KEYS = {
   daycare: 'service_daycare', dropin: 'service_dropin', housesit: 'service_housesit',
 };
 
+const NO_FILTERS = { dateFrom: '', dateTo: '', priceMin: '', priceMax: '', sizes: [], homeTypes: [], outdoor: [], languages: [] };
+
 const srOnly = { position:'absolute', width:1, height:1, overflow:'hidden', clip:'rect(0 0 0 0)', whiteSpace:'nowrap' };
 
-export default function ExploreScreen({ onBack, city, userLocation, onBook, onNav }) {
-  const { t: tr } = useLanguage();
+const parseISO = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+function datesBetween(from, to) {
+  if (!from) return [];
+  const start = parseISO(from), end = to && to > from ? parseISO(to) : start;
+  const out = [];
+  for (const d = new Date(start); d <= end && out.length < MAX_RANGE_DAYS; d.setDate(d.getDate() + 1)) out.push(toISODate(d));
+  return out;
+}
+
+function cityCentre(city) {
+  const list = LOCALITIES.filter(l => l.city === city);
+  if (!list.length) return { lat: 28.4595, lng: 77.0266 };
+  return { lat: list.reduce((a, l) => a + l.lat, 0) / list.length, lng: list.reduce((a, l) => a + l.lng, 0) / list.length };
+}
+
+const toggleIn = (list, v) => (list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
+
+export default function ExploreScreen({ onBack, city, userLocation, onBook, onViewProfile, isGuest, onRequireSignIn }) {
+  const { t: tr, lang } = useLanguage();
   const [sitters, setSitters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,6 +60,10 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
   const [addresses, setAddresses] = useState([]);
   const [cityId, setCityId] = useState(null);
   const [onlyMyArea, setOnlyMyArea] = useState(true);
+  const [filters, setFilters] = useState(NO_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [availability, setAvailability] = useState([]);
+  const [view, setView] = useState('list');
 
   useEffect(() => {
     let cancelled = false;
@@ -54,17 +82,20 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
   const effectiveSort = sortBy || (refPoint ? 'distance' : 'rating');
 
   const loadFavorites = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase.from('favorites').select('sitter_id').eq('pet_parent_id', user.id);
-      setFavorites(data?.map(f => f.sitter_id) || []);
-    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('favorites').select('sitter_id').eq('pet_parent_id', user.id);
+        setFavorites(data?.map(f => f.sitter_id) || []);
+      }
+    } catch (e) { /* no favourites */ }
   };
 
-  const toggleFavorite = async (sitterId) => {
+  const toggleFavorite = async (sitter) => {
+    if (isGuest) { onRequireSignIn && onRequireSignIn({ type: 'favorite', sitter, from: 'explore' }); return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
+    const sitterId = sitter.id;
     if (favorites.includes(sitterId)) {
       await supabase.from('favorites').delete().eq('sitter_id', sitterId).eq('pet_parent_id', user.id);
       setFavorites(favorites.filter(id => id !== sitterId));
@@ -83,29 +114,23 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
       if (cityRow) {
         const { data } = await supabase
           .from('sitter_profiles')
-          .select('*, users(name), sitter_services(service_type, price_paise)')
+          .select(SITTER_CARD_SELECT)
           .eq('city_id', cityRow.id)
           .eq('status', 'active');
         if (data) {
-          const mapped = data.map((s) => ({
-            id: s.id,
+          setSitters(data.map((s) => ({
+            ...toSitterCard(s, city),
             name: s.users?.name || translate('explore_sitterFallback'),
-            rating: s.rating || 5.0,
-            reviews: s.total_bookings || 0,
-            services: s.sitter_services || [],
             minPrice: s.sitter_services?.length > 0
               ? Math.min(...s.sitter_services.map(sv => sv.price_paise)) / 100
               : 299,
             bio: s.bio || '',
             lat: s.lat, lng: s.lng,
-            base_area: s.base_area || null,
             base_pincode: s.base_pincode || null,
             service_radius_km: s.service_radius_km || null,
-            provider_type: s.provider_type || 'sitter',
-            home_details: s.home_details || {},
-            emoji: (s.users?.name || 'S')[0].toUpperCase(),
-          }));
-          setSitters(mapped);
+            languages: Array.isArray(s.languages) ? s.languages : [],
+            profile: s,
+          })));
         }
       }
       setLoading(false);
@@ -113,6 +138,44 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
+
+  const days = datesBetween(filters.dateFrom, filters.dateTo);
+  const dayKey = days.join(',');
+  useEffect(() => {
+    if (!days.length || !sitters.length) { setAvailability([]); return undefined; }
+    let off = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('sitter_availability').select('*')
+          .in('sitter_id', sitters.map(s => s.id)).gte('date', days[0]).lte('date', days[days.length - 1]);
+        if (!off) setAvailability(!error && Array.isArray(data) ? data : []);
+      } catch (e) { if (!off) setAvailability([]); }
+    })();
+    return () => { off = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKey, sitters]);
+
+  const priceFor = (s) => {
+    const svc = activeService !== 'all' && activeService !== 'favorites' ? s.services.find(sv => sv.service_type === activeService) : null;
+    return svc ? svc.price_paise / 100 : s.minPrice;
+  };
+  const min = Number(filters.priceMin) || 0, max = Number(filters.priceMax) || 0;
+  const passesFilters = (s) => {
+    if (days.length) {
+      const rows = availability.filter(r => r.sitter_id === s.id);
+      if (!days.every(d => isSitterAvailable(s.profile, rows, d))) return false;
+    }
+    const p = priceFor(s);
+    if (min && p < min) return false;
+    if (max && p > max) return false;
+    const home = s.home_details || {};
+    // Matches broadcastMatching: a host who hasn't listed sizes takes any size.
+    if (filters.sizes.length && Array.isArray(home.sizes) && home.sizes.length && !filters.sizes.some(z => home.sizes.includes(z))) return false;
+    if (filters.homeTypes.length && !(isBoardingHost(s.provider_type) && filters.homeTypes.includes(home.home_type))) return false;
+    if (filters.outdoor.length && !(isBoardingHost(s.provider_type) && Array.isArray(home.outdoor) && filters.outdoor.some(o => home.outdoor.includes(o)))) return false;
+    if (filters.languages.length && !filters.languages.some(l => s.languages.includes(l))) return false;
+    return true;
+  };
 
   let filtered = sitters.map(s => {
     const reach = sitterCovers(s, refPoint);
@@ -124,9 +187,39 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
   if (activeService === 'favorites') filtered = filtered.filter(s => favorites.includes(s.id));
   else if (activeService !== 'all') filtered = filtered.filter(s => s.services.some(sv => sv.service_type === activeService));
   if (refPoint && onlyMyArea) filtered = filtered.filter(s => s.covers);
+  filtered = filtered.filter(passesFilters);
   if (effectiveSort === 'distance') filtered.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
-  else if (effectiveSort === 'rating') filtered.sort((a, b) => b.rating - a.rating);
+  else if (effectiveSort === 'rating') filtered.sort((a, b) => ((b.rating ?? 0) - (a.rating ?? 0)) || (b.reviewCount - a.reviewCount));
   else if (effectiveSort === 'price') filtered.sort((a, b) => a.minPrice - b.minPrice);
+
+  const languageLabel = (l) => { const key = 'sitterEdit_lang' + l; const v = tr(key); return v === key ? l : v; };
+  const allLanguages = [...new Set(sitters.flatMap(s => s.languages))].sort();
+  const dateLocale = lang === 'hi' ? 'hi-IN' : 'en-IN';
+  const shortDate = (iso) => parseISO(iso).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const setF = (patch) => setFilters(f => ({ ...f, ...patch }));
+
+  const chips = [];
+  if (filters.dateFrom) chips.push({ id: 'dates', label: filters.dateTo && filters.dateTo > filters.dateFrom ? tr('explore_chipFreeRange', { from: shortDate(filters.dateFrom), to: shortDate(filters.dateTo) }) : tr('explore_chipFreeOn', { date: shortDate(filters.dateFrom) }), clear: { dateFrom: '', dateTo: '' } });
+  if (min || max) chips.push({ id: 'price', label: min && max ? tr('explore_chipPrice', { min, max }) : min ? tr('explore_chipPriceMin', { n: min }) : tr('explore_chipPriceMax', { n: max }), clear: { priceMin: '', priceMax: '' } });
+  filters.sizes.forEach(z => chips.push({ id: 'size-' + z, label: tr(homeOptionKey('sizes', z)), clear: { sizes: filters.sizes.filter(x => x !== z) } }));
+  filters.homeTypes.forEach(h => chips.push({ id: 'home-' + h, label: tr(homeOptionKey('home_type', h)), clear: { homeTypes: filters.homeTypes.filter(x => x !== h) } }));
+  filters.outdoor.forEach(o => chips.push({ id: 'out-' + o, label: tr(homeOptionKey('outdoor', o)), clear: { outdoor: filters.outdoor.filter(x => x !== o) } }));
+  filters.languages.forEach(l => chips.push({ id: 'lang-' + l, label: languageLabel(l), clear: { languages: filters.languages.filter(x => x !== l) } }));
+
+  const optionGroup = (title, field, options, labelFor) => options.length > 0 && (
+    <fieldset style={{ border: 'none', margin: '0 0 18px', padding: 0 }}>
+      <legend style={{ ...ui.label, padding: 0 }}>{title}</legend>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {options.map(o => {
+          const on = filters[field].includes(o);
+          return (
+            <button key={o} type="button" aria-pressed={on} onClick={() => setF({ [field]: toggleIn(filters[field], o) })}
+              style={{ ...ui.chip(on), minHeight: 44 }}>{labelFor(o)}</button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
 
   return (
     <div style={{ ...ui.page, paddingBottom: navPadding }}>
@@ -165,6 +258,39 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
             );
           })}
         </div>
+
+        <div style={{ display:'flex', gap:8, marginBottom:12, alignItems:'center', justifyContent:'space-between' }}>
+          <button type="button" onClick={() => setShowFilters(true)} aria-haspopup="dialog"
+            style={{ ...ui.secondaryButton, minHeight:44, padding:'0 14px', fontSize:14, borderColor: chips.length ? color.navy : color.line, color: chips.length ? color.navy : color.ink }}>
+            <Icon name="filter" size={16} />{chips.length ? tr('explore_filtersCount', { n: chips.length }) : tr('explore_filters')}
+          </button>
+          <div role="group" aria-label={tr('explore_viewLabel')} style={{ display:'flex', border:`1px solid ${color.line}`, borderRadius:radius.md, overflow:'hidden', background:color.surface }}>
+            {[['list', 'explore_viewList', 'fileText'], ['map', 'explore_viewMap', 'map']].map(([id, key, icon]) => {
+              const on = view === id;
+              return (
+                <button key={id} type="button" onClick={() => setView(id)} aria-pressed={on}
+                  style={{ minHeight:44, padding:'0 14px', border:'none', background:on ? color.navy : color.surface, color:on ? '#fff' : color.text, fontSize:font.md, fontWeight:600, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6 }}>
+                  <Icon name={icon} size={16} />{tr(key)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {chips.length > 0 && (
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+            {chips.map(c => (
+              <button key={c.id} type="button" onClick={() => setF(c.clear)} aria-label={tr('explore_removeFilter', { label: c.label })}
+                style={{ minHeight:36, padding:'0 10px 0 12px', borderRadius:radius.pill, border:`1px solid ${color.navy}`, background:color.navySoft, color:color.navy, fontSize:font.sm, fontWeight:600, cursor:'pointer', fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:4 }}>
+                {c.label}<Icon name="close" size={14} />
+              </button>
+            ))}
+            <button type="button" onClick={() => setFilters(NO_FILTERS)}
+              style={{ minHeight:36, padding:'0 10px', border:'none', background:'none', color:color.navy, fontSize:font.sm, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}>
+              {tr('explore_clearAll')}
+            </button>
+          </div>
+        )}
 
         <div style={{ display:'flex', gap:6, marginBottom:16, alignItems:'center', flexWrap:'wrap' }}>
           <span style={{ fontSize:font.sm, color:color.muted, marginRight:2 }}>{tr('explore_sortLabel')}</span>
@@ -213,22 +339,31 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           </div>
         )}
 
-        {!loading && filtered.map(s => {
+        {!loading && view === 'map' && filtered.length > 0 && (
+          <SitterMap sitters={filtered} center={refPoint || cityCentre(city)} onOpen={s => (onViewProfile ? onViewProfile(s) : onBook && onBook(s))} />
+        )}
+
+        {!loading && view === 'list' && filtered.map(s => {
           const fav = favorites.includes(s.id);
           const home = isBoardingHost(s.provider_type) && (activeService === 'boarding' || s.provider_type === 'boarding') ? homeSummary(tr, s.home_details) : '';
           return (
             <div key={s.id} style={{ ...ui.card, marginBottom:12 }}>
               <div style={{ display:'flex', gap:12, alignItems:'flex-start', marginBottom:12 }}>
-                <div style={{ width:56, height:56, borderRadius:radius.md, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontSize:font.xl, fontWeight:700, flexShrink:0 }}>
-                  {s.emoji}
+                <div style={{ width:56, height:56, borderRadius:radius.md, background:color.navySoft, color:color.navy, display:'flex', alignItems:'center', justifyContent:'center', fontSize:font.xl, fontWeight:700, flexShrink:0, overflow:'hidden' }}>
+                  {s.profilePhoto ? <img src={s.profilePhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.emoji}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
                     <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:font.lg, fontWeight:700, color:color.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
+                      {onViewProfile ? (
+                        <button type="button" onClick={() => onViewProfile(s)}
+                          style={{ display:'block', maxWidth:'100%', background:'none', border:'none', padding:0, margin:0, cursor:'pointer', fontFamily:'inherit', textAlign:'left', fontSize:font.lg, fontWeight:700, color:color.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</button>
+                      ) : (
+                        <div style={{ fontSize:font.lg, fontWeight:700, color:color.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
+                      )}
                       <div style={{ fontSize:font.md, fontWeight:600, color:color.ink, marginTop:2, fontVariantNumeric:'tabular-nums' }}>{tr('explore_fromPrice', { price: Math.round(s.minPrice) })}</div>
                     </div>
-                    <button type="button" onClick={() => toggleFavorite(s.id)}
+                    <button type="button" onClick={() => toggleFavorite(s)}
                       aria-label={tr(fav ? 'explore_removeFavorite' : 'explore_addFavorite')}
                       aria-pressed={fav}
                       style={{ width:44, height:44, margin:'-10px -10px 0 0', background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center', justifyContent:'center', color: fav ? color.danger : color.faint, flexShrink:0 }}>
@@ -236,11 +371,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                     </button>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:4, fontSize:font.sm, color:color.muted }}>
-                    <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                      <Icon name="starFilled" size={13} color={color.saffron} />
-                      <span style={{ fontWeight:600, color:color.ink }}>{s.rating}</span>
-                      <span>({s.reviews})</span>
-                    </span>
+                    <SitterRating rating={s.rating} count={s.reviewCount} />
                     {s.distance != null && (
                       <span style={{ display:'flex', alignItems:'center', gap:3, fontVariantNumeric:'tabular-nums' }}>
                         <Icon name="pin" size={13} color={color.muted} />
@@ -278,6 +409,61 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
           );
         })}
       </div>
+
+      {showFilters && (
+        <div onClick={() => setShowFilters(false)} style={{ position:'fixed', inset:0, zIndex:3000, background:'rgba(21,25,42,0.45)', display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div role="dialog" aria-modal="true" aria-label={tr('explore_filtersTitle')} onClick={e => e.stopPropagation()}
+            style={{ width:'100%', maxWidth:480, maxHeight:'88vh', overflowY:'auto', boxSizing:'border-box', background:color.surface, borderRadius:'20px 20px 0 0', padding:'20px 20px calc(20px + env(safe-area-inset-bottom))', fontFamily:font.family }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, marginBottom:16 }}>
+              <h2 style={{ fontSize:font.lg, fontWeight:700, color:color.ink, margin:0 }}>{tr('explore_filtersTitle')}</h2>
+              <button type="button" onClick={() => setShowFilters(false)} aria-label={tr('common_close')}
+                style={{ width:44, height:44, borderRadius:radius.pill, border:'none', background:color.tile, color:color.text, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0 }}>
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+
+            <fieldset style={{ border:'none', margin:'0 0 18px', padding:0 }}>
+              <legend style={{ ...ui.label, padding:0 }}>{tr('explore_freeOn')}</legend>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <label style={{ fontSize:font.sm, color:color.muted }}>{tr('explore_dateFrom')}
+                  <input type="date" value={filters.dateFrom} min={toISODate(new Date())} onChange={e => setF({ dateFrom: e.target.value, dateTo: filters.dateTo && filters.dateTo < e.target.value ? '' : filters.dateTo })}
+                    style={{ ...ui.input, marginTop:4, minHeight:44 }} />
+                </label>
+                <label style={{ fontSize:font.sm, color:color.muted }}>{tr('explore_dateTo')}
+                  <input type="date" value={filters.dateTo} min={filters.dateFrom || toISODate(new Date())} disabled={!filters.dateFrom} onChange={e => setF({ dateTo: e.target.value })}
+                    style={{ ...ui.input, marginTop:4, minHeight:44 }} />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset style={{ border:'none', margin:'0 0 18px', padding:0 }}>
+              <legend style={{ ...ui.label, padding:0 }}>{tr('explore_priceRange')}</legend>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <label style={{ fontSize:font.sm, color:color.muted }}>{tr('explore_priceMin')}
+                  <input type="number" inputMode="numeric" min="0" value={filters.priceMin} onChange={e => setF({ priceMin: e.target.value.replace(/\D/g, '') })}
+                    style={{ ...ui.input, marginTop:4, minHeight:44 }} />
+                </label>
+                <label style={{ fontSize:font.sm, color:color.muted }}>{tr('explore_priceMax')}
+                  <input type="number" inputMode="numeric" min="0" value={filters.priceMax} onChange={e => setF({ priceMax: e.target.value.replace(/\D/g, '') })}
+                    style={{ ...ui.input, marginTop:4, minHeight:44 }} />
+                </label>
+              </div>
+            </fieldset>
+
+            {optionGroup(tr('explore_dogSize'), 'sizes', HOME_OPTIONS.sizes, z => tr(homeOptionKey('sizes', z)))}
+            {optionGroup(tr('explore_homeType'), 'homeTypes', HOME_OPTIONS.home_type, h => tr(homeOptionKey('home_type', h)))}
+            {optionGroup(tr('explore_outdoor'), 'outdoor', HOME_OPTIONS.outdoor, o => tr(homeOptionKey('outdoor', o)))}
+            {optionGroup(tr('explore_languages'), 'languages', allLanguages, languageLabel)}
+
+            <div style={{ display:'flex', gap:10, marginTop:4 }}>
+              <button type="button" onClick={() => setFilters(NO_FILTERS)} style={{ ...ui.secondaryButton, flex:1 }}>{tr('explore_clearAll')}</button>
+              <button type="button" onClick={() => setShowFilters(false)} style={{ ...ui.primaryButton, flex:2 }}>
+                {filtered.length === 1 ? tr('explore_showResultsOne') : tr('explore_showResults', { n: filtered.length })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -88,6 +88,51 @@ export function requestPoint(request) {
   return pointFor({ area: request?.area, pincode: request?.address_pincode });
 }
 
+// ── Boarding capacity ──────────────────────────────────────────────────────
+// A host can look after home_details.max_dogs (or sitter_profiles.max_dogs)
+// dogs a night. Requests still waiting for an answer count too, so two
+// parents can't both be promised the last spot. No limit set = no check.
+export const CAPACITY_STATUSES = ['pending', 'confirmed', 'active'];
+export const dogsOn = (b) => Number(b?.dogs) || (Array.isArray(b?.pet_ids) && b.pet_ids.length) || 1;
+export function hostCapacity(sitter) {
+  const n = Number(sitter?.home_details?.max_dogs ?? sitter?.max_dogs);
+  return n > 0 ? n : null;
+}
+
+// { 'YYYY-MM-DD': dogs already staying that night } for one host.
+export function dogsByNight(bookings, sitterId) {
+  const out = {};
+  for (const b of bookings || []) {
+    if (sitterId && b.sitter_id !== sitterId) continue;
+    if (!CAPACITY_STATUSES.includes(b.status) || !NIGHT_SERVICES.includes(b.service_type)) continue;
+    for (const d of requestDates(b.booking_date, b.end_date, b.service_type)) out[d] = (out[d] || 0) + dogsOn(b);
+  }
+  return out;
+}
+
+export function roomOn(sitter, taken, dateISO) {
+  const cap = hostCapacity(sitter);
+  return cap == null ? Infinity : Math.max(0, cap - ((taken || {})[String(dateISO).slice(0, 10)] || 0));
+}
+
+// Night bookings for these hosts between two dates, in the shape dogsByNight
+// reads. RLS hides other parents' bookings, so the security-definer RPC
+// host_nights_taken is tried first; the plain select is the fallback.
+export async function loadNightsTaken(client, sitterIds, fromISO, toISO) {
+  const ids = (sitterIds || []).filter(Boolean);
+  if (!ids.length) return [];
+  try {
+    const { data, error } = await client.rpc('host_nights_taken', { p_sitter_ids: ids, p_from: fromISO, p_to: toISO });
+    if (!error && Array.isArray(data)) {
+      return data.map(r => ({ sitter_id: r.sitter_id, booking_date: String(r.night).slice(0, 10), service_type: 'boarding', status: 'confirmed', dogs: Number(r.dogs) || 1 }));
+    }
+    const res = await client.from('bookings').select('id, sitter_id, service_type, status, booking_date, end_date, pet_ids').in('sitter_id', ids).in('status', CAPACITY_STATUSES);
+    return Array.isArray(res?.data) ? res.data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function fitsSize(sitter, size) {
   const sizes = sitter?.home_details?.sizes || sitter?.accepted_sizes;
   if (!size || !Array.isArray(sizes) || sizes.length === 0) return true;
@@ -99,12 +144,14 @@ const ratingOf = (s) => Number(s?.avg_rating ?? s?.rating ?? 0);
 // Carers who can take this request, nearest first, then best rated. A carer
 // qualifies if their own travel radius reaches the address or they are within
 // the current wave's radius. Carers with no base location are kept, last.
-export function matchCarers({ sitters, availability = [], request, radiusKm, exclude = [], ignoreAvailability = false, limit = WAVE_SIZE }) {
+export function matchCarers({ sitters, availability = [], bookings = [], request, radiusKm, exclude = [], ignoreAvailability = false, limit = WAVE_SIZE }) {
   if (!request) return [];
   const radius = radiusKm ?? waveRadius(request.wave || 1);
   const point = requestPoint(request);
   const dates = requestDates(request.scheduled_date, request.end_date, request.service_type);
   const size = request.pet_summary?.size || null;
+  const nightly = NIGHT_SERVICES.includes(request.service_type);
+  const dogs = Number(request.pet_summary?.dogs) || (Array.isArray(request.pet_ids) && request.pet_ids.length) || 1;
   const out = [];
   for (const s of sitters || []) {
     if (exclude.includes(s.id)) continue;
@@ -117,6 +164,10 @@ export function matchCarers({ sitters, availability = [], request, radiusKm, exc
       if (!dates.length || !dates.every((d, i) => isSitterAvailable(s, rows, d, i === 0 ? request.scheduled_time : null))) continue;
     }
     if (!fitsSize(s, size)) continue;
+    if (nightly && hostCapacity(s) != null) {
+      const taken = dogsByNight(bookings, s.id);
+      if (dates.some(d => roomOn(s, taken, d) < dogs)) continue;
+    }
     const cover = point ? sitterCovers(s, point) : { covers: true, km: null };
     const km = cover.km;
     const withinRadius = km != null && cover.covers;

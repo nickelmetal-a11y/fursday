@@ -16,6 +16,29 @@ export const maskAadhaar = (n) => {
   const d = String(n || '').replace(/\D/g, '');
   return d ? 'XXXX XXXX ' + d.slice(-4) : null;
 };
+// users.phone_verified_at for each sitter's account (migration 038). Before
+// 038 the column is missing, so every phone reads as not verified, which is true.
+export function usePhoneVerified(sitters) {
+  const [map, setMap] = useState({});
+  const ids = sitters.map(s => s.user_id).filter(Boolean).sort().join(',');
+  useEffect(() => {
+    if (!ids) return undefined;
+    let live = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('users').select('id, phone_verified_at').in('id', ids.split(','));
+        if (live && !error) setMap(Object.fromEntries((data || []).map(u => [u.id, u.phone_verified_at || null])));
+      } catch { /* keep "not verified" */ }
+    })();
+    return () => { live = false; };
+  }, [ids]);
+  return (s) => s.users?.phone_verified_at || map[s.user_id] || null;
+}
+
+const PhoneBadge = ({ verifiedAt }) => (verifiedAt
+  ? <Badge tone="success" icon="check">Phone verified</Badge>
+  : <Badge tone="warning" icon="alert">Phone not verified</Badge>);
+
 const daysSince = (iso) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
 const notifyUser = async (fn) => {
@@ -124,6 +147,7 @@ const chipStyle = (tone) => ({ ...ui.badge(tone), fontSize: font.sm, padding: '5
 // ── Pending review queue ─────────────────────────────────────────────────────
 export function PendingQueue({ sitters, actions }) {
   const pending = sitters.filter(s => s.status === 'pending').sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+  const phoneVerifiedAt = usePhoneVerified(pending);
   if (pending.length === 0) return <EmptyState icon="check" title="No pending applications" text="New sitter applications appear here for review." />;
   return (
     <div style={A.stack(12)}>
@@ -140,6 +164,7 @@ export function PendingQueue({ sitters, actions }) {
               </div>
               <div style={{ ...A.stack(4), alignItems: 'flex-end' }}>
                 <StatusBadge status={s.status} />
+                {phoneVerifiedAt(s) && <PhoneBadge verifiedAt={phoneVerifiedAt(s)} />}
                 {waiting >= 2 && <Badge tone="danger" icon="clock">Waiting {waiting} days</Badge>}
               </div>
             </div>
@@ -148,6 +173,7 @@ export function PendingQueue({ sitters, actions }) {
                 ? <span style={chipStyle('info')}><Icon name="shield" size={14} /> Aadhaar: {formatAadhaar(s.aadhaar_number)}</span>
                 : <span style={chipStyle('danger')}><Icon name="alert" size={14} /> No Aadhaar submitted. Ask for changes before approving.</span>}
               {s.upi_id && <span style={chipStyle('success')}><Icon name="wallet" size={14} /> UPI: {s.upi_id}</span>}
+              {!phoneVerifiedAt(s) && <span style={chipStyle('warning')}><Icon name="alert" size={14} /> Phone not verified yet. Approval still works; ask them to verify in Settings.</span>}
             </div>
             {s.bio && <div style={{ fontSize: font.md, color: color.text, lineHeight: 1.6, padding: '10px 12px', background: color.bg, borderRadius: radius.md }}>{s.bio}</div>}
             {s.sitter_services?.length > 0 && (
@@ -193,6 +219,7 @@ export default function SitterDirectory({ sitters, bookings, actions }) {
   });
   const paged = usePaged(filtered, 25, [q, status, city].join('|'));
   const open = sitters.find(s => s.id === openId) || null;
+  const phoneVerifiedAt = usePhoneVerified(open ? [open] : []);
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
 
   const columns = [
@@ -258,14 +285,14 @@ export default function SitterDirectory({ sitters, bookings, actions }) {
           <DataTable label="Sitters" columns={columns} rows={paged.visible} onRowClick={s => setOpenId(s.id)} />
           <LoadMore paged={paged} total={filtered.length} />
         </>}
-      {open && <SitterDrawer sitter={open} scorecard={cards[open.id]} bookings={bookings} actions={actions} foundingFull={foundingCount >= FOUNDING_LIMIT} onClose={() => setOpenId(null)} />}
+      {open && <SitterDrawer sitter={open} phoneVerifiedAt={phoneVerifiedAt(open)} scorecard={cards[open.id]} bookings={bookings} actions={actions} foundingFull={foundingCount >= FOUNDING_LIMIT} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
 
 const AUDIT_LABELS = { approve_sitter: 'Approved', reject_sitter: 'Rejected', suspend_sitter: 'Suspended', reinstate_sitter: 'Reinstated', toggle_top_sitter: 'Top Sitter badge changed', request_sitter_changes: 'Sent back for changes' };
 
-function SitterDrawer({ sitter: s, scorecard: sc, bookings, actions, foundingFull, onClose }) {
+function SitterDrawer({ sitter: s, phoneVerifiedAt, scorecard: sc, bookings, actions, foundingFull, onClose }) {
   const [history, setHistory] = useState(null);
   useEffect(() => {
     let live = true;
@@ -289,6 +316,7 @@ function SitterDrawer({ sitter: s, scorecard: sc, bookings, actions, foundingFul
             {s.is_top_sitter && <Badge tone="saffron" icon="star">Top Sitter</Badge>}
             {s.is_founding_sitter && <Badge tone="navy" icon="award">Founding (0% commission)</Badge>}
             {s.aadhaar_verified && <Badge tone="success" icon="shield">Aadhaar verified</Badge>}
+            <PhoneBadge verifiedAt={phoneVerifiedAt} />
           </div>
           {s.headline && <div style={{ fontSize: font.md, color: color.text }}>{s.headline}</div>}
         </div>
@@ -327,10 +355,12 @@ function SitterDrawer({ sitter: s, scorecard: sc, bookings, actions, foundingFul
       <section style={ui.card}>
         <SectionHeader title="Profile" />
         <Facts items={[
-          ['Phone', s.users?.phone || '—'], ['Email', s.users?.email || '—'], ['City', s.cities?.name || '—'],
+          ['Phone', s.users?.phone || '—'], ['Phone verified', phoneVerifiedAt ? 'Yes, ' + fmtDate(phoneVerifiedAt) : 'No'],
+          ['Email', s.users?.email || '—'], ['City', s.cities?.name || '—'],
           ['Approved', fmtDate(s.approved_at)], ['Languages', (s.languages || []).join(', ') || '—'], ['Max dogs', s.max_dogs || '—'],
         ]} />
         {s.bio && <p style={{ fontSize: font.md, color: color.text, lineHeight: 1.6, margin: '12px 0 0' }}>{s.bio}</p>}
+        {!phoneVerifiedAt && <div style={{ marginTop: 12 }}><Notice tone="warning" icon="alert">This phone number has not been verified by SMS code. Ask the sitter to verify it in Settings.</Notice></div>}
         {s.review_notes && <div style={{ marginTop: 12 }}><Notice tone="warning" icon="alert">Last review note: {s.review_notes}</Notice></div>}
       </section>
 

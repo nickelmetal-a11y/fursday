@@ -16,10 +16,6 @@ import BroadcastRequest from '../BroadcastRequest';
 import InboxScreen from '../InboxScreen';
 
 jest.mock('../supabase', () => require('../testing/fakeSupabase'));
-jest.mock('../emailService', () => {
-  const ok = () => Promise.resolve({ success: true });
-  return new Proxy({}, { get: (_t, k) => (k === '__esModule' ? true : ok) });
-});
 
 beforeEach(() => {
   localStorage.clear();

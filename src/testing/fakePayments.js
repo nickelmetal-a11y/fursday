@@ -10,7 +10,7 @@ const handler = require('../../api/payments/[action].js');
 
 const PAYMENT_COLUMNS = {
   payment_status: null, payment_id: null, payout_status: null, razorpay_order_id: null, payment_mode: null,
-  paid_at: null, captured_at: null, payout_release_at: null, released_at: null, refunded_amount_paise: 0,
+  paid_at: null, captured_at: null, payout_release_at: null, released_at: null, refunded_amount_paise: 0, tip_paise: 0,
 };
 
 export const payments = {
@@ -18,7 +18,8 @@ export const payments = {
   offline: false,
   razorpayCalls: [],
   calls: [],
-  reset() { this.migrated = true; this.offline = false; this.razorpayCalls = []; this.calls = []; },
+  orders: [],
+  reset() { this.migrated = true; this.offline = false; this.razorpayCalls = []; this.calls = []; this.orders = []; },
 };
 
 const reply = (status, body) => ({ ok: status < 400, status, text: async () => JSON.stringify(body), json: async () => body });
@@ -41,11 +42,17 @@ function razorpay(url, opts) {
   const path = url.replace('https://api.razorpay.com/v1', '');
   const body = opts.body ? JSON.parse(opts.body) : null;
   payments.razorpayCalls.push({ path, method: opts.method || 'GET', body });
-  if (path === '/orders') return reply(200, { id: 'order_' + payments.razorpayCalls.length, amount: body.amount });
+  if (path === '/orders') {
+    const order = { id: 'order_' + payments.razorpayCalls.length, amount: body.amount, notes: body.notes || {} };
+    payments.orders.push(order);
+    return reply(200, order);
+  }
+  if (path.startsWith('/orders/')) return reply(200, payments.orders.find(o => o.id === path.split('/')[2]) || {});
   if (path.endsWith('/capture')) return reply(200, { id: path.split('/')[2], status: 'captured' });
   if (path.endsWith('/refund')) return reply(200, { id: 'rfnd_' + payments.razorpayCalls.length });
-  const b = db.table('bookings').find(x => x.razorpay_order_id);
-  return reply(200, { id: path.split('/')[2], order_id: b?.razorpay_order_id, amount: b?.gross_amount_paise, status: 'authorized' });
+  // A payment is for the newest order (the checkout the scenario just opened).
+  const order = payments.orders[payments.orders.length - 1];
+  return reply(200, { id: path.split('/')[2], order_id: order?.id, amount: order?.amount, status: 'authorized' });
 }
 
 const bridge = (fallback) => async (url, opts = {}) => {
@@ -74,10 +81,17 @@ async function call(action, body) {
   return res.body;
 }
 
-export const { apiBase, PaymentsError, serverUnavailable, CHECKOUT_MODES, moneyInHand, moneyCaptured, moneyLine } = real;
-export const createOrder = (bookingId) => call('create-order', { booking_id: bookingId });
+export const {
+  apiBase, PaymentsError, serverUnavailable, CHECKOUT_MODES, moneyInHand, moneyCaptured, moneyLine,
+  TIP_MIN_RUPEES, TIP_MAX_RUPEES, CANCELLATION_POLICIES, policyOf, refundPercentFor,
+} = real;
+const ids = (bookingIds) => (Array.isArray(bookingIds) ? { booking_ids: bookingIds } : { booking_id: bookingIds });
+export const createOrder = (bookingIds) => call('create-order', ids(bookingIds));
 export const verifyPayment = (bookingId, rz) => call('verify', { booking_id: bookingId, ...rz });
-export const simulatePayment = (bookingId) => call('simulate', { booking_id: bookingId });
+export const simulatePayment = (bookingIds) => call('simulate', ids(bookingIds));
+export const startTip = (bookingId, amountPaise) => call('tip', { booking_id: bookingId, amount_paise: amountPaise });
+export const verifyTip = (bookingId, rz) => call('verify', { booking_id: bookingId, purpose: 'tip', ...rz });
+export const simulateTip = (bookingId, amountPaise) => call('simulate', { booking_id: bookingId, purpose: 'tip', amount_paise: amountPaise });
 export const capturePayment = (bookingId) => call('capture', { booking_id: bookingId });
 export const releaseHold = (bookingId, reason) => call('release-hold', { booking_id: bookingId, reason });
 export const cancelBooking = (bookingId, reason) => call('cancel', { booking_id: bookingId, reason });
