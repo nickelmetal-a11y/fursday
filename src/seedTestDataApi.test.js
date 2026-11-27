@@ -83,7 +83,7 @@ test('refuses a signed-in non-admin and changes nothing', async () => {
 test('pune step creates only @example.com accounts with sitters, pets and bookings; a second run reuses them', async () => {
   const res = await run('pune');
   expect(res.statusCode).toBe(200);
-  expect(createdAuth).toHaveLength(8);
+  expect(createdAuth).toHaveLength(9);
   expect(createdAuth.every(e => e.endsWith('@example.com'))).toBe(true);
   const puneSitters = db.sitter_profiles.filter(s => s.city_id === 'c-pune');
   expect(puneSitters).toHaveLength(5);
@@ -93,15 +93,15 @@ test('pune step creates only @example.com accounts with sitters, pets and bookin
   expect(host).toMatchObject({ base_area: 'Wakad', status: 'active', home_details: expect.objectContaining({ home_type: 'independent_house', max_dogs: 2 }) });
   expect(host.home_photos).toHaveLength(3);
   expect(puneSitters.filter(s => s.provider_type === 'sitter')).toHaveLength(4);
-  expect(db.pet_profiles).toHaveLength(3);
-  expect(db.bookings).toHaveLength(6);
+  expect(db.pet_profiles).toHaveLength(4);
+  expect(db.bookings).toHaveLength(8);
   expect(db.bookings.every(b => b.city_id === 'c-pune' && b.address_area)).toBe(true);
 
   createdAuth = [];
   await run('pune');
   expect(createdAuth).toHaveLength(0);
   expect(db.sitter_profiles.filter(s => s.city_id === 'c-pune')).toHaveLength(5);
-  expect(db.bookings).toHaveLength(6);
+  expect(db.bookings).toHaveLength(8);
 });
 
 test('profiles step enriches TEST sitters only, never a real customer', async () => {
