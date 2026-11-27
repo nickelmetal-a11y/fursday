@@ -129,6 +129,10 @@ Android: the Windows session is installing Android Studio + a JDK locally (user 
 | Feedback tab + admin inbox | FeedbackTab.js, AdminFeedback.js, migration 037 | 🟡 Live, needs 037 |
 | Boarding-only hosts | BoardingHomeEditor.js, SitterOnboarding.js, SitterEditProfile.js, SitterProfile.js | 🟡 Live, needs 037 |
 | Smart nearby requests | BroadcastRequest.js, broadcastMatching.js, SitterRequestsFeed.js | 🟡 Live, needs 037 |
+| Visitor browsing, reviews, share links, map | App.js, SitterProfile.js, ExploreScreen.js, SitterMap.js | 🟡 Live, 038 for share slugs |
+| Host pro tools, stays, two-way reviews | HostSettings.js, StayHandover.js, ParentReviews.js | 🟡 Live, needs 038 |
+| Parent pro booking, chat before booking, tips | BookingFlow.js, pricing.js, ConversationScreen.js, TipSheet.js | 🟡 Live, needs 038 |
+| Email/push alerts, phone verification | api/notify.js, PhoneVerify.js | 🟡 Live, needs 038 + Firebase/Twilio |
 | Pay at booking, held payouts | api/payments/[action].js, _lib.js, paymentsClient.js, PaymentScreen.js | 🟡 Live, simulated only until Razorpay keys + 037 |
 
 ---
@@ -315,6 +319,18 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - A city the person picks by hand in the Home location sheet wins over GPS (stored as `fursday_city_manual`). "Use my current location" clears that choice.
 - Bounds are wider: NCR is lat 28.2–29.0, lng 76.7–77.7; Pune is lat 18.35–18.8, lng 73.6–74.2. Keep `CITY_CONFIG` (App.js) and `ALLOWED_REGIONS` (geolocationService.js) in sync.
 - **The IP gate only hard-blocks non-India IPs.** Indian mobile IPs often geolocate to the wrong city (Pune Jio shows as Mumbai). Being outside the service area is decided by GPS and shown as the soft "outside city" notice.
+
+## 🚀 PRO BUILD (Phase 0, commit `b3bf836`, 2026-11-27)
+**Migration `038_pro_parent_host_discovery.sql` must be run on prod** (after 037). Code works before it (fallbacks).
+- **Visitors:** no login gate. Home/Explore/SitterProfile work signed out; booking, requests, chat, favourites store a `pendingAction` in App.js, show LoginScreen, then resume. Ratings come from `review_count`/`avg_rating` (`src/sitterCard.js`, `SitterRating.js`): 0 reviews = "New" (prod defaults avg_rating to 5.00). Share links `/s/<share_slug>` (vercel.json rewrite; `ShareProfileCard` in Edit Profile). Explore filters + lazy Leaflet map (`SitterMap.js`, pins at locality centre; sitters without `base_area` aren't pinned). No GPS claims anywhere (no tracking exists).
+- **Hosts:** `HostSettings.js` (pricing_rules, cancellation_policy flexible/moderate/strict, instant_book, requires_vaccination). `StayHandover.js` check-in/out + daily `stay_updates`; `StayTimeline.js` for parents; `ParentReviews.js` (hosts rate parents/dogs, dog history). Yearly statement in SitterEarningsDashboard.
+- **Pricing:** `src/pricing.js` `priceFor` must stay identical to `HostSettings.stayPrice` (test checks 864 combos): night = arrival date, weekend = Fri/Sat nights, weekend+holiday takes the larger surcharge, extra dogs get extra_dog_pct off, long stay off all dogs, then puppy extra, then pickup fee, round at end.
+- **Parents:** capacity via RPC `host_nights_taken`; several pets (`pet_ids`, `pet_id` = first); 60-day calendar; weekly plans (`booking_series` + N bookings, one `createOrder([ids])`, accepting one booking of a paid group captures all); meet & greet (`service_type 'meet_greet'`, free); vaccination/house-rules checks; pet health fields; `ConversationScreen` (pre-booking chat on `conversations`/`conversation_messages`); `TipSheet` (tips 100% to sitter).
+- **Alerts:** `createNotification` inserts with a client-made id, then POSTs `/api/notify` → Resend email (important types, `email_enabled`, reply-to support@fursday.in) and FCM push when `FIREBASE_SERVICE_ACCOUNT` is set. emailService/smsService deleted. Reminders run in the daily sweep (cron 12:30 UTC = 18:00 IST).
+- **Phone:** `PhoneVerify.js` (Supabase phone OTP, `phone_change`), badge in Settings + admin; `users.phone_verified_at` synced from auth.users by trigger. Needs Twilio Verify in Supabase → Auth → Phone.
+- **Mailboxes (owner, 2026-11-27):** support@fursday.in (support, grievance contact, email reply-to) and admin@fursday.in exist.
+- **Owner setup still open:** CRON_SECRET, FIREBASE_SERVICE_ACCOUNT (+ google-services.json / GoogleService-Info.plist + APNs key), RESEND_API_KEY on the Vercel project, Twilio Verify in Supabase, Razorpay keys. The Mac session's push registration (pushNotifications.js, migration 036) is now committed.
+- **Known gaps:** paused weekly plans still show visits to the sitter; promo applies to the first visit of a plan only; notifications insert policy is open (`with check (true)`); `@capacitor/*` audit advisory (bump to ≥8.4.3) undecided.
 
 ## 🧩 FIVE FEATURES (Phase 0, commit `1f29fcb`, 2026-11-27)
 **Migration `037_feedback_boarding_requests_held_payments.sql` must be run on prod.** All code works before it (fallbacks via `schemaFallback.js` and per-screen retries).
