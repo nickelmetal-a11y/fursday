@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { supabase } from './supabase';
 import { color, font, ui } from './theme';
 import Icon from './ui/Icon';
-import { payoutGroups } from './adminInsights';
+import { payoutGroups, payoutBucket, payoutBaseRs, sitterKeepRate } from './adminInsights';
 import { logPayoutMarkedPaid } from './auditService';
-import { A, Badge, EmptyState, KpiTile, SearchBox, Toolbar, ConfirmDialog, rs, rsPaise, serviceLabel } from './AdminUI';
+import { A, Badge, EmptyState, KpiTile, SearchBox, Toolbar, ConfirmDialog, Notice, SectionHeader, rs, rsPaise, serviceLabel, fmtDateTime } from './AdminUI';
+import { runReleaseCheck } from './paymentsClient';
 
 // Marks completed jobs as paid out, logs each one, then tells the sitter once
 // with the total. `items` is [{ id, amount }] with amount in rupees (net).
@@ -35,10 +36,60 @@ export async function markPayoutsPaid(items) {
   return { total };
 }
 
+// Payouts that are not payable yet: still inside the 24h-after-service hold,
+// or paused because the parent reported a problem.
+function WaitingList({ title, subtitle, rows, sitterById, action }) {
+  if (!rows.length) return null;
+  return (
+    <section aria-label={title} style={{ ...ui.card, padding: 0, overflow: 'hidden' }}>
+      <div style={{ padding: 16, borderBottom: `1px solid ${color.line}` }}><SectionHeader title={title + ' (' + rows.length + ')'} subtitle={subtitle} /></div>
+      {rows.map((b, i) => {
+        const sitter = sitterById[b.sitter_id];
+        return (
+          <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 16px', borderTop: i ? `1px solid ${color.line}` : 'none', background: i % 2 ? color.bg : color.surface }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: font.md, fontWeight: 600 }}>{b.booking_ref} · {sitter?.users?.name || 'Unknown sitter'}</div>
+              <div style={A.muted}>{serviceLabel(b.service_type)} · {b.booking_date || '—'} · {b.payout_status === 'on_hold' ? 'releases ' + fmtDateTime(b.payout_release_at) : 'parent reported a problem'}</div>
+            </div>
+            <div style={{ ...A.row(12), flexWrap: 'nowrap' }}>
+              <span style={{ fontSize: font.md, fontWeight: 600, ...A.num }}>{rs(Math.round(payoutBaseRs(b) * sitterKeepRate(sitter)))}</span>
+              {action && action(b)}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export default function AdminPayouts({ bookings, sitters, showMsg, onChanged }) {
   const [query, setQuery] = useState('');
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [check, setCheck] = useState(null);
+  const sitterById = Object.fromEntries(sitters.map(s => [s.id, s]));
+  const onHold = bookings.filter(b => payoutBucket(b) === 'on_hold').sort((a, b) => String(a.payout_release_at).localeCompare(String(b.payout_release_at)));
+  const disputed = bookings.filter(b => payoutBucket(b) === 'disputed');
+
+  const releaseCheck = async () => {
+    setBusy(true);
+    try {
+      const r = await runReleaseCheck();
+      setCheck({ tone: r.errors?.length ? 'warning' : 'success', text: 'Release check done: ' + r.released + ' ready to pay, ' + r.disputed + ' paused for a dispute, ' + r.voided + ' unanswered holds released' + (r.captured ? ', ' + r.captured + ' captured' : '') + '.' + (r.errors?.length ? ' Problems: ' + r.errors.join('; ') : '') + (r.note ? ' ' + r.note : '') });
+      onChanged();
+    } catch (e) { setCheck({ tone: 'danger', text: 'Release check failed: ' + e.message }); }
+    setBusy(false);
+  };
+
+  // The admin decides a disputed payout after looking into it (Disputes tab).
+  const releaseDisputed = async (b) => {
+    setBusy(true);
+    const { error } = await supabase.from('bookings').update({ payout_status: 'ready', released_at: new Date().toISOString() }).eq('id', b.id);
+    setBusy(false);
+    if (error) { showMsg('Could not release: ' + error.message, 'error'); return; }
+    showMsg('Payout moved to Ready ✓');
+    onChanged();
+  };
 
   const groups = payoutGroups(bookings, sitters);
   const jobs = groups.reduce((a, g) => a + g.items.length, 0);
@@ -62,7 +113,15 @@ export default function AdminPayouts({ bookings, sitters, showMsg, onChanged }) 
         <KpiTile label="Payouts pending" value={jobs} />
         <KpiTile label="Total due to sitters" value={rs(totalDue)} tone={totalDue ? 'warning' : undefined} />
         <KpiTile label="Sitters to pay" value={groups.length} />
+        <KpiTile label="On hold (not due yet)" value={onHold.length} />
+        <KpiTile label="Disputed" value={disputed.length} tone={disputed.length ? 'danger' : undefined} />
       </div>
+      <div style={A.row(12)}>
+        <button onClick={releaseCheck} disabled={busy} style={A.secondary}><Icon name="refresh" size={16} />Run release check</button>
+        <span style={A.muted}>Runs daily on its own. Moves payouts to Ready 24h after a completed service, unless the parent reported a problem.</span>
+      </div>
+      {check && <Notice tone={check.tone} icon={check.tone === 'success' ? 'check' : 'alert'}>{check.text}</Notice>}
+      <SectionHeader title="Ready to pay" subtitle="Pay the sitter's UPI, then mark paid. Only Ready payouts can be marked paid." />
       {groups.length > 0 && (
         <Toolbar>
           <SearchBox label="Search payouts by sitter" value={query} onChange={setQuery} placeholder="Search sitter name or UPI" />
@@ -116,6 +175,10 @@ export default function AdminPayouts({ bookings, sitters, showMsg, onChanged }) 
           Only do this after you have sent {rs(confirm.total)} to {confirm.sitter?.users?.name || 'this sitter'}{confirm.sitter?.upi_id ? ' (UPI ' + confirm.sitter.upi_id + ')' : ''}. They get one notification for the total.
         </ConfirmDialog>
       )}
+
+      <WaitingList title="Disputed" subtitle="Paused because the parent reported a problem. Release once the Disputes tab is settled." rows={disputed} sitterById={sitterById}
+        action={(b) => <button onClick={() => releaseDisputed(b)} disabled={busy} style={A.small}>Release to Ready</button>} />
+      <WaitingList title="On hold" subtitle="Held until 24 hours after the service. Not payable yet." rows={onHold} sitterById={sitterById} />
     </div>
   );
 }

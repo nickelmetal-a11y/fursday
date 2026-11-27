@@ -8,6 +8,7 @@ import PaymentScreen from '../PaymentScreen';
 import App from '../App';
 
 jest.mock('../supabase', () => require('../testing/fakeSupabase'));
+jest.mock('../paymentsClient', () => require('../testing/fakePayments'));
 jest.mock('../geolocationService', () => ({
   checkLocationRestriction: () => Promise.resolve({ allowed: true, ip: '127.0.0.1' }),
   getLocationRestrictedMessage: () => 'Coming soon to your area',
@@ -32,6 +33,8 @@ beforeEach(() => {
 
 afterEach(() => {
   global.Date = RealDate;
+  delete process.env.RAZORPAY_KEY_ID;
+  delete process.env.RAZORPAY_KEY_SECRET;
 });
 
 const PRIYA_FROM_EXPLORE = {
@@ -109,6 +112,9 @@ describe('Parent money scenarios', () => {
     expect(policyText).toMatch(/Your refund\s*₹400/);
     expect(confirmText).toContain('₹400');
     expect(row.refund_amount_paise).toBe(40000);
+    // The refund itself is recorded by the payments server, never by the app.
+    expect(row).toMatchObject({ payment_status: 'refunded', refunded_amount_paise: 40000 });
+    expect(db.rows('payment_events', { booking_id: 'bk-far', kind: 'refunded' })).toHaveLength(1);
   });
 
   test('S1: the quick "Cancel booking" button on the card applies the same refund policy', async () => {
@@ -142,6 +148,8 @@ describe('Parent money scenarios', () => {
   });
 
   test('S2: PaymentScreen says "unsuccessful" on the first failure and "failed again" only after a retry', async () => {
+    process.env.RAZORPAY_KEY_ID = 'rzp_test_s2';
+    process.env.RAZORPAY_KEY_SECRET = 's2-secret';
     db.signInAs(IDS.rohit);
     const instances = [];
     window.Razorpay = function FakeRazorpay(options) {
@@ -156,7 +164,7 @@ describe('Parent money scenarios', () => {
     render(<PaymentScreen city="Gurgaon" onBack={jest.fn()} onSuccess={jest.fn()}
       booking={{ service: b.service_type, amount: b.gross_amount_paise, ref: b.booking_ref, id: b.id }} />);
 
-    fireEvent.click(screen.getByText('Pay Rs.400 securely'));
+    fireEvent.click(await screen.findByText('Pay Rs.400 securely'));
     expect(instances[0].options.amount).toBe(40000);
     await act(async () => { await instances[0].handlers['payment.failed']({ error: { description: 'Bank declined' } }); });
     expect(screen.getByText('Payment unsuccessful')).toBeInTheDocument();
@@ -361,7 +369,12 @@ describe('Parent money scenarios', () => {
     fireEvent.click(screen.getByText('Request a walker'));
     fireEvent.click(screen.getByText('Continue →'));
     await screen.findByText('Pick a time');
-    fireEvent.click(screen.getAllByText(String(new Date(Date.now() + 86400000).getDate()))[0]);
+    await new Promise(r => setTimeout(r, 30));
+    // Skip Priya's days off (Mon–Fri only) so this passes on any weekday.
+    const d = new Date(Date.now() + 86400000);
+    const tileFor = (date) => screen.getAllByText(String(date.getDate()))[0].closest('[role="button"]');
+    while (tileFor(d).getAttribute('aria-disabled') === 'true') d.setDate(d.getDate() + 1);
+    fireEvent.click(tileFor(d));
     fireEvent.click(screen.getByText('7:00 AM'));
     fireEvent.click(screen.getByText('Continue →'));
     fireEvent.click(await screen.findByText('Bruno'));

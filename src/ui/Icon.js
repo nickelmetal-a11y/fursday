@@ -70,6 +70,11 @@ const P = {
   trendDown: <><path d="M3 7l6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>,
   award: <><circle cx="12" cy="9" r="6" /><path d="M8.5 13.9L7 22l5-3 5 3-1.5-8.1" /></>,
   inbox: <><path d="M3 13h5l2 3h4l2-3h5" /><path d="M5 5h14l2 8v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z" /></>,
+  bulb: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 00-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0012 3z" /></>,
+  sparkle: <><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z" /></>,
+  tree: <><path d="M12 3l6 8h-3l4 6H5l4-6H6z" /><path d="M12 17v4" /></>,
+  bed: <><path d="M3 18V7M3 13h18v5M21 18v-5a3 3 0 00-3-3h-7v3" /><circle cx="7" cy="10.5" r="1.5" /></>,
+  snowflake: <><path d="M12 2v20M4 7l16 10M4 17L20 7" /><path d="M9.5 4l2.5 2 2.5-2M9.5 20l2.5-2 2.5 2" /></>,
 };
 
 export default function Icon({ name, size = 22, color = 'currentColor', strokeWidth = 1.75, style, title }) {

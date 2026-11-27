@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
+import { payoutBucket } from './adminInsights';
 
 const DAY = 24 * 60 * 60 * 1000;
 const money = { fontVariantNumeric: 'tabular-nums' };
@@ -28,9 +29,9 @@ export default function SitterEarningsDashboard({ city, onBack }) {
         setIsFoundingSitter(!!sitterProfile.is_founding_sitter);
         const { data: bookings, error } = await supabase
           .from('bookings')
-          .select('id, gross_amount_paise, sitter_payout_paise, created_at, completed_at, booking_date, status, payout_status')
+          .select('*')
           .eq('sitter_id', sitterProfile.id)
-          .eq('status', 'completed')
+          .in('status', ['confirmed', 'active', 'completed'])
           .order('created_at', { ascending: false });
         if (error) throw error;
         // Earnings come from the sitter's own price, never reduced by a parent's promo code.
@@ -38,12 +39,14 @@ export default function SitterEarningsDashboard({ city, onBack }) {
           const basePaise = b.sitter_payout_paise || b.gross_amount_paise || 0;
           return {
             id: b.id,
+            completed: b.status === 'completed',
             when: new Date(b.completed_at || b.booking_date || b.created_at),
+            releaseAt: b.payout_release_at ? new Date(b.payout_release_at) : null,
             bookingRs: basePaise / 100,
             earnedRs: Math.floor(basePaise * keepRate) / 100,
-            paidOut: b.payout_status === 'paid',
+            bucket: payoutBucket(b),
           };
-        }));
+        }).filter(r => r.completed || r.bucket));
       } catch (e) {
         console.error('Error loading earnings:', e);
         setLoadError(true);
@@ -74,12 +77,16 @@ export default function SitterEarningsDashboard({ city, onBack }) {
   );
 
   const now = Date.now();
-  const filtered = rows.filter(r => timeFilter === 'all' || (now - r.when) <= (timeFilter === 'month' ? 30 : 7) * DAY);
+  const done = rows.filter(r => r.completed);
+  const waiting = rows.filter(r => ['on_hold', 'disputed'].includes(r.bucket)).sort((a, b) => (a.releaseAt || 0) - (b.releaseAt || 0));
+  const filtered = done.filter(r => timeFilter === 'all' || (now - r.when) <= (timeFilter === 'month' ? 30 : 7) * DAY);
   const sum = (list) => list.reduce((a, r) => a + r.earnedRs, 0);
-  const total = sum(rows);
-  const pending = sum(rows.filter(r => !r.paidOut));
-  const paidOut = sum(rows.filter(r => r.paidOut));
-  const monthly = Object.entries(rows.reduce((m, r) => {
+  const total = sum(done);
+  const upcoming = sum(waiting);
+  const ready = sum(rows.filter(r => r.bucket === 'ready'));
+  const paidOut = sum(rows.filter(r => r.bucket === 'paid'));
+  const BADGE = { paid: ['success', 'earn_statusPaidOut'], ready: ['warning', 'earn_statusReady'], on_hold: ['info', 'earn_statusOnHold'], disputed: ['danger', 'earn_statusDisputed'] };
+  const monthly = Object.entries(done.reduce((m, r) => {
     const k = r.when.toLocaleString(locale, { month: 'short', year: 'numeric' });
     m[k] = (m[k] || 0) + r.earnedRs; return m;
   }, {}));
@@ -110,13 +117,14 @@ export default function SitterEarningsDashboard({ city, onBack }) {
               <div style={{ ...money, fontSize: font.xxl, fontWeight: 700, color: color.ink, letterSpacing: -0.3 }}>{rs(total)}</div>
             </div>
           </div>
-          <div style={{ fontSize: font.sm, color: color.success, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={14} /> {tr('earn_walksCount', { n: rows.length })}</div>
+          <div style={{ fontSize: font.sm, color: color.success, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={14} /> {tr('earn_walksCount', { n: done.length })}</div>
         </div>
 
         <h2 style={{ ...heading, marginTop: 4 }}>{tr('earn_payoutStatus')}</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10, marginBottom: 8 }}>
           {[
-            { label: tr('earn_pendingPayout'), val: pending, tone: 'warning', icon: 'clock' },
+            { label: tr('earn_upcoming'), val: upcoming, tone: 'info', icon: 'lock' },
+            { label: tr('earn_ready'), val: ready, tone: 'warning', icon: 'clock' },
             { label: tr('earn_paidOut'), val: paidOut, tone: 'success', icon: 'check' },
           ].map(tile => (
             <div key={tile.tone} style={{ ...ui.card, padding: 14, minWidth: 0 }}>
@@ -128,7 +136,24 @@ export default function SitterEarningsDashboard({ city, onBack }) {
             </div>
           ))}
         </div>
-        <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6, margin: '0 2px 16px' }}>{tr('earn_payoutExplain')}</div>
+        <div style={{ fontSize: font.sm, color: color.muted, lineHeight: 1.6, margin: '0 2px 16px' }}>{tr('earn_holdExplain')}</div>
+
+        {waiting.length > 0 && (
+          <div style={card}>
+            <h2 style={heading}><Icon name="lock" size={17} color={color.navy} />{tr('earn_upcomingTitle')}</h2>
+            {waiting.map((r, idx) => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: idx ? `1px solid ${color.line}` : 'none' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ ...money, fontSize: font.md, fontWeight: 600, color: color.ink }}>{r.when.toLocaleDateString(locale)}</div>
+                  <div style={{ fontSize: font.sm, color: r.bucket === 'disputed' ? color.danger : color.muted, marginTop: 2 }}>
+                    {r.bucket === 'disputed' ? tr('earn_underReview') : r.releaseAt ? tr('earn_releasesOn', { date: r.releaseAt.toLocaleString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) }) : tr('earn_statusOnHold')}
+                  </div>
+                </div>
+                <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.ink, flexShrink: 0 }}>{rs(r.earnedRs)}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={card}>
           <h2 style={heading}><Icon name="calendar" size={17} color={color.navy} />{tr('earn_monthly')}</h2>
@@ -166,7 +191,7 @@ export default function SitterEarningsDashboard({ city, onBack }) {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ ...money, fontSize: font.md, fontWeight: 700, color: color.ink }}>{rs(r.earnedRs)}</div>
-                  <span style={{ ...ui.badge(r.paidOut ? 'success' : 'warning'), marginTop: 4 }}>{tr(r.paidOut ? 'earn_statusPaidOut' : 'earn_statusPending')}</span>
+                  <span style={{ ...ui.badge((BADGE[r.bucket] || BADGE.ready)[0]), marginTop: 4 }}>{tr((BADGE[r.bucket] || BADGE.ready)[1])}</span>
                 </div>
               </div>
             ))}

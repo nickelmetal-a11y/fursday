@@ -8,6 +8,7 @@ import ReviewModal from './ReviewModal';
 import CancellationPolicyModal from './CancellationPolicyModal';
 import ReceiptModal from './ReceiptModal';
 import DisputeForm from './DisputeForm';
+import { moneyLine, moneyInHand, moneyCaptured } from './paymentsClient';
 
 const SERVICE_NAME_KEYS = {
   walk30: 'service_walk',
@@ -31,6 +32,10 @@ const PAYMENT_STATUS_KEYS = {
   pending: 'bookings_paymentPending',
   refunded: 'bookings_paymentRefunded',
   failed: 'bookings_paymentFailed',
+  authorized: 'bookings_paymentAuthorized',
+  held: 'bookings_paymentHeld',
+  voided: 'bookings_paymentVoided',
+  partially_refunded: 'bookings_paymentPartRefunded',
 };
 
 export default function BookingsDashboard({ onBack, city, onViewReport, onReview, onPayNow, onMessage, onNav }) {
@@ -233,7 +238,10 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
           const sitterName = b.sitter_profiles && b.sitter_profiles.users ? b.sitter_profiles.users.name : tr('bookings_sitterFallback');
           const sitterPhone = b.sitter_profiles && b.sitter_profiles.users ? b.sitter_profiles.users.phone : '';
           const sitterRating = b.sitter_profiles ? b.sitter_profiles.rating : null;
-          const needsPayment = b.status === 'confirmed' && b.payment_status !== 'paid';
+          const needsPayment = b.status === 'confirmed' && !moneyInHand(b);
+          // A request whose checkout was started but not finished can still be paid.
+          const unfinishedCheckout = b.status === 'pending' && !moneyInHand(b) && !!b.razorpay_order_id;
+          const money = moneyLine(b, tr, sitterName);
           const accent = b.status === 'active' ? color.success : needsPayment ? color.navy : null;
 
           return (
@@ -274,19 +282,25 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
                     <span style={{ fontSize:font.sm, color:color.warning, fontWeight:600 }}>{tr('bookings_waitingForAccept', { name: sitterName })}</span>
                   </div>
                 )}
+                {money && (
+                  <div role="status" style={{ marginTop:10, background:color[money.tone + 'Soft'] || color.tile, borderRadius:radius.md, padding:'9px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                    <Icon name={money.icon} size={15} color={color[money.tone]} />
+                    <span style={{ fontSize:font.sm, color:color[money.tone], fontWeight:600, lineHeight:1.4 }}>{money.text}</span>
+                  </div>
+                )}
                 {['pending','confirmed'].includes(b.status) && (
                   <button type="button" onClick={(e) => { e.stopPropagation(); setCancellingBooking(b); }}
                     style={{ ...ui.dangerButton, marginTop:10, width:'100%', border:`1px solid ${color.line}` }}>
                     {tr('bookings_cancelBooking')}
                   </button>
                 )}
-                {needsPayment && (
+                {(needsPayment || unfinishedCheckout) && (
                   <button type="button" onClick={(e) => { e.stopPropagation(); onPayNow && onPayNow(b); }}
                     style={{ ...ui.primaryButton, marginTop:8, width:'100%', fontSize:14 }}>
-                    {tr('bookings_payNowCta', { name: sitterName, amount: Math.round((b.gross_amount_paise||0)/100) })}
+                    {tr(needsPayment ? 'bookings_payNowCta' : 'bookings_finishPaymentCta', { name: sitterName, amount: Math.round((b.gross_amount_paise||0)/100) })}
                   </button>
                 )}
-                {b.status === 'confirmed' && b.payment_status === 'paid' && b.start_otp && (
+                {b.status === 'confirmed' && moneyCaptured(b) && b.start_otp && (
                   <div onClick={(e) => e.stopPropagation()} style={{ marginTop:12, background:color.navySoft, borderRadius:radius.md, padding:'12px 14px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, color:color.ink, marginBottom:4 }}>
                       <Icon name="key" size={16} color={color.navy} />

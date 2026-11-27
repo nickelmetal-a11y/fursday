@@ -6,6 +6,7 @@ import {
   A, Badge, StatusBadge, EmptyState, DataTable, SearchBox, Toolbar, usePaged, LoadMore, Drawer, Facts, Notice,
   SectionHeader, ConfirmDialog, TONE, rsPaise, fmtDateTime, serviceLabel, humanize,
 } from './AdminUI';
+import { cancelBooking as cancelOnServer, moneyInHand, serverUnavailable } from './paymentsClient';
 
 const rs = rsPaise;
 const STATUSES = ['all', 'pending', 'confirmed', 'active', 'completed', 'cancelled'];
@@ -76,17 +77,27 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
     const why = reason.trim();
     if (!why) return;
     setBusy(true);
-    const paid = b.payment_status === 'paid';
-    const { error } = await supabase.from('bookings').update({
-      status: 'cancelled', cancellation_reason: 'Fursday: ' + why, cancelled_at: new Date().toISOString(),
-      refund_percentage: paid ? 100 : 0, refund_amount_paise: paid ? (b.gross_amount_paise || 0) : 0,
-    }).eq('id', b.id);
+    const paid = moneyInHand(b);
+    // The server refunds held money through Razorpay. If it can't be reached the
+    // cancellation is still recorded, and the refund must be sent by hand.
+    let error = null, manual = false;
+    if (paid) {
+      try { manual = (await cancelOnServer(b.id, 'Fursday: ' + why)).outcome === 'refund_manual'; }
+      catch (e) { if (serverUnavailable(e)) manual = null; else error = e; }
+    }
+    if (!paid || manual === null) {
+      ({ error } = await supabase.from('bookings').update({
+        status: 'cancelled', cancellation_reason: 'Fursday: ' + why, cancelled_at: new Date().toISOString(),
+        refund_percentage: paid ? 100 : 0, refund_amount_paise: paid ? (b.gross_amount_paise || 0) : 0,
+      }).eq('id', b.id));
+      manual = paid;
+    }
     setBusy(false); setDialog(null); setReason('');
     if (error) { setMsg({ tone: 'danger', text: 'Could not cancel: ' + error.message }); return; }
     await notify(b.pet_parent_id, 'booking_cancelled', 'Fursday cancelled booking ' + b.booking_ref, why + (paid ? ' You will get a full refund.' : ''));
     await notify(sitterUserId(b), 'booking_cancelled', 'Fursday cancelled booking ' + b.booking_ref, why);
     await audit('admin_cancel_booking', b.id, why, { refund_paise: paid ? b.gross_amount_paise : 0 });
-    done('Cancelled' + (paid ? ' with a full refund of ' + rs(b.gross_amount_paise) : ''));
+    done('Cancelled' + (paid ? ' with a full refund of ' + rs(b.gross_amount_paise) + (manual ? '. Send the refund by hand: the payment could not be refunded automatically' : '') : ''));
   };
 
   const reassign = async (b) => {
@@ -161,13 +172,14 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
           <div style={A.row(6)}>
             <StatusBadge status={open.status} />
             <Badge tone={TONE[open.payment_status || 'unpaid'] || 'neutral'}>{'Payment ' + (open.payment_status || 'unpaid')}</Badge>
-            <Badge tone={open.payout_status === 'paid' ? 'success' : 'neutral'}>{'Payout ' + (open.payout_status || 'pending')}</Badge>
+            <Badge tone={open.payout_status === 'paid' ? 'success' : open.payout_status === 'disputed' ? 'warning' : 'neutral'}>{'Payout ' + humanize(open.payout_status || 'pending').toLowerCase()}</Badge>
           </div>
           <section style={ui.card}>
             <Facts items={[
               ['Parent', open.users?.name || '—'], ['Sitter', sitterById[open.sitter_id]?.users?.name || '—'], ['City', open.cities?.name || '—'],
               ['Parent paid', rs(open.gross_amount_paise)], ['Sitter price', rs(open.sitter_payout_paise || open.gross_amount_paise)],
-              ['Refund', open.refund_amount_paise ? rs(open.refund_amount_paise) : '—'],
+              ['Refund', open.refund_amount_paise ? rs(open.refund_amount_paise) + (open.refunded_amount_paise ? ' (' + rs(open.refunded_amount_paise) + ' sent)' : '') : '—'],
+              open.payout_release_at && ['Payout release', fmtDateTime(open.payout_release_at)],
               ['Started', open.start_verified_at ? new Date(open.start_verified_at).toLocaleString('en-IN') : '—'],
               ['Completed', open.completed_at ? new Date(open.completed_at).toLocaleString('en-IN') : '—'],
               (open.address_area || open.address_pincode) && ['Area', [open.address_area, open.address_pincode].filter(Boolean).join(' ')],
@@ -218,7 +230,7 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
         <ConfirmDialog title={'Cancel ' + open.booking_ref + '?'} tone="danger" confirmLabel="Cancel booking" cancelLabel="Keep booking" busy={busy} disabled={!reason.trim()}
           onCancel={() => setDialog(null)} onConfirm={() => cancelWithRefund(open)}>
           <div style={A.stack(8)}>
-            <div>{open.payment_status === 'paid' ? 'The parent gets a full refund of ' + rs(open.gross_amount_paise) + '.' : 'The parent has not paid, so there is nothing to refund.'} Both sides will see your reason.</div>
+            <div>{moneyInHand(open) ? 'The parent gets a full refund of ' + rs(open.gross_amount_paise) + '.' : 'The parent has not paid, so there is nothing to refund.'} Both sides will see your reason.</div>
             <textarea aria-label="Reason for cancelling" value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="e.g. Sitter unwell, no replacement available" style={A.textarea} />
           </div>
         </ConfirmDialog>

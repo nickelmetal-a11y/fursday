@@ -6,6 +6,9 @@ import Icon from './ui/Icon';
 import { distanceKm, formatKm, nearestLocality, pointFor, sitterCovers } from './geo';
 import { LOCALITIES } from './data/localities';
 import { loadSavedAddresses, addressLabelText } from './AddressBook';
+import { homeSummary, isBoardingHost } from './BoardingHomeEditor';
+
+const BOARDING_REACH_KM = 15;
 
 const SERVICES = [
   { id: 'all', key: 'explore_filterAll', icon: 'paw' },
@@ -98,6 +101,8 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
             base_area: s.base_area || null,
             base_pincode: s.base_pincode || null,
             service_radius_km: s.service_radius_km || null,
+            provider_type: s.provider_type || 'sitter',
+            home_details: s.home_details || {},
             emoji: (s.users?.name || 'S')[0].toUpperCase(),
           }));
           setSitters(mapped);
@@ -111,7 +116,9 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
 
   let filtered = sitters.map(s => {
     const reach = sitterCovers(s, refPoint);
-    return { ...s, distance: reach.km, covers: reach.covers };
+    // Parents take the dog to a boarding home, so the host's travel radius doesn't apply.
+    const boardingOnly = s.provider_type === 'boarding';
+    return { ...s, distance: reach.km, covers: boardingOnly ? (reach.km == null || reach.km <= BOARDING_REACH_KM) : reach.covers };
   });
   if (search) filtered = filtered.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
   if (activeService === 'favorites') filtered = filtered.filter(s => favorites.includes(s.id));
@@ -208,6 +215,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
 
         {!loading && filtered.map(s => {
           const fav = favorites.includes(s.id);
+          const home = isBoardingHost(s.provider_type) && (activeService === 'boarding' || s.provider_type === 'boarding') ? homeSummary(tr, s.home_details) : '';
           return (
             <div key={s.id} style={{ ...ui.card, marginBottom:12 }}>
               <div style={{ display:'flex', gap:12, alignItems:'flex-start', marginBottom:12 }}>
@@ -240,6 +248,12 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onNa
                       </span>
                     )}
                   </div>
+                  {home && (
+                    <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:4, fontSize:font.sm, color:color.text, minWidth:0 }}>
+                      <Icon name="home" size={13} color={color.navy} />
+                      <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{tr('bhome_summary', { facts: home })}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               {s.bio ? (

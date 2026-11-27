@@ -2,6 +2,7 @@ import React from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useLanguage } from './i18n';
+import { moneyCaptured, moneyLine } from './paymentsClient';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
 
@@ -22,8 +23,9 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
   const completedDate = new Date(booking.completed_at || booking.created_at);
   const serviceName = SERVICE_NAMES[booking.service_type] ? tr(SERVICE_NAMES[booking.service_type]) : booking.service_type;
   const amount = Math.round((booking.gross_amount_paise || 0) / 100);
-  const paid = booking.payment_status === 'paid';
+  const paid = moneyCaptured(booking);
   const sitterName = sitter.name || sitter.users?.name || tr('receiptModal_sitterFallback');
+  const money = moneyLine(booking, tr, sitterName);
   const isNative = Capacitor.isNativePlatform();
 
   // Native WebViews ignore window.print() and <a download>, so the app shares a text receipt instead.
@@ -137,6 +139,7 @@ export default function ReceiptModal({ booking, sitter, pet, onClose }) {
               <span style={{ color: color.muted }}>{tr('receiptModal_bookingStatus')}</span>
               <span style={ui.badge('success')}>{tr('receiptModal_completed')}</span>
             </div>
+            {money && <div style={{ marginTop: 8, fontSize: font.sm, color: color[money.tone], fontWeight: 600 }}>{money.text}</div>}
           </div>
 
           {/* Footer */}

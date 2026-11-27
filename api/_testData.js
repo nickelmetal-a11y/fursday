@@ -40,6 +40,19 @@ const PUNE_PEOPLE = [
     languages: ['English', 'Marathi'], headline: 'New sitter in Hinjewadi and Wakad', highlights: ['Puppies'],
     bio: 'I grew up with dogs and have been walking my neighbours’ dogs in Hinjewadi Phase 1 for a year. Applying to Fursday to do it properly, with photos and updates after every visit.',
     services: [['walk30', 300]] },
+  { key: 'kavita', role: 'sitter', status: 'active', provider: 'boarding', name: 'Kavita Rane (TEST)', email: 'fursday.test.kavita@example.com', phone: '9860000005',
+    area: area('Wakad', '411057', 18.5975, 73.7709), radiusKm: 5, experienceYears: 7, rating: 4.9, reviews: 7,
+    languages: ['English', 'Marathi', 'Hindi'], aadhaar: '333344445555', upi: 'kavita.test@okicici',
+    headline: 'Home boarding in Wakad with a fenced garden',
+    highlights: ['Night stays', 'Senior dogs', 'Medication'],
+    bio: 'I work from home in Wakad, so someone is with the dogs all day. Guests have the run of the house and a fenced garden, sleep indoors on their own beds, and go to the park twice a day. I take at most two guest dogs at a time, so each one gets real attention, and I send photos every morning and evening.',
+    home: {
+      home_type: 'independent_house', outdoor: ['garden', 'park_nearby'], someone_home: 'all_day', kids: 'older', other_pets: 'dogs',
+      sleeping: 'own_bed', ac: true, max_dogs: 2, sizes: ['small', 'medium', 'large'], vet_km: 1.5, updates: 'photos_twice',
+      rules: 'Dogs sleep indoors, not on the sofa. Walks at 7 am and 6 pm. Please send their usual food and any medicines with written timings.',
+    },
+    homePhotoLabels: ['Where dogs sleep', 'The garden', 'Entrance and gate'],
+    services: [['boarding', 950], ['daycare', 650]] },
 ];
 
 // Rich profiles handed out to existing TEST sitters that are missing them.
@@ -71,8 +84,8 @@ const PROFILE_POOL = {
     ],
   },
   Pune: {
-    en: PUNE_PEOPLE.filter(p => p.role === 'sitter' && !/[ऀ-ॿ]/.test(p.name)).map(p => ({ years: p.experienceYears, face: face('fursday-' + p.key), area: p.area, headline: p.headline, highlights: p.highlights, bio: p.bio })),
-    hi: PUNE_PEOPLE.filter(p => p.role === 'sitter' && /[ऀ-ॿ]/.test(p.name)).map(p => ({ years: p.experienceYears, face: face('fursday-' + p.key), area: p.area, headline: p.headline, highlights: p.highlights, bio: p.bio })),
+    en: PUNE_PEOPLE.filter(p => p.role === 'sitter' && !p.provider && !/[ऀ-ॿ]/.test(p.name)).map(p => ({ years: p.experienceYears, face: face('fursday-' + p.key), area: p.area, headline: p.headline, highlights: p.highlights, bio: p.bio })),
+    hi: PUNE_PEOPLE.filter(p => p.role === 'sitter' && !p.provider && /[ऀ-ॿ]/.test(p.name)).map(p => ({ years: p.experienceYears, face: face('fursday-' + p.key), area: p.area, headline: p.headline, highlights: p.highlights, bio: p.bio })),
   },
 };
 

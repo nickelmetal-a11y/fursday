@@ -19,6 +19,7 @@ export const TONE = {
   draft: 'neutral', pending: 'warning', needs_changes: 'warning', active: 'success', rejected: 'danger', suspended: 'danger',
   confirmed: 'info', completed: 'success', cancelled: 'danger',
   paid: 'success', unpaid: 'warning', refunded: 'info', failed: 'danger',
+  authorized: 'info', held: 'success', voided: 'neutral', partially_refunded: 'info', on_hold: 'info', ready: 'warning', disputed: 'danger',
   open: 'warning', in_review: 'info', resolved: 'success', applied: 'success', withdrawn: 'neutral',
   success: 'success', error: 'danger',
 };

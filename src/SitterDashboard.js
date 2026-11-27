@@ -8,7 +8,9 @@ import DisputeForm from './DisputeForm';
 import { color, font, radius, ui, statusTone, navPadding } from './theme';
 import Icon from './ui/Icon';
 import { messagePreview } from './InboxScreen';
+import { capturePayment, releaseHold, moneyInHand, moneyCaptured, serverUnavailable } from './paymentsClient';
 import LanguageToggle from './LanguageToggle';
+import SitterRequestsFeed, { loadInvitedRequests, openInvites } from './SitterRequestsFeed';
 
 const SERVICE_NAME_KEYS = {
   walk30: 'service_walk',
@@ -94,14 +96,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
         }));
         setBookings(bkgsWithContact);
 
-        if (profile.status !== 'active') { setBroadcastRequests([]); setLoading(false); return; }
-        const { data: reqs } = await supabase
-          .from('broadcast_requests')
-          .select('*, users(name)')
-          .eq('city_id', profile.city_id)
-          .eq('status', 'open')
-          .order('created_at', { ascending: false });
-        setBroadcastRequests(reqs || []);
+        const { items } = await loadInvitedRequests(profile);
+        setBroadcastRequests(openInvites(items));
       }
     }
     setLoading(false);
@@ -131,16 +127,26 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   };
   const sitterName = () => sitterProfile?.users?.name || tr('sitter_yourSitter');
 
+  // A paid request's money is captured on accept; if the payments server is
+  // unreachable the job is still accepted and the daily sweep captures it.
   const acceptBooking = async (b) => {
+    let held = moneyCaptured(b);
+    if (b.payment_status === 'authorized') {
+      try { held = (await capturePayment(b.id)).payment_status === 'held'; }
+      catch (e) { if (!serverUnavailable(e)) { alert(tr('sitter_errAccept') + e.message); return; } }
+    }
     const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', b.id);
     if (error) { alert(tr('sitter_errAccept') + error.message); return; }
-    await notifyParent(b, 'booking_accepted', '✅ ' + sitterName() + ' accepted your booking', 'Pay now to lock in ' + (b.booking_date || 'your date') + ' ' + (b.time_slot || '') + '.');
+    await notifyParent(b, 'booking_accepted', '✅ ' + sitterName() + ' accepted your booking', held || b.payment_status === 'authorized'
+      ? 'Your Rs.' + Math.round((b.gross_amount_paise || 0) / 100) + ' is held safely and paid to ' + sitterName() + ' 24 hours after the service.'
+      : 'Pay now to lock in ' + (b.booking_date || 'your date') + ' ' + (b.time_slot || '') + '.');
     loadData();
   };
 
   const declineBooking = async (b) => {
     const { error } = await supabase.from('bookings').update({ status: 'cancelled', cancellation_reason: 'Declined by sitter', cancelled_at: new Date().toISOString() }).eq('id', b.id);
     if (error) { alert(tr('sitter_errDecline') + error.message); return; }
+    if (moneyInHand(b)) await releaseHold(b.id, 'Declined by sitter').catch(e => console.error('Hold not released yet:', e.message));
     await notifyParent(b, 'booking_declined', sitterName() + ' could not take this booking', 'Try another sitter in Explore, or post a request to all sitters.');
     loadData();
   };
@@ -149,12 +155,13 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
   const sitterCancel = async (b) => {
     const reason = window.prompt(tr('sitter_cancelPrompt'));
     if (!reason) return;
-    const paid = b.payment_status === 'paid';
+    const paid = moneyInHand(b);
     const { error } = await supabase.from('bookings').update({
       status: 'cancelled', cancellation_reason: 'Sitter: ' + reason, cancelled_at: new Date().toISOString(),
       refund_percentage: paid ? 100 : 0, refund_amount_paise: paid ? (b.gross_amount_paise || 0) : 0,
     }).eq('id', b.id);
     if (error) { alert(tr('sitter_errCancel') + error.message); return; }
+    if (paid) await releaseHold(b.id, 'Sitter: ' + reason).catch(e => console.error('Refund not sent yet:', e.message));
     await notifyParent(b, 'booking_cancelled', sitterName() + ' cancelled the booking', reason + (paid ? ' You will get a full refund.' : ''));
     loadData();
   };
@@ -233,23 +240,6 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
     } catch(notifErr) { console.error('Walk complete notification failed:', notifErr); }
 
     loadData();
-  };
-
-  const acceptBroadcast = async (req) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from('sitter_profiles').select('id, status').eq('user_id', user.id).single();
-    if (!profile || profile.status !== 'active') { alert(tr('sitter_notApprovedYet')); return; }
-    const { data: ownService } = await supabase.from('sitter_services').select('price_paise').eq('sitter_id', profile.id).eq('service_type', req.service_type).maybeSingle();
-    const fallback = { walk30: 34900, boarding: 84900, daycare: 64900 };
-    const { error } = await supabase.from('broadcast_responses').insert({
-      request_id: req.id,
-      sitter_id: profile.id,
-      status: 'accepted',
-      offered_price: ownService?.price_paise || fallback[req.service_type] || 34900,
-    });
-    if (error) { alert(tr('sitter_errRespond') + error.message); return; }
-    setBroadcastRequests(prev => prev.filter(r => r.id !== req.id));
-    alert(tr('sitter_responseSent'));
   };
 
   const serviceName = (type) => SERVICE_NAME_KEYS[type] ? tr(SERVICE_NAME_KEYS[type]) : type;
@@ -412,7 +402,7 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                   { label: tr('sitter_detailRef'), val: b.booking_ref },
                   { label: tr('sitter_petParent'), val: b.users?.name },
                   { label: tr('sitter_detailNotes'), val: b.parent_notes || tr('sitter_detailNone') },
-                  { label: tr('sitter_detailPayment'), val: b.payment_status === 'paid' ? tr('sitter_paid') : tr('sitter_unpaid') },
+                  { label: tr('sitter_detailPayment'), val: moneyInHand(b) ? tr('sitter_paid') : tr('sitter_unpaid') },
                 ].filter(x => x.val).map((x, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
                     <span style={{ fontSize: font.sm, color: color.muted, flexShrink: 0 }}>{x.label}</span>
@@ -573,36 +563,8 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
           tab === 'new' ? tr('newRequestHint') : tr('confirmedHint'),
         )}
 
-        {tab === 'requests' && (
-          <div>
-            <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              {tr('openRequestsHint')}
-            </div>
-            {broadcastRequests.length === 0 && emptyState('megaphone', tr('noOpenRequests'), tr('openRequestsEmptyHint'))}
-            {broadcastRequests.map(req => (
-              <div key={req.id} style={{ ...ui.card, marginBottom: 12 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ ...ui.iconTile, width: 44, height: 44 }}><Icon name={SERVICE_ICONS[req.service_type] || 'paw'} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: font.md, fontWeight: 700, color: color.ink }}>{serviceName(req.service_type)}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: font.sm, color: color.muted, marginTop: 2 }}>
-                      <Icon name="pin" size={14} />{req.area || tr('sitter_nearbyArea')}
-                    </div>
-                  </div>
-                  <span style={ui.badge('info')}>{tr('sitter_openBadge')}</span>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginBottom: 12 }}>
-                  <div style={metaRow}><Icon name="calendar" size={15} color={color.muted} /><span>{req.scheduled_date}</span></div>
-                  <div style={metaRow}><Icon name="clock" size={15} color={color.muted} /><span>{req.scheduled_time}</span></div>
-                </div>
-                {req.notes && <div style={{ fontSize: font.sm, color: color.text, background: color.bg, borderRadius: radius.md, padding: '10px 12px', marginBottom: 12, lineHeight: 1.5 }}>{req.notes}</div>}
-                <button onClick={() => acceptBroadcast(req)}
-                  style={{ ...ui.primaryButton, width: '100%' }}>
-                  {tr('acceptThisRequest')}
-                </button>
-              </div>
-            ))}
-          </div>
+        {tab === 'requests' && sitterProfile && (
+          <SitterRequestsFeed profile={sitterProfile} onChange={items => setBroadcastRequests(openInvites(items))} />
         )}
         {tab !== 'requests' && !loading && tabBookings.map(b => renderBookingCard(b))}
       </div>

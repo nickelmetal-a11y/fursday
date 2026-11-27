@@ -142,6 +142,7 @@ describe('Pune: sitter jobs', () => {
     expect(within(r.container).queryByText('1 open request near you')).toBeNull();
     r.unmount();
     db.insert('broadcast_requests', { id: 'req-pune', pet_parent_id: PUNE.sneha, city_id: IDS.pune, service_type: 'walk30', status: 'open' });
+    db.insert('broadcast_recipients', { request_id: 'req-pune', sitter_id: PUNE.omkar, wave: 1 });
     const r2 = await settle(render(<SitterDashboard city="Pune" onBack={() => {}} />));
     expect(await within(r2.container).findByText('1 open request near you')).toBeInTheDocument();
   });
@@ -153,11 +154,15 @@ describe('Pune: sitter jobs', () => {
     fireEvent.click(screen.getByText('Continue →'));
     fireEvent.click(screen.getByText('7:00 AM'));
     fireEvent.click(screen.getByText('Continue →'));
-    expect(screen.queryByText('DLF Phase 1')).toBeNull();
-    fireEvent.click(screen.getByText('Baner'));
-    fireEvent.click(screen.getByText('📢 Send to all sitters'));
+    await screen.findByText('Moti');
+    fireEvent.change(screen.getByLabelText('Area'), { target: { value: 'DLF' } });
+    expect(screen.queryByRole('option', { name: /DLF Phase 1/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Area'), { target: { value: 'Baner' } });
+    fireEvent.click(screen.getByRole('option', { name: /Baner/ }));
+    fireEvent.click(screen.getByText('Continue →'));
+    fireEvent.click(screen.getByText('Send to nearby carers'));
     await waitFor(() => expect(db.rows('broadcast_requests', { pet_parent_id: PUNE.sneha })).toHaveLength(1));
-    expect(db.rows('broadcast_requests', { pet_parent_id: PUNE.sneha })[0]).toMatchObject({ city_id: IDS.pune, area: 'Baner' });
+    expect(db.rows('broadcast_requests', { pet_parent_id: PUNE.sneha })[0]).toMatchObject({ city_id: IDS.pune, area: 'Baner', address_pincode: '411045' });
   });
 });
 

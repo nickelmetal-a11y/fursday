@@ -83,12 +83,16 @@ test('refuses a signed-in non-admin and changes nothing', async () => {
 test('pune step creates only @example.com accounts with sitters, pets and bookings; a second run reuses them', async () => {
   const res = await run('pune');
   expect(res.statusCode).toBe(200);
-  expect(createdAuth).toHaveLength(7);
+  expect(createdAuth).toHaveLength(8);
   expect(createdAuth.every(e => e.endsWith('@example.com'))).toBe(true);
   const puneSitters = db.sitter_profiles.filter(s => s.city_id === 'c-pune');
-  expect(puneSitters).toHaveLength(4);
+  expect(puneSitters).toHaveLength(5);
   expect(puneSitters.find(s => s.base_area === 'Koregaon Park')).toMatchObject({ service_radius_km: 6, status: 'active' });
   expect(puneSitters.every(s => s.headline && s.bio.length > 120)).toBe(true);
+  const host = puneSitters.find(s => s.provider_type === 'boarding');
+  expect(host).toMatchObject({ base_area: 'Wakad', status: 'active', home_details: expect.objectContaining({ home_type: 'independent_house', max_dogs: 2 }) });
+  expect(host.home_photos).toHaveLength(3);
+  expect(puneSitters.filter(s => s.provider_type === 'sitter')).toHaveLength(4);
   expect(db.pet_profiles).toHaveLength(3);
   expect(db.bookings).toHaveLength(6);
   expect(db.bookings.every(b => b.city_id === 'c-pune' && b.address_area)).toBe(true);
@@ -96,7 +100,7 @@ test('pune step creates only @example.com accounts with sitters, pets and bookin
   createdAuth = [];
   await run('pune');
   expect(createdAuth).toHaveLength(0);
-  expect(db.sitter_profiles.filter(s => s.city_id === 'c-pune')).toHaveLength(4);
+  expect(db.sitter_profiles.filter(s => s.city_id === 'c-pune')).toHaveLength(5);
   expect(db.bookings).toHaveLength(6);
 });
 
@@ -112,6 +116,19 @@ test('profiles step enriches TEST sitters only, never a real customer', async ()
   expect(db.sitter_profile_photos.filter(p => p.sitter_id === 'sp-priya')).toHaveLength(2);
   expect(db.sitter_profiles.find(s => s.id === 'sp-real')).toEqual({ id: 'sp-real', user_id: 'u-real', city_id: 'c-ncr', status: 'active', bio: 'short' });
   expect(res.body.report.join(' ')).toMatch(/Priya Kapoor \(TEST\): .*headline/);
+});
+
+test('pune step still saves sitters when migration 037 has not run', async () => {
+  const realFetch = global.fetch;
+  global.fetch = async (url, opts = {}) => (opts.method === 'PATCH' && /provider_type|home_details/.test(opts.body || '')
+    ? reply(400, { message: "Could not find the 'home_details' column of 'sitter_profiles' in the schema cache" })
+    : realFetch(url, opts));
+  const res = await run('pune');
+  expect(res.statusCode).toBe(200);
+  expect(res.body.notes.join(' ')).toMatch(/migration 037/);
+  const host = db.sitter_profiles.find(s => s.base_area === 'Wakad');
+  expect(host).toMatchObject({ status: 'active', headline: expect.any(String) });
+  expect(host.provider_type).toBeUndefined();
 });
 
 test('rejects an unknown step', async () => {

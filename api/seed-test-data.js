@@ -1,5 +1,6 @@
 // Admin-only: fills the live database with TEST data for trying the app.
-//   step "pune":     creates Pune TEST parents, sitters, pets and two bookings.
+//   step "pune":     creates Pune TEST parents, sitters (one a boarding-only
+//                    host with home details), pets and two bookings.
 //   step "profiles": gives every TEST sitter a face photo, 2 dog photos, a
 //                    headline, highlights, a proper description, base area and
 //                    service radius (only fills what is missing or thin).
@@ -12,9 +13,12 @@ const SUPABASE_URL = 'https://vucboyiklqdxpqbpfplt.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ALLOWED_ORIGINS = ['https://fursday-admin.vercel.app', 'http://localhost:3000'];
 const TEST_EMAIL = /@example\.com$/i;
-// Columns added by migration 035. If it hasn't run yet we save without them
-// and say so, rather than failing the whole step.
-const M035 = ['headline', 'highlights', 'base_area', 'base_pincode', 'service_radius_km', 'profile_updated_at'];
+// Columns added by migrations 035 and 037. If one hasn't run yet we save
+// without its columns and say so, rather than failing the whole step.
+const OPTIONAL_COLUMNS = [
+  { cols: ['headline', 'highlights', 'base_area', 'base_pincode', 'service_radius_km', 'profile_updated_at'], note: 'Run migration 035 to save headline, highlights, base area and radius.' },
+  { cols: ['provider_type', 'home_details', 'home_photos'], note: 'Run migration 037 to save the boarding host type, home details and home photos.' },
+];
 
 const api = (path, options = {}) => fetch(SUPABASE_URL + path, {
   ...options,
@@ -29,14 +33,39 @@ const rest = async (path, method = 'GET', body, prefer = 'return=representation'
 };
 const isoDate = (days) => new Date(Date.now() + days * 864e5).toISOString().split('T')[0];
 
-// Update a sitter row; retry without migration-035 columns if they don't exist yet.
+// Update a sitter row; retry without a migration's columns if they don't exist yet.
 async function patchSitter(id, fields, notes) {
-  try { return await rest('sitter_profiles?id=eq.' + id, 'PATCH', fields); } catch (e) {
-    if (!/column|schema cache/i.test(e.message)) throw e;
-    const trimmed = Object.fromEntries(Object.entries(fields).filter(([k]) => !M035.includes(k)));
-    notes.add('Run migration 035 to save headline, highlights, base area and radius.');
-    return rest('sitter_profiles?id=eq.' + id, 'PATCH', trimmed);
+  const left = [...OPTIONAL_COLUMNS];
+  let row = fields;
+  for (;;) {
+    try { return await rest('sitter_profiles?id=eq.' + id, 'PATCH', row); } catch (e) {
+      if (!/column|schema cache/i.test(e.message) || !left.length) throw e;
+      const named = left.findIndex(g => g.cols.some(c => e.message.includes(c)));
+      const [group] = left.splice(named < 0 ? 0 : named, 1);
+      notes.add(group.note);
+      row = Object.fromEntries(Object.entries(row).filter(([k]) => !group.cols.includes(k)));
+    }
   }
+}
+
+// A plain illustrated card standing in for a real home photo on TEST hosts.
+const homePlaceholder = (label, i) => {
+  const bg = ['#EEF1F7', '#EAF3EA', '#FDF1E4'][i % 3];
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">'
+    + '<rect width="800" height="600" fill="' + bg + '"/>'
+    + '<path d="M250 330l150-120 150 120v150H250z" fill="#fff" stroke="#14254A" stroke-width="10" stroke-linejoin="round"/>'
+    + '<rect x="370" y="390" width="60" height="90" fill="#14254A"/>'
+    + '<text x="400" y="555" font-family="Arial, sans-serif" font-size="40" text-anchor="middle" fill="#14254A">' + label + ' (TEST)</text></svg>';
+};
+async function storeSvg(svg, path) {
+  try {
+    const up = await fetch(SUPABASE_URL + '/storage/v1/object/sitter-photos/' + path, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, 'Content-Type': 'image/svg+xml', 'x-upsert': 'true' },
+      body: svg,
+    });
+    return up.ok ? SUPABASE_URL + '/storage/v1/object/public/sitter-photos/' + path : null;
+  } catch { return null; }
 }
 
 // Copy an image into our own storage so the app never depends on a third party.
@@ -80,7 +109,7 @@ async function seedPune(authUsers, notes) {
     let line = (created ? 'Created ' : 'Updated ') + p.name + ' (' + p.role + ')';
 
     if (p.role === 'sitter') {
-      const existing = await rest('sitter_profiles?select=id&user_id=eq.' + id);
+      const existing = await rest('sitter_profiles?select=*&user_id=eq.' + id);
       const fields = {
         user_id: id, city_id: city.id, status: p.status, bio: p.bio, headline: p.headline, highlights: p.highlights,
         languages: p.languages, experience_years: p.experienceYears, experience_text: p.experienceYears + ' years',
@@ -89,11 +118,20 @@ async function seedPune(authUsers, notes) {
         availability_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], morning_slot: true, evening_slot: true,
         avg_rating: p.rating || null, rating: p.rating || null, review_count: p.reviews || 0, max_dogs: 2, advance_notice: '24hrs',
         profile_updated_at: new Date().toISOString(),
+        provider_type: p.provider || 'sitter', home_details: p.home || {},
       };
       let sitterId = existing?.[0]?.id;
       if (!sitterId) {
         const insertFields = { user_id: id, city_id: city.id, status: p.status };
         sitterId = (await rest('sitter_profiles', 'POST', insertFields))[0].id;
+      }
+      if (p.homePhotoLabels && !existing?.[0]?.home_photos?.length) {
+        const urls = [];
+        for (const [i, label] of p.homePhotoLabels.entries()) {
+          const u = await storeSvg(homePlaceholder(label, i), id + '/home/test-seed-' + i + '.svg');
+          if (u) urls.push(u);
+        }
+        if (urls.length) fields.home_photos = urls;
       }
       await patchSitter(sitterId, fields, notes);
       if (p.status === 'active') {
@@ -104,7 +142,7 @@ async function seedPune(authUsers, notes) {
         await rest('sitter_services', 'POST', p.services.map(([service_type, rs]) => ({ sitter_id: sitterId, service_type, price_paise: rs * 100, is_active: true })), 'return=minimal');
       }
       ids[p.key + 'Sitter'] = sitterId;
-      line += ', ' + p.area.name + ', ' + p.radiusKm + ' km';
+      line += ', ' + p.area.name + ', ' + p.radiusKm + ' km' + (p.provider ? ', ' + p.provider + ' host' : '');
     } else {
       const pets = await rest('pet_profiles?select=id&user_id=eq.' + id);
       if (pets?.length) ids[p.key + 'Pet'] = pets[0].id;

@@ -48,8 +48,8 @@ jest.mock('./supabase', () => {
   const petProfilesTable = {
     select: () => makeSingleChain({ data: { name: 'Bruno' } }),
   };
-  const broadcastRequestsTable = {
-    select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }) }),
+  const broadcastRecipientsTable = {
+    select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }),
   };
   const messagesTable = {
     select: () => ({ in: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }) }),
@@ -62,7 +62,7 @@ jest.mock('./supabase', () => {
         if (table === 'sitter_profiles') return sitterProfilesTable;
         if (table === 'bookings') return bookingsTable;
         if (table === 'pet_profiles') return petProfilesTable;
-        if (table === 'broadcast_requests') return broadcastRequestsTable;
+        if (table === 'broadcast_recipients') return broadcastRecipientsTable;
         if (table === 'messages') return messagesTable;
         throw new Error('unexpected table: ' + table);
       },

@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
-
+import { cancelBooking as cancelOnServer, moneyInHand, serverUnavailable } from './paymentsClient';
 
 // booking_date is a plain 'YYYY-MM-DD' and time_slot e.g. '7:00 AM'. Parsing the
 // date alone gives UTC midnight, which ignored the time and could push a parent
@@ -19,6 +19,8 @@ export const serviceStartTime = (booking) => {
 };
 
 const calculateRefund = (booking) => {
+  // Nothing has been charged until the sitter accepts, so cancelling a hold returns all of it.
+  if (booking.payment_status === 'authorized') return { percentage: 100, labelKey: 'cancelPolicy_holdReleased' };
   const hoursUntil = (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60);
 
   if (hoursUntil >= 72) return { percentage: 100, labelKey: 'cancelPolicy_refundFull100' };
@@ -42,7 +44,8 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
   const [cancelling, setCancelling] = useState(false);
   const refund = calculateRefund(booking);
   // Only money actually paid can be refunded.
-  const paidRupees = booking.payment_status === 'paid' ? (booking.gross_amount_paise || 0) / 100 : 0;
+  const paidRupees = moneyInHand(booking) ? (booking.gross_amount_paise || 0) / 100 : 0;
+  const isHold = booking.payment_status === 'authorized';
   const refundAmount = paidRupees * refund.percentage / 100;
 
   const cancelBooking = async () => {
@@ -54,17 +57,37 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
       // TIER 3: Calculate hours until refund deadline before cancelling
       const hoursUntilBooking = (serviceStartTime(booking) - new Date()) / (1000 * 60 * 60);
 
-      const { error } = await supabase.from('bookings').update({
-        status: 'cancelled',
-        cancellation_reason: reason,
-        cancelled_at: new Date().toISOString(),
-        refund_percentage: refund.percentage,
-        refund_amount_paise: Math.round(refundAmount * 100),
-      }).eq('id', booking.id);
-      if (error) {
-        alert(tr('cancelPolicy_cancelFailedAlert') + error.message);
-        setCancelling(false);
-        return;
+      // Money held for this booking is refunded by the server, which recomputes
+      // the policy itself. If it can't be reached, the cancellation is still
+      // recorded and Fursday refunds the held money by hand.
+      let refundPaise = Math.round(refundAmount * 100);
+      let handled = false;
+      if (moneyInHand(booking)) {
+        try {
+          const res = await cancelOnServer(booking.id, reason);
+          refundPaise = res.refund_amount_paise ?? refundPaise;
+          handled = true;
+        } catch (e) {
+          if (!serverUnavailable(e)) {
+            alert(tr('cancelPolicy_cancelFailedAlert') + e.message);
+            setCancelling(false);
+            return;
+          }
+        }
+      }
+      if (!handled) {
+        const { error } = await supabase.from('bookings').update({
+          status: 'cancelled',
+          cancellation_reason: reason,
+          cancelled_at: new Date().toISOString(),
+          refund_percentage: refund.percentage,
+          refund_amount_paise: refundPaise,
+        }).eq('id', booking.id);
+        if (error) {
+          alert(tr('cancelPolicy_cancelFailedAlert') + error.message);
+          setCancelling(false);
+          return;
+        }
       }
 
       // TIER 3: Send cancellation reminder notification with refund info
@@ -103,7 +126,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
             userPhone: user.phone,
             otherUserName: 'You',
             reason: reason,
-            refundAmount: refundAmount.toFixed(2),
+            refundAmount: (refundPaise / 100).toFixed(2),
             refundStatus: 'Processing',
             bookingRef: booking.booking_ref,
           });
@@ -222,7 +245,7 @@ export default function CancellationPolicyModal({ booking, onClose, onCancelled 
 
         <div style={{ background: color.dangerSoft, borderRadius: radius.md, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, lineHeight: 1.6, color: color.danger, textAlign: 'center' }}>
-            {tr('cancelPolicy_refundEta', { amount: '₹' + refundAmount.toFixed(0) })} {tr('cancelPolicy_yourReasonLabel')} <strong>{(() => { const r = CANCEL_REASONS.find(x => x.value === reason); return r ? tr(r.labelKey) : reason; })()}</strong>
+            {tr(isHold ? 'cancelPolicy_holdEta' : 'cancelPolicy_refundEta', { amount: '₹' + refundAmount.toFixed(0) })} {tr('cancelPolicy_yourReasonLabel')} <strong>{(() => { const r = CANCEL_REASONS.find(x => x.value === reason); return r ? tr(r.labelKey) : reason; })()}</strong>
           </div>
         </div>
 

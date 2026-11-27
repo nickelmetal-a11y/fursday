@@ -9,6 +9,7 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
   const { t: tr } = useLanguage();
   const b = booking || {};
   const sitterName = b.sitterName || tr('receipt_sitterFallbackName');
+  const onHold = b.payment_status === 'authorized';
 
   return (
     <div style={{ ...ui.page, paddingBottom: 'calc(32px + env(safe-area-inset-bottom))' }}>
@@ -16,9 +17,9 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
         <div style={{ width: 64, height: 64, borderRadius: radius.pill, background: color.successSoft, color: color.success, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <Icon name="check" size={32} strokeWidth={2.4} />
         </div>
-        <div style={{ fontSize: font.xxl, fontWeight: 700, color: color.ink, marginBottom: 6, letterSpacing: -0.3 }}>{tr('receipt_confirmedHeading')}</div>
+        <div style={{ fontSize: font.xxl, fontWeight: 700, color: color.ink, marginBottom: 6, letterSpacing: -0.3 }}>{tr(onHold ? 'receipt_heldHeading' : 'receipt_confirmedHeading')}</div>
         <div style={{ fontSize: font.md, color: color.muted, lineHeight: 1.6 }}>
-          {tr('receipt_confirmedBody')}
+          {tr(onHold ? 'receipt_heldBody' : b.payment_status === 'held' ? 'receipt_capturedBody' : 'receipt_confirmedBody')}
         </div>
       </div>
 
@@ -31,12 +32,12 @@ export default function BookingReceipt({ onBack, onViewBookings, city, booking }
             { key:'amount', label:tr('receipt_labelAmountPaid'), val:'Rs.' + Math.round((b.amount || b.gross_amount_paise || 0) / 100) },
             { key:'date', label:tr('receipt_labelDate'), val:b.booking_date || tr('receipt_dateFallbackConfirmed') },
             { key:'time', label:tr('receipt_labelTime'), val:b.time_slot || tr('receipt_timeFallbackAsBooked') },
-            { key:'status', label:tr('receipt_labelStatus'), val:tr('receipt_statusPaidConfirmed') },
+            { key:'status', label:tr('receipt_labelStatus'), val:tr(onHold ? 'receipt_statusHeldAwaiting' : 'receipt_statusPaidConfirmed') },
           ].filter(x => x.val).map((x,i) => (
             <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, padding:'9px 0', borderTop:i ? `1px solid ${color.line}` : 'none' }}>
               <span style={{ fontSize:13, color:color.muted }}>{x.label}</span>
               {x.key === 'status'
-                ? <span style={ui.badge('success')}>{x.val}</span>
+                ? <span style={ui.badge(onHold ? 'info' : 'success')}>{x.val}</span>
                 : <span style={{ fontSize:13, color:color.ink, fontWeight:600, textAlign:'right', fontVariantNumeric:'tabular-nums' }}>{x.val}</span>}
             </div>
           ))}

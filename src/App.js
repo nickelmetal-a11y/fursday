@@ -18,15 +18,15 @@ import FirstLoginPrompt from './FirstLoginPrompt';
 import SitterEditProfile from './SitterEditProfile';
 import ChatScreen from './ChatScreen';
 import BookingReceipt from './BookingReceipt';
-import ParentOnboarding from './ParentOnboarding';
 import BroadcastRequest from './BroadcastRequest';
 import SettingsScreen from './SettingsScreen';
 import LanguageToggle from './LanguageToggle';
+import FeedbackTab from './FeedbackTab';
 import { useLanguage, translate } from './i18n';
 import { checkLocationRestriction } from './geolocationService';
 import BottomNav, { PARENT_TABS, SITTER_TABS } from './ui/BottomNav';
 import Icon from './ui/Icon';
-import { color, font, radius, ui, navPadding } from './theme';
+import { color, font, radius, shadow, ui, navPadding } from './theme';
 import InboxScreen from './InboxScreen';
 import SitterEarningsDashboard from './SitterEarningsDashboard';
 import NotificationCenter from './NotificationCenter';
@@ -56,6 +56,9 @@ export default function App() {
   const [showPetProfile, setShowPetProfile] = useState(false);
   const [editingPetId, setEditingPetId] = useState(null);
   const [repeatBookingData, setRepeatBookingData] = useState(null);
+  const [broadcastPrefill, setBroadcastPrefill] = useState(null);
+  const [openRequest, setOpenRequest] = useState(null);
+  const [broadcastRequestId, setBroadcastRequestId] = useState(null);
   const [showWalkReport, setShowWalkReport] = useState(false);
   const [showBookings, setShowBookings]   = useState(false);
   const [realSitters, setRealSitters]     = useState([]);
@@ -78,7 +81,6 @@ export default function App() {
   const [userName, setUserName]           = useState(null);
   const [showReceipt, setShowReceipt]     = useState(false);
   const [receiptData, setReceiptData]     = useState(null);
-  const [showParentOnboarding, setShowParentOnboarding] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [neighbourhood, setNeighbourhood] = useState('');
   const [selectedServiceType, setSelectedServiceType] = useState(null);
@@ -203,7 +205,8 @@ export default function App() {
             base_area: s.base_area || null, service_radius_km: s.service_radius_km ?? null,
             rating: s.rating || 5.0,
             reviews: s.total_bookings || 0,
-            price: translate('home_pricePerWalk').replace('{n}', s.sitter_services?.[0] ? Math.round(s.sitter_services[0].price_paise/100) : 299),
+            provider_type: s.provider_type || 'sitter', home_details: s.home_details || {}, home_photos: s.home_photos || [],
+            price: (() => { const b = s.sitter_services?.find(sv => sv.service_type === 'boarding'); return s.provider_type === 'boarding' && b ? translate('boardingProfile_pricePerNight').replace('{n}', Math.round(b.price_paise/100)) : translate('home_pricePerWalk').replace('{n}', s.sitter_services?.[0] ? Math.round(s.sitter_services[0].price_paise/100) : 299); })(),
             tags: s.sitter_services?.map(sv => sv.service_type) || [],
             verified: s.aadhaar_verified || false,
             emoji: (s.users?.name || 'S')[0].toUpperCase(),
@@ -218,6 +221,19 @@ export default function App() {
     };
     fetchSitters();
   }, [city]);
+
+  useEffect(() => {
+    if (!user || isSitterMode || showBroadcast) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('broadcast_requests').select('*').eq('pet_parent_id', user.id).eq('status', 'open').order('created_at', { ascending: false }).limit(1);
+      const req = data?.[0];
+      if (!req || (req.expires_at && new Date(req.expires_at) < new Date())) { if (!cancelled) setOpenRequest(null); return; }
+      const { data: offers } = await supabase.from('broadcast_responses').select('id, status').eq('request_id', req.id);
+      if (!cancelled) setOpenRequest({ ...req, offers: (offers || []).filter(o => o.status !== 'declined' && o.status !== 'withdrawn').length });
+    })();
+    return () => { cancelled = true; };
+  }, [user, isSitterMode, showBroadcast]);
 
   // Check if sitter
   useEffect(() => {
@@ -378,8 +394,7 @@ export default function App() {
   // skipped for every brand-new email signup. Treat "name equals the
   // login email" as "no real name set yet" too.
   const needsFirstLogin = user && (!userName || userName.trim().toLowerCase() === user.email?.toLowerCase());
-  if (needsFirstLogin) return <FirstLoginPrompt user={user} onDone={name => { setUserName(name); setShowParentOnboarding(true); }} />;
-  if (showParentOnboarding) return <ParentOnboarding onDone={() => setShowParentOnboarding(false)} city={city} userName={userName} />;
+  if (needsFirstLogin) return <FirstLoginPrompt user={user} onDone={(name, intent) => { setUserName(name); if (intent === 'offer') setShowOnboarding(true); }} />;
 
   const activeCities = Object.keys(CITY_CONFIG).map(c => CITY_CONFIG[c].displayName).join(tr('home_citiesJoiner'));
 
@@ -422,7 +437,9 @@ export default function App() {
   if (showAddressBook) return <AddressBook city={city} onBack={() => setShowAddressBook(false)} onChanged={setSavedAddresses} />;
   if (showSettings) { navMode = 'parent'; return <SettingsScreen onBack={() => goParentTab('home')} city={city} userName={userName} activeNav={activeNav} onNav={goParentTab} onSwitchRole={isSitter ? () => { closeTabScreens(); setSitterTab('jobs'); setIsSitterMode(true); } : null} switchRoleLabel={tr('home_switchToSitter')} />; }
   if (showReceipt) return <BookingReceipt onBack={() => { setShowReceipt(false); goHome(); }} onViewBookings={() => { setShowReceipt(false); setShowBookings(true); }} city={city} booking={receiptData} />;
-  if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); goHome(); }} city={city} onSitterAccepted={sitter => { setShowBroadcast(false); setSelectedSitter(sitter); setShowBooking(true); }} />;
+  if (showBroadcast) return <BroadcastRequest onBack={() => { setShowBroadcast(false); setBroadcastRequestId(null); goHome(); }} city={city} requestId={broadcastRequestId}
+    onViewSitter={s => { setShowBroadcast(false); setBroadcastRequestId(null); setSelectedSitter(s); }}
+    onSitterAccepted={(sitter, pre) => { setShowBroadcast(false); setBroadcastRequestId(null); setSelectedSitter(sitter); setSelectedServiceType(pre?.service || null); setRepeatBookingData(pre ? { service_type: pre.service, pet_id: pre.petId } : null); setBroadcastPrefill(pre || null); setShowBooking(true); }} />;
   if (showOnboarding) return <SitterOnboarding onDone={dest => { setShowOnboarding(false); if(dest==='sitter'){ setIsSitter(true); setIsSitterMode(true); } }} city={city} />;
   if (showSitterEdit) return <SitterEditProfile onBack={() => { setShowSitterEdit(false); goHome(); }} city={city} />;
   if (showUserProfile) navMode = 'parent';
@@ -430,12 +447,13 @@ export default function App() {
   if (showExplore) navMode = 'parent';
   if (showExplore) return <ExploreScreen onBack={() => goParentTab('home')} city={city} userLocation={userLocation} activeNav={activeNav} onBook={sitter => { setSelectedSitter(sitter); setShowExplore(false); setShowBooking(true); }} onNav={goParentTab} />;
   if (showChat) return <ChatScreen onBack={() => { setShowChat(false); if(chatBooking?.fromSitter) setIsSitterMode(true); else { setShowBookings(true); } }} city={city} booking={chatBooking} userType={chatBooking?.fromSitter?'sitter':'parent'} />;
-  if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={paymentId => { setShowPayment(false); if(paymentBooking?.id) sendBookingEmail(paymentBooking); setReceiptData({ ...paymentBooking, paymentId }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
+  if (showPayment) return <PaymentScreen onBack={() => setShowPayment(false)} onSuccess={(paymentId, result) => { setShowPayment(false); if(paymentBooking?.id) sendBookingEmail(paymentBooking); setReceiptData({ ...paymentBooking, paymentId, payment_status: result?.payment_status }); setShowReceipt(true); }} city={city} booking={paymentBooking} />;
   if (showWalkReport) return <WalkReportCard onBack={() => { setShowWalkReport(false); setShowBookings(true); }} city={city} mode='parent' />;
   if (showBookings) navMode = 'parent';
-  if (showBookings) return <BookingsDashboard onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { if (!(id==='book' && payload?.repeatBooking)) { goParentTab(id); return; } setShowBookings(false); if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
+  if (showBookings) return <BookingsDashboard onBack={() => goParentTab('home')} city={city} activeNav={activeNav} onViewReport={() => setShowWalkReport(true)} onReview={() => {}} onPayNow={b => { setPaymentBooking({ service:b.service_type, amount:b.gross_amount_paise, ref:b.booking_ref, id:b.id, sitterName:b.sitter_profiles?.users?.name }); setShowBookings(false); setShowPayment(true); }} onMessage={(b, sitterName, sitterPhone, sitterUserId) => { setChatBooking({ id:b.id, service:b.service_type, sitterName, otherPhone:sitterPhone, date:b.booking_date, time:b.time_slot, price:b.gross_amount_paise, recipientUserId:sitterUserId }); setShowBookings(false); setShowChat(true); }} onNav={(id, payload) => { if (!(id==='book' && payload?.repeatBooking)) { goParentTab(id); return; } setShowBookings(false); if(id==='book' && payload?.repeatBooking){ const b = payload.repeatBooking; setSelectedSitter({ id: b.sitter_profiles?.id, name: b.sitter_profiles?.users?.name || tr('bookings_sitterFallback'), area: city }); setRepeatBookingData(b); setShowBooking(true); } }} />;
   if (showPetProfile) return <PetProfile onBack={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} city={city} petId={editingPetId} onSave={() => { setShowPetProfile(false); setEditingPetId(null); goHome(); }} />;
-  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); goHome(); }} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} onChooseSitter={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setSelectedSitter(null); goParentTab('explore'); }} />;
+  if (showBooking) return <BookingFlow onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setBroadcastPrefill(null); goHome(); }}
+    initialDate={broadcastPrefill?.dateISO} initialEndDate={broadcastPrefill?.endDateISO} initialTime={broadcastPrefill?.time} agreedPriceRupees={broadcastPrefill?.priceRupees} broadcastRequestId={broadcastPrefill?.requestId} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} onChooseSitter={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setSelectedSitter(null); goParentTab('explore'); }} />;
   if (selectedSitter && !showBooking) return <SitterProfile onBack={() => { setSelectedSitter(null); goHome(); }} onBook={() => setShowBooking(true)} sitter={selectedSitter} city={city} />;
 
   navMode = 'parent';
@@ -550,6 +568,20 @@ export default function App() {
         </div>
       </section>
 
+      <div style={{ padding:'16px 16px 0' }}>
+        <button type="button" onClick={() => { setBroadcastRequestId(openRequest?.id || null); setShowBroadcast(true); }}
+          style={{ width:'100%', display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:radius.lg, border:`1px solid ${color.line}`, background:color.surface, cursor:'pointer', fontFamily:font.family, textAlign:'left', boxShadow:shadow.card }}>
+          <span style={{ ...ui.iconTile, background:color.saffronSoft, color:color.saffron, flexShrink:0 }}><Icon name="megaphone" size={22} /></span>
+          <span style={{ flex:1, minWidth:0 }}>
+            <span style={{ display:'block', fontSize:15, fontWeight:700, color:color.ink }}>{openRequest ? tr('home_requestOpenTitle') : tr('home_requestTitle')}</span>
+            <span style={{ display:'block', fontSize:12.5, color:color.muted, marginTop:2, lineHeight:1.4 }}>
+              {openRequest ? tr(openRequest.offers === 1 ? 'home_requestOffersOne' : 'home_requestOffersMany', { n: openRequest.offers }) : tr('home_requestSub')}
+            </span>
+          </span>
+          <span style={{ ...ui.badge(openRequest?.offers ? 'success' : 'info'), flexShrink:0 }}>{openRequest ? tr('home_requestView') : tr('home_requestSend')}</span>
+        </button>
+      </div>
+
       {featuredPromo && (
         <div style={{ padding:'16px 16px 0' }}>
           <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); setShowBooking(true); }} />
@@ -613,6 +645,12 @@ export default function App() {
   );
   })();
 
+  const feedbackScreen = isSitterMode ? 'sitter_' + sitterTab : showAddressBook ? 'addresses' : showSettings ? 'settings' : showReceipt ? 'receipt'
+    : showBroadcast ? 'nearby_request' : showOnboarding ? 'sitter_signup' : showSitterEdit ? 'sitter_edit' : showUserProfile ? 'pets' : showExplore ? 'explore'
+    : showChat ? 'chat' : showWalkReport ? 'walk_report' : showBookings ? 'bookings' : showPetProfile ? 'pet_profile' : showBooking ? 'booking'
+    : selectedSitter ? 'sitter_profile' : 'home';
+  const showFeedback = user && splashDone && !loading && !regionRestricted && !outsideCity && !showPayment
+    && userName && userName.trim().toLowerCase() !== user.email?.toLowerCase();
   const parentTab = showSettings ? 'account' : showUserProfile ? 'pets' : showExplore ? 'explore' : showBookings ? 'bookings' : 'home';
   return (
     <>
@@ -621,6 +659,7 @@ export default function App() {
       {navMode === 'sitter' && <BottomNav tabs={SITTER_TABS} active={sitterTab} onSelect={setSitterTab} />}
       {navMode === 'sitter' && showNotifications && <NotificationCenter onClose={() => setShowNotifications(false)} />}
       {floatingToggle && <LanguageToggle />}
+      {showFeedback && <FeedbackTab screen={feedbackScreen} role={isSitterMode ? 'sitter' : 'parent'} userId={user.id} userName={userName} />}
     </>
   );
 }

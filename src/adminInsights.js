@@ -1,6 +1,7 @@
 import { serviceStartTime } from './CancellationPolicyModal';
 
 const HOUR = 60 * 60 * 1000;
+const IN_HAND = ['authorized', 'held', 'paid'];
 
 // Everything an operations person should act on today, most urgent first.
 // Pure function so it is easy to test and reason about.
@@ -12,7 +13,7 @@ export function attentionItems({ bookings = [], sitters = [], disputes = [], del
   bookings.forEach(b => {
     const start = serviceStartTime(b).getTime();
     const ref = b.booking_ref || b.id;
-    if (b.status === 'confirmed' && b.payment_status === 'paid' && !Number.isNaN(start) && t - start > 30 * 60 * 1000) {
+    if (b.status === 'confirmed' && IN_HAND.includes(b.payment_status) && !Number.isNaN(start) && t - start > 30 * 60 * 1000) {
       items.push({ level: 'critical', kind: 'no_show', bookingId: b.id, title: 'Possible no-show: ' + ref, detail: nameOf(b.sitter_id) + ' has not started a walk that was due ' + Math.round((t - start) / 60000) + ' min ago.' });
     }
     if (b.status === 'active' && b.start_verified_at && t - new Date(b.start_verified_at).getTime() > (b.service_type === 'walk30' ? 2 : 14) * HOUR) {
@@ -21,11 +22,15 @@ export function attentionItems({ bookings = [], sitters = [], disputes = [], del
     if (b.status === 'pending' && b.created_at && t - new Date(b.created_at).getTime() > 2 * HOUR) {
       items.push({ level: 'warning', kind: 'no_reply', bookingId: b.id, title: 'Sitter has not replied: ' + ref, detail: nameOf(b.sitter_id) + ' has not accepted or declined for ' + Math.round((t - new Date(b.created_at).getTime()) / HOUR) + 'h. Consider reassigning.' });
     }
-    if (b.status === 'confirmed' && b.payment_status !== 'paid' && !Number.isNaN(start) && start - t < 24 * HOUR && start > t) {
+    if (b.status === 'confirmed' && !IN_HAND.includes(b.payment_status) && !Number.isNaN(start) && start - t < 24 * HOUR && start > t) {
       items.push({ level: 'warning', kind: 'unpaid_soon', bookingId: b.id, title: 'Unpaid, starts soon: ' + ref, detail: 'Starts in ' + Math.max(1, Math.round((start - t) / HOUR)) + 'h and the parent has not paid.' });
     }
-    if (b.status === 'completed' && b.payout_status !== 'paid' && b.completed_at && t - new Date(b.completed_at).getTime() > 48 * HOUR) {
-      items.push({ level: 'warning', kind: 'payout_late', bookingId: b.id, title: 'Payout overdue: ' + ref, detail: nameOf(b.sitter_id) + ' finished ' + Math.round((t - new Date(b.completed_at).getTime()) / (24 * HOUR)) + ' days ago; Terms promise payment within 48h.' });
+    const dueSince = b.released_at || b.completed_at;
+    if (payoutBucket(b) === 'ready' && dueSince && t - new Date(dueSince).getTime() > 48 * HOUR) {
+      items.push({ level: 'warning', kind: 'payout_late', bookingId: b.id, title: 'Payout overdue: ' + ref, detail: nameOf(b.sitter_id) + "'s payout has been ready for " + Math.round((t - new Date(dueSince).getTime()) / (24 * HOUR)) + ' days; Terms promise payment within 48h of release.' });
+    }
+    if (b.status === 'cancelled' && ['held', 'paid'].includes(b.payment_status) && (b.refund_amount_paise || 0) > (b.refunded_amount_paise || 0)) {
+      items.push({ level: 'critical', kind: 'refund_by_hand', bookingId: b.id, title: 'Refund not sent: ' + ref, detail: 'Cancelled with a refund of Rs.' + Math.round(((b.refund_amount_paise || 0) - (b.refunded_amount_paise || 0)) / 100) + ' that has not gone back to the parent yet.' });
     }
   });
 
@@ -49,7 +54,16 @@ export function attentionItems({ bookings = [], sitters = [], disputes = [], del
 export const sitterKeepRate = (sitter) => (sitter?.is_founding_sitter ? 1 : 0.85);
 // Sitters are paid on their own price (sitter_payout_paise); a parent's promo only lowers gross.
 export const payoutBaseRs = (b) => (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100;
-export const unpaidPayouts = (bookings = []) => bookings.filter(b => b.status === 'completed' && b.payout_status !== 'paid');
+// Where a sitter's payout stands: on_hold until 24h after the service, then
+// ready to pay; disputed pauses it. Jobs from before pay-at-booking have no
+// payout_status and are ready as soon as they are completed.
+export function payoutBucket(b) {
+  if (b.payout_status === 'paid') return 'paid';
+  if (b.payout_status === 'disputed') return b.status === 'cancelled' ? null : 'disputed';
+  if (b.payout_status === 'on_hold') return b.status === 'cancelled' ? null : 'on_hold';
+  return b.status === 'completed' ? 'ready' : null;
+}
+export const unpaidPayouts = (bookings = []) => bookings.filter(b => payoutBucket(b) === 'ready');
 
 // Unpaid completed jobs grouped per sitter, biggest amount owed first.
 export function payoutGroups(bookings = [], sitters = []) {

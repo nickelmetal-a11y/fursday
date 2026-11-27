@@ -23,6 +23,7 @@ jest.mock('./supportContact', () => ({
 // strings) stable regardless of when that merge lands, same as every other
 // dependency already mocked in this file.
 jest.mock('./i18n', () => ({
+  registerTranslations: () => {},
   useLanguage: () => ({
     lang: 'en',
     setLang: () => {},
@@ -137,6 +138,28 @@ describe('BookingsDashboard', () => {
     fireEvent.click(await screen.findByText('Cancel booking'));
     expect(await screen.findByText('CancellationPolicyModal')).toBeInTheDocument();
     expect(updateCalls).toHaveLength(0);
+  });
+
+  test('a held payment shows where the money is, and the start code, with no Pay button', async () => {
+    global.__bookings = [makeBooking({ payment_status: 'held', payout_status: 'on_hold', start_otp: '4321' })];
+    render(<BookingsDashboard onBack={() => {}} city="Gurgaon" />);
+    expect(await screen.findByText('pay_lineHeld')).toBeInTheDocument();
+    expect(screen.getByText('4321')).toBeInTheDocument();
+    expect(screen.queryByText('bookings_payNowCta')).toBeNull();
+  });
+
+  test('a request on hold waits for the sitter; an unfinished checkout and an accepted unpaid booking can be paid', async () => {
+    const onPayNow = jest.fn();
+    global.__bookings = [
+      makeBooking({ id: 'held', status: 'pending', payment_status: 'authorized' }),
+      makeBooking({ id: 'left', status: 'pending', payment_status: 'unpaid', razorpay_order_id: 'order_9' }),
+      makeBooking({ id: 'accepted', status: 'confirmed', payment_status: 'unpaid' }),
+    ];
+    render(<BookingsDashboard onBack={() => {}} city="Gurgaon" onPayNow={onPayNow} />);
+    expect(await screen.findByText('pay_lineAuthorized')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('bookings_finishPaymentCta'));
+    fireEvent.click(screen.getByText('bookings_payNowCta'));
+    expect(onPayNow.mock.calls.map(c => c[0].id)).toEqual(['left', 'accepted']);
   });
 
   test('an active booking past its time by over an hour triggers a no-show notification to self', async () => {

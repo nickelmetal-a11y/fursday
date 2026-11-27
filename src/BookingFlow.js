@@ -6,6 +6,8 @@ import Icon from './ui/Icon';
 import { pointFor, serviceability, sitterCovers, formatKm } from './geo';
 import { AddressForm, AreaSearch, loadSavedAddresses, addressIcon, addressLabelText, addressLine } from './AddressBook';
 import { isSitterAvailable, toISODate } from './AvailabilityCalendar';
+import PaymentScreen from './PaymentScreen';
+import { createOrder, CHECKOUT_MODES } from './paymentsClient';
 
 const SERVICES = [
   { id: 'walk30', icon: 'walk', price: 349 },
@@ -54,18 +56,25 @@ function StepBar({ step }) {
   );
 }
 
-export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking, initialPromoCode, onChooseSitter }) {
+const dayIndexOf = (iso) => {
+  if (!iso) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const i = Math.round((new Date(iso + 'T00:00:00') - today) / 86400000);
+  return i >= 0 && i < 14 ? i : null;
+};
+
+export default function BookingFlow({ onBack, sitter, city, initialService, repeatBooking, initialPromoCode, onChooseSitter, initialDate, initialEndDate, initialTime, agreedPriceRupees, broadcastRequestId }) {
   const { t: tr, lang } = useLanguage();
   const dayName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { weekday:'short' }) : DAY_NAMES[d.getDay()];
   const monthName = (d) => lang === 'hi' ? d.toLocaleDateString('hi-IN', { month:'short' }) : MONTH_NAMES[d.getMonth()];
   const [step, setStep] = useState(repeatBooking ? 1 : (initialService ? 1 : 0));
   const [sitterPrices, setSitterPrices] = useState({});
   const [selectedService, setSelectedService] = useState(repeatBooking ? repeatBooking.service_type : (initialService || null));
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(() => dayIndexOf(initialDate));
+  const [selectedTime, setSelectedTime] = useState(initialTime || null);
   const [validationError, setValidationError] = useState('');
-  const [endDayOffset, setEndDayOffset] = useState(null);
-  const [dropTime, setDropTime] = useState(null);
+  const [endDayOffset, setEndDayOffset] = useState(() => dayIndexOf(initialEndDate));
+  const [dropTime, setDropTime] = useState(initialService === 'daycare' ? initialTime || null : null);
   const [pickTime, setPickTime] = useState(null);
   const [selectedPet, setSelectedPet] = useState(repeatBooking ? repeatBooking.pet_id : null);
   const [pets, setPets] = useState([]);
@@ -99,6 +108,8 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const [sitterBase, setSitterBase] = useState(null);
   const [waitlistJoined, setWaitlistJoined] = useState(false);
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [checkout, setCheckout] = useState(null);
+  const [checkoutLeft, setCheckoutLeft] = useState(false);
 
   const days = getDays();
 
@@ -113,7 +124,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   };
   const services = SERVICES.map(s => ({
     ...s,
-    price: sitterPrices[s.id] ?? s.price,
+    price: agreedPriceRupees && s.id === selectedService ? agreedPriceRupees : sitterPrices[s.id] ?? s.price,
     name: tr(SERVICE_I18N_KEYS[s.id].name),
     sub: tr(SERVICE_I18N_KEYS[s.id].sub),
     desc: tr(SERVICE_I18N_KEYS[s.id].desc),
@@ -191,6 +202,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   const day = days[selectedDay];
 
   const getPriceAdjustment = () => {
+    if (agreedPriceRupees) return 0;
     const sizeAdj = SIZE_PRICES[dogSize] || 0;
     return sizeAdj;
   };
@@ -309,6 +321,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
 
   const saveBooking = async () => {
     setProcessing(true);
+    let newBookingId = null, newBookingRef = '';
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: cityRow } = await supabase.from('cities').select('id').eq('name', city).single();
@@ -328,7 +341,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         sitter_payout_paise: totalPrice * 100,
         end_date: isBoarding ? (() => { const d=new Date(); d.setDate(d.getDate()+endDayOffset); return d.toISOString().split('T')[0]; })() : null,
         pickup_time: isDaycare ? pickTime : null,
-        status: 'pending',
+        status: broadcastRequestId ? 'confirmed' : 'pending',
         parent_notes: notes,
         address_flat: bookingAddress.flat || null,
         address_tower: bookingAddress.building || null,
@@ -354,6 +367,12 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         setProcessing(false);
         return;
       }
+      newBookingId = bookingData?.id || null;
+      if (broadcastRequestId && newBookingId) {
+        const { error: linkErr } = await supabase.from('broadcast_requests').update({ booking_id: newBookingId }).eq('id', broadcastRequestId);
+        if (linkErr) console.error('Could not link the request to its booking:', linkErr.message);
+      }
+      newBookingRef = ref;
 
       // The booking exists at full price either way; only the DB can discount it.
       if (appliedPromo && bookingData?.id) {
@@ -389,6 +408,18 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
       alert(tr('bookingFlow_alertCreateFailedRetry'));
       setProcessing(false);
       return;
+    }
+    // Parents pay as they book; the money is only held until the sitter accepts.
+    // Without online payments (not set up yet) the request goes out unpaid as before.
+    if (newBookingId) {
+      try {
+        const order = await createOrder(newBookingId);
+        if (CHECKOUT_MODES.includes(order.mode)) {
+          setCheckout({ order, booking: { id: newBookingId, ref: newBookingRef, service: service?.name, amount: order.amount, sitterName } });
+          setProcessing(false);
+          return;
+        }
+      } catch (e) { console.error('Checkout unavailable, booking stays unpaid:', e.message); }
     }
     setProcessing(false);
     setConfirmed(true);
@@ -468,6 +499,12 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
     </div>
   ) : null;
 
+  if (checkout) return (
+    <PaymentScreen city={city} booking={checkout.booking} order={checkout.order}
+      onSuccess={() => setCheckout(c => ({ ...c, paid: true }))}
+      onBack={() => { if (checkout.paid) { onBack(); return; } setCheckout(null); setCheckoutLeft(true); setConfirmed(true); }} />
+  );
+
   if (confirmed) return (
     <div style={{ ...ui.page, background:color.surface, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'calc(40px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))', textAlign:'center', boxSizing:'border-box' }}>
       <div style={{ width:64, height:64, borderRadius:radius.pill, background:color.successSoft, color:color.success, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
@@ -502,7 +539,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
         </div>
       )}
       <div style={{ background:color.tile, borderRadius:radius.md, padding:'12px 14px', width:'100%', marginBottom:24, fontSize:13, color:color.text, lineHeight:1.6, boxSizing:'border-box', textAlign:'left' }}>
-        {tr('bookingFlow_paymentAfterAcceptNote', { name: sitterName })}
+        {tr(checkoutLeft ? 'bookingFlow_checkoutLeftNote' : 'bookingFlow_paymentAfterAcceptNote', { name: sitterName })}
       </div>
       <button type="button" onClick={onBack} style={{ ...ui.primaryButton, width:'100%' }}>
         {tr('bookingFlow_backToHomeButton')}
@@ -628,7 +665,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
                 })}
               </div>
             </div>
-            {selectedTime && (
+            {selectedTime && day && (
               <div style={{ background:color.navySoft, borderRadius:radius.md, padding:'10px 14px', fontSize:13, color:color.navy, fontWeight:600, display:'flex', alignItems:'center', gap:8 }}>
                 <Icon name="calendar" size={16} />
                 <span>{dayName(days[selectedDay])}, {days[selectedDay].getDate()} {monthName(days[selectedDay])} {tr('bookingFlow_atWord')} {selectedTime}</span>

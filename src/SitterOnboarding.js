@@ -6,26 +6,9 @@ import { useLanguage } from './i18n';
 import { color, font, radius, ui } from './theme';
 import Icon from './ui/Icon';
 import ServiceAreaPicker from './ServiceAreaPicker';
+import BoardingHomeEditor, { PROVIDER_TYPES } from './BoardingHomeEditor';
+import { compressImage } from './compressImage';
 import { nearestLocality } from './geo';
-
-
-const compressImage = (file, maxPx = 1200) => new Promise((resolve) => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > maxPx) { h = h * maxPx / w; w = maxPx; }
-      if (h > maxPx) { w = w * maxPx / h; h = maxPx; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.8);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-});
 
 const CITY_DATA = {
   Gurgaon: { avg: 22000, top: 45000 },
@@ -69,13 +52,16 @@ const ADVANCE_NOTICE_KEYS = {
 };
 
 const RESPONSIBILITIES = [
-  { icon: 'briefcase', labelKey: 'sitterOnboarding_respKitLabel', detailKey: 'sitterOnboarding_respKitDetail', required: true },
+  { icon: 'briefcase', labelKey: 'sitterOnboarding_respKitLabel', detailKey: 'sitterOnboarding_respKitDetail', required: true, walkOnly: true },
   { icon: 'clock', labelKey: 'sitterOnboarding_respTimeLabel', detailKey: 'sitterOnboarding_respTimeDetail', required: true },
   { icon: 'smartphone', labelKey: 'sitterOnboarding_respOtpLabel', detailKey: 'sitterOnboarding_respOtpDetail', required: true },
   { icon: 'check', labelKey: 'sitterOnboarding_respPottyLabel', detailKey: 'sitterOnboarding_respPottyDetail', required: true },
-  { icon: 'paw', labelKey: 'sitterOnboarding_respWipeLabel', detailKey: 'sitterOnboarding_respWipeDetail', required: true },
-  { icon: 'fileText', labelKey: 'sitterOnboarding_respReportLabel', detailKey: 'sitterOnboarding_respReportDetail', required: true },
-  { icon: 'alert', labelKey: 'sitterOnboarding_respNoFoodLabel', detailKey: 'sitterOnboarding_respNoFoodDetail', required: false },
+  { icon: 'paw', labelKey: 'sitterOnboarding_respWipeLabel', detailKey: 'sitterOnboarding_respWipeDetail', required: true, walkOnly: true },
+  { icon: 'fileText', labelKey: 'sitterOnboarding_respReportLabel', detailKey: 'sitterOnboarding_respReportDetail', required: true, walkOnly: true },
+  { icon: 'alert', labelKey: 'sitterOnboarding_respNoFoodLabel', detailKey: 'sitterOnboarding_respNoFoodDetail', required: false, walkOnly: true },
+  { icon: 'droplet', labelKey: 'onbResp_feedLabel', detailKey: 'onbResp_feedDetail', required: true, boardingOnly: true },
+  { icon: 'camera', labelKey: 'onbResp_updatesLabel', detailKey: 'onbResp_updatesDetail', required: true, boardingOnly: true },
+  { icon: 'lock', labelKey: 'onbResp_safeLabel', detailKey: 'onbResp_safeDetail', required: true, boardingOnly: true },
   { icon: 'lock', labelKey: 'sitterOnboarding_respPrivacyLabel', detailKey: 'sitterOnboarding_respPrivacyDetail', required: true },
   { icon: 'wallet', labelKey: 'sitterOnboarding_respNoDealsLabel', detailKey: 'sitterOnboarding_respNoDealsDetail', required: true },
   { icon: 'sos', labelKey: 'sitterOnboarding_respEmergencyLabel', detailKey: 'sitterOnboarding_respEmergencyDetail', required: true },
@@ -84,7 +70,18 @@ const RESPONSIBILITIES = [
 const VERIFY_STEP_KEYS = ['sitterOnboarding_verifyStep1', 'sitterOnboarding_verifyStep2', 'sitterOnboarding_verifyStep3'];
 const COMPLETE_STEP_KEYS = ['sitterOnboarding_completeStep1', 'sitterOnboarding_completeStep2', 'sitterOnboarding_completeStep3'];
 
-const TOTAL_STEPS = 8;
+// Screen ids are stored as sitter_profiles.onboarding_step for resume, so the
+// home step gets a new id instead of renumbering the existing screens.
+const HOME = 10;
+const FLOWS = {
+  sitter: [1, 2, 3, 4, 5, 6, 7, 8],
+  boarding: [1, HOME, 3, 4, 5, 6, 7, 8],
+  both: [1, 2, HOME, 3, 4, 5, 6, 7, 8],
+};
+
+// Drafts saved before migration 037 have no provider_type; guess it from what they offer.
+const inferProviderType = (serviceTypes, step) =>
+  serviceTypes.includes('boarding') && !serviceTypes.includes('walk30') ? 'boarding' : step === HOME ? 'both' : 'sitter';
 
 export default function SitterOnboarding({ onDone, city }) {
   const { t: tr } = useLanguage();
@@ -113,6 +110,10 @@ export default function SitterOnboarding({ onDone, city }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [draftSitterId, setDraftSitterId] = useState(null);
   const [restoringDraft, setRestoringDraft] = useState(true);
+  const [providerType, setProviderType] = useState('sitter');
+  const [homeDaycare, setHomeDaycare] = useState(false);
+  const [homeDetails, setHomeDetails] = useState({});
+  const [homePhotos, setHomePhotos] = useState([]);
   const photoInputRef = useRef(null);
 
   // Resume-in-progress onboarding: a closed tab/app used to lose the whole
@@ -136,6 +137,8 @@ export default function SitterOnboarding({ onDone, city }) {
           if (draft.max_dogs) setMaxDogs(String(draft.max_dogs));
           if (draft.advance_notice) setAdvanceNotice(draft.advance_notice);
           if (draft.profile_photo_url) setPhotoUrl(draft.profile_photo_url);
+          if (draft.home_details) setHomeDetails(draft.home_details);
+          if (draft.home_photos?.length) setHomePhotos(draft.home_photos);
           if (draft.base_area || draft.service_radius_km) setArea({ base_area: draft.base_area || '', base_pincode: draft.base_pincode || '', lat: draft.lat ?? null, lng: draft.lng ?? null, service_radius_km: Number(draft.service_radius_km) || 5 });
 
           const { data: userRow } = await supabase.from('users').select('name').eq('id', user.id).single();
@@ -144,16 +147,22 @@ export default function SitterOnboarding({ onDone, city }) {
           if (contact?.[0]?.phone) setPhone(contact[0].phone.replace(/^\+?91/, ''));
 
           const { data: svcRows } = await supabase.from('sitter_services').select('service_type, price_paise').eq('sitter_id', draft.id);
+          const svcTypes = (svcRows || []).map(r => r.service_type);
           if (svcRows?.length) {
-            setServices(svcRows.map(r => r.service_type));
+            setServices(svcTypes);
             setPrices(prev => { const next = { ...prev }; svcRows.forEach(r => { next[r.service_type] = Math.round(r.price_paise / 100); }); return next; });
           }
+          const step = Math.max(draft.onboarding_step || 1, 1);
+          const type = PROVIDER_TYPES.includes(draft.provider_type) ? draft.provider_type : inferProviderType(svcTypes, step);
+          setProviderType(type);
+          setHomeDaycare(svcTypes.includes('daycare'));
+          if (!svcTypes.length && type !== 'sitter') setServices(type === 'boarding' ? ['boarding'] : ['walk30', 'boarding']);
 
           const { data: pii } = await supabase.from('sitter_pii').select('aadhaar_number, upi_id').eq('sitter_id', draft.id).maybeSingle();
           if (pii?.aadhaar_number) setAadhaar(pii.aadhaar_number);
           if (pii?.upi_id) setUpiId(pii.upi_id);
 
-          setScreen(Math.max(draft.onboarding_step || 1, 1));
+          setScreen(FLOWS[type].includes(step) ? step : 1);
         }
       } catch (e) { /* no draft yet — fresh start */ }
       setRestoringDraft(false);
@@ -173,8 +182,8 @@ export default function SitterOnboarding({ onDone, city }) {
         user_id: user.id, city_id: cityRow?.id, status: 'draft', onboarding_step: step,
         bio, experience_years: parseInt(experience) || 0, experience_text: experience || null,
         languages, availability_days: availableDays, morning_slot: morningSlot,
-        afternoon_slot: afternoonSlot, evening_slot: eveningSlot, max_dogs: parseInt(maxDogs) || 1,
-        advance_notice: advanceNotice, profile_photo_url: photoUrl, ...areaFields(),
+        afternoon_slot: afternoonSlot, evening_slot: eveningSlot, max_dogs: maxDogsValue(),
+        advance_notice: advanceNotice, profile_photo_url: photoUrl, ...areaFields(), ...providerFields(),
         ...extra,
       });
       if (error) { console.log('Draft save error:', error.message); return draftSitterId; }
@@ -231,6 +240,21 @@ export default function SitterOnboarding({ onDone, city }) {
     lat: area.lat ?? null, lng: area.lng ?? null, service_radius_km: Number(area.service_radius_km) || 5,
   });
 
+  const providerFields = () => ({ provider_type: providerType, home_details: homeDetails, home_photos: homePhotos });
+  // Boarding-only hosts set their guest-dog limit on the home step, not the walk availability step.
+  const maxDogsValue = () => (providerType === 'boarding' && homeDetails.max_dogs) || parseInt(maxDogs) || 1;
+
+  const flow = FLOWS[providerType];
+  const nextOf = (s) => flow[flow.indexOf(s) + 1];
+  const goNext = async (from) => { const to = nextOf(from); await saveDraft(to); setScreen(to); };
+  const boardingOnly = providerType === 'boarding';
+
+  const beginSignup = () => {
+    if (providerType === 'boarding') setServices(['boarding', ...(homeDaycare ? ['daycare'] : [])]);
+    else if (providerType === 'both') setServices(prev => [...new Set([...prev, 'walk30', 'boarding'])]);
+    setScreen(1);
+  };
+
   const cityInfo = CITY_DATA[city];
   const activeServices = SERVICES.filter(s => services.includes(s.id));
   const estimated = activeServices.reduce((sum, s) => sum + prices[s.id] * s.bookings, 0);
@@ -283,10 +307,11 @@ export default function SitterOnboarding({ onDone, city }) {
         morning_slot: morningSlot,
         afternoon_slot: afternoonSlot,
         evening_slot: eveningSlot,
-        max_dogs: parseInt(maxDogs) || 1,
+        max_dogs: maxDogsValue(),
         advance_notice: advanceNotice,
         profile_photo_url: photoUrl,
         ...areaFields(),
+        ...providerFields(),
       });
       if (sitterError) { alert(tr('sitterOnboarding_couldNotSaveSitterProfile', { error: sitterError.message })); setSaving(false); return; }
 
@@ -347,17 +372,21 @@ export default function SitterOnboarding({ onDone, city }) {
   );
   const smallPrimary = { ...ui.primaryButton, minHeight: 44, padding: '0 20px', fontSize: font.md };
 
-  const stepHeader = (backTo, step) => (
-    <div style={{ ...ui.header, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => setScreen(backTo)} aria-label={tr('common_back')} style={ui.backButton}><Icon name="arrowLeft" size={20} /></button>
-        <span style={{ fontSize: font.sm, fontWeight: 600, color: color.muted }}>{tr('sitterOnboarding_stepOf', { step, total: TOTAL_STEPS })}</span>
+  const stepHeader = () => {
+    const idx = flow.indexOf(screen);
+    const step = idx + 1, total = flow.length;
+    return (
+      <div style={{ ...ui.header, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setScreen(idx > 0 ? flow[idx - 1] : 0)} aria-label={tr('common_back')} style={ui.backButton}><Icon name="arrowLeft" size={20} /></button>
+          <span style={{ fontSize: font.sm, fontWeight: 600, color: color.muted }}>{tr('sitterOnboarding_stepOf', { step, total })}</span>
+        </div>
+        <div role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={step} style={{ background: color.tile, height: 6, borderRadius: radius.pill, overflow: 'hidden' }}>
+          <div style={{ width: (step / total * 100) + '%', background: color.navy, height: 6, borderRadius: radius.pill, transition: 'width 0.3s' }} />
+        </div>
       </div>
-      <div role="progressbar" aria-valuemin={0} aria-valuemax={TOTAL_STEPS} aria-valuenow={step} style={{ background: color.tile, height: 6, borderRadius: radius.pill, overflow: 'hidden' }}>
-        <div style={{ width: (step / TOTAL_STEPS * 100) + '%', background: color.navy, height: 6, borderRadius: radius.pill, transition: 'width 0.3s' }} />
-      </div>
-    </div>
-  );
+    );
+  };
 
   const bottomBar = (label, onClick, disabled) => (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, background: color.surface, borderTop: `1px solid ${color.line}` }}>
@@ -408,7 +437,34 @@ export default function SitterOnboarding({ onDone, city }) {
             </div>
           ))}
         </div>
-        <button onClick={() => setScreen(1)} style={{ ...ui.primaryButton, width: '100%', minHeight: 52, fontSize: font.lg }}>
+        <div id="onb-type-title" style={{ fontSize: font.md, fontWeight: 700, color: color.ink, marginBottom: 10 }}>{tr('onbType_title')}</div>
+        <div role="group" aria-labelledby="onb-type-title" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {[{ id: 'sitter', icon: 'walk' }, { id: 'boarding', icon: 'boarding' }, { id: 'both', icon: 'paw' }].map(opt => {
+            const sel = providerType === opt.id;
+            return (
+              <button key={opt.id} type="button" onClick={() => setProviderType(opt.id)} aria-pressed={sel}
+                style={{ width: '100%', minHeight: 56, fontFamily: 'inherit', textAlign: 'left', color: 'inherit', background: color.surface, borderRadius: radius.lg, padding: '10px 14px', border: `1.5px solid ${sel ? color.navy : color.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ ...ui.iconTile, width: 40, height: 40, background: sel ? color.navySoft : color.tile }}><Icon name={opt.icon} size={20} /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr('bhome_type_' + opt.id)}</span>
+                  <span style={{ display: 'block', fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('bhome_type_' + opt.id + 'Sub')}</span>
+                </span>
+                {sel && <Icon name="check" size={18} color={color.navy} />}
+              </button>
+            );
+          })}
+        </div>
+        {boardingOnly && (
+          <button type="button" onClick={() => setHomeDaycare(v => !v)} role="switch" aria-checked={homeDaycare}
+            style={{ ...card, width: '100%', fontFamily: 'inherit', textAlign: 'left', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer', marginBottom: 16 }}>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: font.md, fontWeight: 600, color: color.ink }}>{tr('onbType_daycare')}</span>
+              <span style={{ display: 'block', fontSize: font.sm, color: color.muted, marginTop: 2 }}>{tr('onbType_daycareSub')}</span>
+            </span>
+            {switchVisual(homeDaycare)}
+          </button>
+        )}
+        <button onClick={beginSignup} style={{ ...ui.primaryButton, width: '100%', minHeight: 52, fontSize: font.lg }}>
           {tr('sitterOnboarding_iWantToEarnThis')}
         </button>
         <button onClick={onDone}
@@ -422,7 +478,7 @@ export default function SitterOnboarding({ onDone, city }) {
   // SCREEN 1 — Name + WhatsApp chat
   if (screen === 1) return wrap(
     <>
-      {stepHeader(0, 1)}
+      {stepHeader()}
       <div style={body}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           {botAvatar(40)}
@@ -457,7 +513,7 @@ export default function SitterOnboarding({ onDone, city }) {
             )}
             {phone.length === 10 && /^[6-9]\d{9}$/.test(phone) && (
               <div style={{ textAlign: 'right', marginBottom: 16 }}>
-                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await saveDraft(2); setScreen(2); }} style={smallPrimary}>{tr('common_next')}</button>
+                <button onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from('users').upsert({ id: user.id, name, phone: '+91' + phone }); await goNext(1); }} style={smallPrimary}>{tr('common_next')}</button>
               </div>
             )}
           </div>
@@ -469,7 +525,7 @@ export default function SitterOnboarding({ onDone, city }) {
   // SCREEN 2 — Services
   if (screen === 2) return wrap(
     <>
-      {stepHeader(1, 2)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_whatWillYouOffer')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_selectAllThatApply')}</p>
@@ -498,14 +554,14 @@ export default function SitterOnboarding({ onDone, city }) {
           );
         })}
       </div>
-      {bottomBar(services.length > 0 ? tr('sitterOnboarding_setMyPrices') : tr('sitterOnboarding_selectAtLeastOneService'), async () => { if(services.length > 0){ const id = await saveDraft(3); await saveDraftServices(id); setPricingIdx(0); setScreen(3); } }, services.length === 0)}
+      {bottomBar(services.length > 0 ? tr('sitterOnboarding_setMyPrices') : tr('sitterOnboarding_selectAtLeastOneService'), async () => { if(services.length > 0){ const to = nextOf(2); const id = await saveDraft(to); await saveDraftServices(id); setPricingIdx(0); setScreen(to); } }, services.length === 0)}
     </>
   );
 
   // SCREEN 3 — Pricing
   if (screen === 3) return wrap(
     <>
-      {stepHeader(2, 3)}
+      {stepHeader()}
       <div style={body}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: font.sm, color: color.muted }}>{tr('sitterOnboarding_pricingOf', { idx: pricingIdx + 1, total: activeServices.length })}</div>
@@ -555,14 +611,26 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         )}
       </div>
-      {bottomBar(pricingIdx < activeServices.length - 1 ? tr('sitterOnboarding_nextService') : tr('sitterOnboarding_doneWithPricing'), async () => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else { await saveDraftServices(draftSitterId); await saveDraft(4); setScreen(4); } })}
+      {bottomBar(pricingIdx < activeServices.length - 1 ? tr('sitterOnboarding_nextService') : tr('sitterOnboarding_doneWithPricing'), async () => { if(pricingIdx < activeServices.length - 1) setPricingIdx(i => i + 1); else { await saveDraftServices(draftSitterId); await goNext(3); } })}
+    </>
+  );
+
+  if (screen === HOME) return wrap(
+    <>
+      {stepHeader()}
+      <div style={body}>
+        <h1 style={title}>{tr('onbHome_title')}</h1>
+        <p style={subtitle}>{tr('onbHome_subtitle')}</p>
+        <BoardingHomeEditor details={homeDetails} photos={homePhotos} onChange={setHomeDetails} onPhotosChange={setHomePhotos} />
+      </div>
+      {bottomBar(tr('sitterOnboarding_continue'), async () => { const to = nextOf(HOME); const id = await saveDraft(to); await saveDraftServices(id); setPricingIdx(0); setScreen(to); })}
     </>
   );
 
   // SCREEN 4 — About you
   if (screen === 4) return wrap(
     <>
-      {stepHeader(3, 4)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_aboutYou')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_helpPetParentsTrust')}</p>
@@ -611,14 +679,14 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         </div>
       </div>
-      {bottomBar(tr('sitterOnboarding_continue'), async () => { await saveDraft(5); setScreen(5); })}
+      {bottomBar(tr('sitterOnboarding_continue'), () => goNext(4))}
     </>
   );
 
   // SCREEN 5 — Availability
   if (screen === 5) return wrap(
     <>
-      {stepHeader(4, 5)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_yourAvailability')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_setScheduleChangeAnytime')}</p>
@@ -655,7 +723,7 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         </div>
 
-        <div style={card}>
+        {!boardingOnly && <div style={card}>
           <div style={{ ...cardTitle, marginBottom: 2 }}>{tr('sitterOnboarding_availableTimeSlots')}</div>
           {[
             { label: tr('sitterOnboarding_slotMorning'), sub: tr('sitterEdit_morningHours'), key: 'morning', val: morningSlot, set: setMorningSlot },
@@ -671,9 +739,9 @@ export default function SitterOnboarding({ onDone, city }) {
               {switchVisual(slot.val)}
             </button>
           ))}
-        </div>
+        </div>}
 
-        <div style={card}>
+        {!boardingOnly && <div style={card}>
           <div style={cardTitle}>{tr('sitterOnboarding_maxDogsAtOneTime')}</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {['1','2','3','4+'].map(n => (
@@ -683,7 +751,7 @@ export default function SitterOnboarding({ onDone, city }) {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div style={card}>
           <div style={cardTitle}>{tr('sitterOnboarding_advanceNoticeNeeded')}</div>
@@ -696,14 +764,14 @@ export default function SitterOnboarding({ onDone, city }) {
           </div>
         </div>
       </div>
-      {bottomBar(tr('sitterOnboarding_continue'), async () => { await saveDraft(6); setScreen(6); })}
+      {bottomBar(tr('sitterOnboarding_continue'), () => goNext(5))}
     </>
   );
 
   // SCREEN 6 — ID Verification
   if (screen === 6) return wrap(
     <>
-      {stepHeader(5, 6)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_idVerification')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_requiredBeforeFirstBooking')}</p>
@@ -741,14 +809,14 @@ export default function SitterOnboarding({ onDone, city }) {
           ))}
         </div>
       </div>
-      {bottomBar(tr('sitterOnboarding_continue'), async () => { const id = await saveDraft(7); if (id && (aadhaar || upiId)) { await supabase.from('sitter_pii').upsert({ sitter_id: id, aadhaar_number: aadhaar || null, upi_id: upiId || null }, { onConflict: 'sitter_id' }); } setScreen(7); })}
+      {bottomBar(tr('sitterOnboarding_continue'), async () => { const id = await saveDraft(nextOf(6)); if (id && (aadhaar || upiId)) { await supabase.from('sitter_pii').upsert({ sitter_id: id, aadhaar_number: aadhaar || null, upi_id: upiId || null }, { onConflict: 'sitter_id' }); } setScreen(nextOf(6)); })}
     </>
   );
 
   // SCREEN 7 — Sitter responsibilities
   if (screen === 7) return wrap(
     <>
-      {stepHeader(6, 7)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_yourResponsibilities')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_whatFursdayExpects')}</p>
@@ -759,7 +827,7 @@ export default function SitterOnboarding({ onDone, city }) {
         </div>
 
         <div style={{ background: color.surface, borderRadius: radius.lg, border: `1px solid ${color.line}`, overflow: 'hidden', marginBottom: 12 }}>
-          {RESPONSIBILITIES.map((item, i) => (
+          {RESPONSIBILITIES.filter(item => (providerType === 'sitter' ? !item.boardingOnly : providerType === 'boarding' ? !item.walkOnly : true)).map((item, i) => (
             <div key={i} style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'flex-start', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
               <span style={{ ...ui.iconTile, width: 40, height: 40 }}><Icon name={item.icon} size={19} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -778,14 +846,14 @@ export default function SitterOnboarding({ onDone, city }) {
           <div style={{ fontSize: font.sm, color: color.success, lineHeight: 1.6 }}>{tr('sitterOnboarding_responsibilitiesFooter')}</div>
         </div>
       </div>
-      {bottomBar(tr('sitterOnboarding_acceptResponsibilities'), async () => { await saveDraft(8); setScreen(8); })}
+      {bottomBar(tr('sitterOnboarding_acceptResponsibilities'), () => goNext(7))}
     </>
   );
 
   // SCREEN 8 — Review + agree
   if (screen === 8) return wrap(
     <>
-      {stepHeader(7, 8)}
+      {stepHeader()}
       <div style={body}>
         <h1 style={title}>{tr('sitterOnboarding_reviewAndGoLive')}</h1>
         <p style={subtitle}>{tr('sitterOnboarding_almostThere')}</p>

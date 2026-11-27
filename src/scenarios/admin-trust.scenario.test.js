@@ -329,8 +329,11 @@ describe('Admin trust & safety scenarios', () => {
       fireEvent.click(screen.getByText('Continue →'));
       fireEvent.click(screen.getByText('7:00 AM'));
       fireEvent.click(screen.getByText('Continue →'));
-      fireEvent.click(screen.getByText('DLF Phase 1'));
-      fireEvent.click(screen.getByText('📢 Send to all sitters'));
+      await screen.findByText('Sheru');
+      fireEvent.change(screen.getByLabelText('Area'), { target: { value: 'DLF Phase 1' } });
+      fireEvent.click(screen.getByRole('option', { name: /DLF Phase 1/ }));
+      fireEvent.click(screen.getByText('Continue →'));
+      fireEvent.click(screen.getByText('Send to nearby carers'));
       await screen.findByText('Priya Kapoor');
       await screen.findByText('सुनीता देवी');
     } finally {
@@ -347,7 +350,9 @@ describe('Admin trust & safety scenarios', () => {
     const priyaCard = cardOf(screen.getByText('Priya Kapoor'), 'Book this sitter');
     fireEvent.click(within(priyaCard).getByRole('button', { name: 'Book this sitter' }));
     await waitFor(() => expect(onSitterAccepted).toHaveBeenCalledTimes(1));
-    expect(onBack).toHaveBeenCalled();
+    // App.js navigates on onSitterAccepted; going back as well would undo that.
+    expect(onBack).not.toHaveBeenCalled();
+    expect(onSitterAccepted.mock.calls[0][1]).toMatchObject({ service: 'walk30', time: '7:00 AM', petId: IDS.sheru, priceRupees: 349, requestId: req.id });
 
     expect(db.one('broadcast_requests', { id: req.id })).toMatchObject({ status: 'filled', chosen_sitter_id: IDS.priya });
     expect(db.one('broadcast_responses', { sitter_id: IDS.priya }).status).toBe('chosen');

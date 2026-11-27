@@ -7,12 +7,16 @@ import { color, font, radius, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
 import ServiceAreaPicker from './ServiceAreaPicker';
 import AvailabilityCalendar from './AvailabilityCalendar';
+import BoardingHomeEditor, { PROVIDER_TYPES, HOME_OPTIONS, homeOptionKey, homeStrength, isBoardingHost } from './BoardingHomeEditor';
+import { compressImage } from './compressImage';
 
 const SERVICES = [
   { id: 'walk30', nameKey: 'sitterEdit_svcWalkName', subKey: 'sitterEdit_svcWalkSub', icon: 'walk', min: 149, max: 599, step: 50 },
   { id: 'boarding', nameKey: 'sitterEdit_svcBoardingName', subKey: 'sitterEdit_svcBoardingSub', icon: 'boarding', min: 499, max: 1999, step: 100 },
   { id: 'daycare', nameKey: 'sitterEdit_svcDaycareName', subKey: 'sitterEdit_svcDaycareSub', icon: 'sun', min: 399, max: 1299, step: 50 },
 ];
+
+const BOARDING = SERVICES.find(s => s.id === 'boarding');
 
 const LANGUAGES = ['Hindi', 'English', 'Marathi', 'Punjabi', 'Tamil', 'Telugu', 'Kannada', 'Bengali'];
 const LANGUAGE_KEYS = {
@@ -47,7 +51,20 @@ export const ABOUT_MIN = 120;
 export const ABOUT_MAX = 600;
 
 // Profile strength: every check a parent notices, with the tab that fixes it.
+// For boarding hosts the home profile counts too: half the score for
+// boarding-only hosts, 30% for hosts who also walk.
 export function profileStrength(p) {
+  const base = sitterStrength(p);
+  if (!isBoardingHost(p.providerType)) return base;
+  const home = homeStrength(p.homeDetails, p.homePhotos);
+  const w = p.providerType === 'boarding' ? 0.5 : 0.3;
+  return {
+    pct: Math.round(base.pct * (1 - w) + home.pct * w),
+    missing: [...base.missing, ...home.missing.map(m => ({ id: 'home_' + m.id, labelKey: m.labelKey, tab: 'home' }))],
+  };
+}
+
+function sitterStrength(p) {
   const checks = [
     { id: 'photo', labelKey: 'strength_photo', tab: 'profile', ok: !!p.photoUrl },
     { id: 'headline', labelKey: 'strength_headline', tab: 'profile', ok: !!(p.headline || '').trim() },
@@ -64,6 +81,24 @@ export function profileStrength(p) {
   return { pct: Math.round(((checks.length - missing.length) / checks.length) * 100), missing };
 }
 
+const HOME_LIST_FIELDS = ['outdoor', 'sizes'];
+
+// Flat home_details fields, keyed 'home:<field>' so they can't clash with sitter fields like max_dogs.
+function homeSnapshot(details, photos) {
+  const d = details || {};
+  const snap = {};
+  ['home_type', 'outdoor', 'someone_home', 'kids', 'other_pets', 'sleeping', 'ac', 'max_dogs', 'sizes', 'vet_km', 'updates', 'rules'].forEach(f => {
+    const v = d[f];
+    snap['home:' + f] = HOME_LIST_FIELDS.includes(f) ? (v || [])
+      : f === 'ac' ? (typeof v === 'boolean' ? v : null)
+      : f === 'rules' ? (v || '').trim()
+      : f === 'max_dogs' || f === 'vet_km' ? (v == null || v === '' ? null : Number(v))
+      : (v || '');
+  });
+  snap['home:photos'] = (photos || []).length || null;
+  return snap;
+}
+
 // One flat, comparable picture of everything the Save button writes.
 export function profileSnapshot(s) {
   const snap = {
@@ -75,7 +110,8 @@ export function profileSnapshot(s) {
     profile_photo: s.photoUrl || '', portfolio: (s.photos || []).length, upi: (s.upiId || '').trim(),
   };
   SERVICES.forEach(svc => { snap['svc_' + svc.id] = (s.activeServices || []).includes(svc.id) ? (s.prices?.[svc.id] || 299) : null; });
-  return snap;
+  snap.provider_type = s.providerType || 'sitter';
+  return isBoardingHost(snap.provider_type) ? { ...snap, ...homeSnapshot(s.homeDetails, s.homePhotos) } : snap;
 }
 
 // Field-by-field differences between two snapshots, in snapshot key order.
@@ -94,24 +130,6 @@ export function diffProfile(before, after) {
 }
 
 
-const compressImage = (file) => new Promise((resolve) => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      const maxPx = 1200;
-      if (w > maxPx) { h = h * maxPx / w; w = maxPx; }
-      if (h > maxPx) { w = w * maxPx / h; h = maxPx; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.8);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-});
 export default function SitterEditProfile({ onBack, city }) {
   const { t, lang } = useLanguage();
   const [tab, setTab] = useState('profile');
@@ -143,6 +161,9 @@ export default function SitterEditProfile({ onBack, city }) {
   const [area, setArea] = useState({ base_area: '', base_pincode: '', lat: null, lng: null, service_radius_km: 5 });
   const [showCalendar, setShowCalendar] = useState(false);
   const [changes, setChanges] = useState(null);
+  const [providerType, setProviderType] = useState('sitter');
+  const [homeDetails, setHomeDetails] = useState({});
+  const [homePhotos, setHomePhotos] = useState([]);
   const savedSnapshot = useRef(null);
   const changesRef = useRef(null);
 
@@ -172,6 +193,10 @@ export default function SitterEditProfile({ onBack, city }) {
       setAdvanceNotice(profile.advance_notice || '24hrs');
       setHeadline(profile.headline || '');
       setHighlights(profile.highlights || []);
+      const loadedType = PROVIDER_TYPES.includes(profile.provider_type) ? profile.provider_type : 'sitter';
+      setProviderType(loadedType);
+      setHomeDetails(profile.home_details || {});
+      setHomePhotos(profile.home_photos || []);
       const loadedArea = { base_area: profile.base_area || '', base_pincode: profile.base_pincode || '', lat: profile.lat ?? null, lng: profile.lng ?? null, service_radius_km: Number(profile.service_radius_km) || 5 };
       setArea(loadedArea);
       const { data: photoData } = await supabase.from('sitter_profile_photos').select('*').eq('sitter_id', profile.id).order('display_order');
@@ -192,6 +217,7 @@ export default function SitterEditProfile({ onBack, city }) {
         maxDogs: profile.max_dogs || 1, advanceNotice: profile.advance_notice || '24hrs', isPaused: profile.is_paused || false,
         photoUrl: profile.profile_photo_url, photos: loadedPhotos, activeServices: (services || []).map(s => s.service_type), prices: priceMap,
         upiId: piiData?.upi_id || '',
+        providerType: loadedType, homeDetails: profile.home_details || {}, homePhotos: profile.home_photos || [],
       });
       const { data: bookings } = await supabase.from('bookings').select('gross_amount_paise, pet_parent_id, status').eq('sitter_id', profile.id);
       if (bookings) {
@@ -244,6 +270,16 @@ export default function SitterEditProfile({ onBack, city }) {
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
+  const chooseProviderType = (type) => {
+    setProviderType(type);
+    if (isBoardingHost(type)) {
+      if (!prices.boarding) setPrices(prev => ({ ...prev, boarding: Math.round((BOARDING.min + BOARDING.max) / 2) }));
+      setActiveServices(prev => (prev.includes('boarding') ? prev : [...prev, 'boarding']));
+    }
+    if (type === 'boarding') setActiveServices(prev => prev.filter(x => x !== 'walk30'));
+    if (!isBoardingHost(type) && tab === 'home') setTab('services');
+  };
+
   const toggleService = (id) => {
     setActiveServices(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     if (!prices[id]) {
@@ -255,6 +291,7 @@ export default function SitterEditProfile({ onBack, city }) {
   const currentSnapshot = () => profileSnapshot({
     headline, bio, highlights, area, experience, languages, availableDays, morningSlot, afternoonSlot, eveningSlot,
     maxDogs, advanceNotice, isPaused, photoUrl, photos, activeServices, prices, upiId,
+    providerType, homeDetails, homePhotos,
   });
 
   const handleSave = async () => {
@@ -272,6 +309,7 @@ export default function SitterEditProfile({ onBack, city }) {
         base_area: area.base_area || null, base_pincode: area.base_pincode || null,
         lat: area.lat ?? null, lng: area.lng ?? null, service_radius_km: Number(area.service_radius_km) || 5,
         profile_updated_at: new Date().toISOString(),
+        provider_type: providerType, home_details: homeDetails, home_photos: homePhotos,
       };
       const { error: profileError } = await writeWithFallback(row => supabase.from('sitter_profiles').update(row).eq('user_id', user.id), updateData);
       if (profileError) throw profileError;
@@ -314,6 +352,7 @@ export default function SitterEditProfile({ onBack, city }) {
   const strength = profileStrength({
     photoUrl, headline, bio, highlights, photos, experience, baseArea: area.base_area,
     activeServices, aadhaarNumber: sitterProfile?.aadhaar_number, upiId,
+    providerType, homeDetails, homePhotos,
   });
   const pct = strength.pct;
   const strengthWord = pct === 100 ? t('strength_levelComplete') : pct >= 70 ? t('strength_levelGood') : pct >= 40 ? t('strength_levelFair') : t('strength_levelWeak');
@@ -326,11 +365,18 @@ export default function SitterEditProfile({ onBack, city }) {
     evening_slot: 'sitterEdit_evening', max_dogs: 'changes_maxDogs', advance_notice: 'changes_notice', accepting: 'changes_accepting',
     profile_photo: 'changes_profilePhoto', portfolio: 'changes_portfolio', upi: 'changes_upi',
     svc_walk30: 'sitterEdit_svcWalkName', svc_boarding: 'sitterEdit_svcBoardingName', svc_daycare: 'sitterEdit_svcDaycareName',
+    provider_type: 'sitterEdit_providerTitle', 'home:photos': 'changes_homePhotos',
   };
-  const listLabel = (field, v) => field === 'highlights' ? t(HIGHLIGHT_KEYS[v] || v) : field === 'languages' ? t(LANGUAGE_KEYS[v] || v) : field === 'availability_days' ? t(DAY_KEYS[v] || v) : v;
+  const homeField = (field) => (field.startsWith('home:') ? field.slice(5) : null);
+  const listLabel = (field, v) => homeField(field) ? t(homeOptionKey(homeField(field), v)) : field === 'highlights' ? t(HIGHLIGHT_KEYS[v] || v) : field === 'languages' ? t(LANGUAGE_KEYS[v] || v) : field === 'availability_days' ? t(DAY_KEYS[v] || v) : v;
   const clip = (s) => (s.length > 60 ? s.slice(0, 57) + '…' : s);
   const fmtValue = (field, v) => {
     if (v == null || v === '') return field.startsWith('svc_') ? t('changes_off') : t('changes_empty');
+    const hf = homeField(field);
+    if (hf === 'ac') return t(v ? 'bhome_ac_yes' : 'bhome_ac_no');
+    if (hf === 'vet_km') return t('area_km', { n: v });
+    if (hf && HOME_OPTIONS[hf]) return t(homeOptionKey(hf, v));
+    if (field === 'provider_type') return t('bhome_type_' + v);
     if (typeof v === 'boolean') return v ? t('changes_on') : t('changes_off');
     if (field === 'service_radius_km') return t('area_km', { n: v });
     if (field.startsWith('svc_')) return t('sitterEdit_currencyPrefix') + v;
@@ -340,7 +386,7 @@ export default function SitterEditProfile({ onBack, city }) {
     return "'" + clip(String(v)) + "'";
   };
   const changeLine = (c) => {
-    const label = t(FIELD_KEYS[c.field] || c.field);
+    const label = t(FIELD_KEYS[c.field] || (homeField(c.field) ? 'bhome_field_' + homeField(c.field) : c.field));
     if (c.added || c.removed) {
       const parts = [];
       if (c.added.length) parts.push(t('changes_added', { items: c.added.map(v => listLabel(c.field, v)).join(', ') }));
@@ -508,7 +554,7 @@ export default function SitterEditProfile({ onBack, city }) {
         )}
 
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '4px -16px 14px', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
-          {[{ id: 'profile', labelKey: 'sitterEdit_tabProfile' }, { id: 'services', labelKey: 'sitterEdit_tabServices' }, { id: 'availability', labelKey: 'sitterEdit_tabSchedule' }, { id: 'payout', labelKey: 'sitterEdit_tabPayout' }].map(tabItem => (
+          {[{ id: 'profile', labelKey: 'sitterEdit_tabProfile' }, { id: 'services', labelKey: 'sitterEdit_tabServices' }, ...(isBoardingHost(providerType) ? [{ id: 'home', labelKey: 'sitterEdit_tabHome' }] : []), { id: 'availability', labelKey: 'sitterEdit_tabSchedule' }, { id: 'payout', labelKey: 'sitterEdit_tabPayout' }].map(tabItem => (
             <button key={tabItem.id} onClick={() => setTab(tabItem.id)} aria-pressed={tab === tabItem.id}
               style={{ ...ui.chip(tab === tabItem.id), minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap' }}>
               {t(tabItem.labelKey)}
@@ -620,8 +666,19 @@ export default function SitterEditProfile({ onBack, city }) {
         )}
         {tab === 'services' && (
           <div>
+            <div style={card}>
+              <div id="sitter-edit-provider" style={{ ...cardTitle, marginBottom: 4 }}>{t('sitterEdit_providerTitle')}</div>
+              <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 10 }}>{t('sitterEdit_providerHint')}</div>
+              <div role="group" aria-labelledby="sitter-edit-provider" style={chipRow}>
+                {PROVIDER_TYPES.map(type => (
+                  <button key={type} type="button" aria-pressed={providerType === type} onClick={() => chooseProviderType(type)} style={{ ...ui.chip(providerType === type), minHeight: 44 }}>
+                    {t('bhome_type_' + type)}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{ fontSize: font.sm, color: color.muted, marginBottom: 12 }}>{t('sitterEdit_servicesHint')}</div>
-            {SERVICES.map(s => {
+            {SERVICES.filter(s => !(providerType === 'boarding' && s.id === 'walk30')).map(s => {
               const active = activeServices.includes(s.id);
               const price = prices[s.id] || Math.round((s.min + s.max) / 2);
               return (
@@ -658,6 +715,9 @@ export default function SitterEditProfile({ onBack, city }) {
               );
             })}
           </div>
+        )}
+        {tab === 'home' && isBoardingHost(providerType) && (
+          <BoardingHomeEditor details={homeDetails} photos={homePhotos} onChange={setHomeDetails} onPhotosChange={setHomePhotos} />
         )}
         {tab === 'availability' && (
           <div>

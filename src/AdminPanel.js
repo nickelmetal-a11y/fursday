@@ -14,6 +14,7 @@ import AdminOverview from './AdminOverview';
 import AdminPayouts from './AdminPayouts';
 import AdminZones from './AdminZones';
 import AdminReferrals from './AdminReferrals';
+import AdminFeedback from './AdminFeedback';
 import SitterDirectory, { PendingQueue, makeSitterActions } from './AdminSitters';
 import { unpaidPayouts } from './adminInsights';
 import { AdminStyles, Skeleton, Toast, A } from './AdminUI';
@@ -31,6 +32,7 @@ const SUBTITLES = {
   messages: 'In-app announcements to sitters and parents.',
   users: 'Everyone on Fursday, test logins and account deletion requests.',
   reports: 'Revenue, refunds and weekly trends.',
+  feedback: 'Ideas, problems and praise from the feedback tab.',
   audit: 'Every admin action, newest first.',
   settings: 'Support contacts and referral amounts.',
 };
@@ -149,6 +151,7 @@ export default function AdminPanel({ onSignOut }) {
     ] },
     { title: 'Insights', items: [
       { id: 'users', icon: 'user', label: 'People' },
+      { id: 'feedback', icon: 'bulb', label: 'Feedback' },
       { id: 'reports', icon: 'trendUp', label: 'Reports' },
       { id: 'audit', icon: 'history', label: 'Audit' },
     ] },
@@ -230,6 +233,7 @@ export default function AdminPanel({ onSignOut }) {
               {tab === 'referrals' && <AdminReferrals onGoTab={goTab} />}
               {tab === 'messages' && <AdminBroadcast />}
               {tab === 'users' && <AdminUsers />}
+              {tab === 'feedback' && <AdminFeedback showMsg={showMsg} />}
               {tab === 'reports' && <AdminReports />}
               {tab === 'audit' && <AdminAuditLogs />}
               {tab === 'settings' && <AdminSettings />}

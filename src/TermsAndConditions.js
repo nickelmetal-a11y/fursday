@@ -10,7 +10,7 @@ const SECTIONS = [
   },
   {
     title: "2. Payments and payouts",
-    content: "When a booking is paid in the app, Fursday collects the payment through its payment partner (Razorpay) on the Sitter's behalf and pays the Sitter's share to their registered UPI ID after the service is marked completed, normally within 48 hours. Payment processing fees are absorbed by Fursday. Promo codes are funded by Fursday and never reduce the Sitter's share.",
+    content: "Pet Parents pay when they book, through Fursday's payment partner Razorpay, on the Sitter's behalf.\n\nUntil the Sitter accepts, the payment is only authorised (held), not charged. If the Sitter declines, or does not reply within 24 hours, the hold is released in full and the Pet Parent is not charged. Banks can take a few working days to show a released hold.\n\nWhen the Sitter accepts, the payment is captured and held. It is not paid to the Sitter until 24 hours after the service ends. If the Pet Parent reports a problem or raises a dispute in that time, the payout is paused until Fursday decides (section 8). Otherwise the Sitter's share is released and paid to their registered UPI ID, normally within 48 hours of release.\n\nCancellations are refunded under section 3. Payment processing fees are absorbed by Fursday. Promo codes are funded by Fursday and never reduce the Sitter's share.",
   },
   {
     title: "3. Cancellation and refund policy",
@@ -46,7 +46,7 @@ const SECTIONS = [
   },
   {
     title: "11. Changes to these Terms",
-    content: "Fursday may update these Terms. We will tell you about significant changes by email or in the app. Continuing to use Fursday after a change means you accept the updated Terms. This version is effective from 25 November 2026.",
+    content: "Fursday may update these Terms. We will tell you about significant changes by email or in the app. Continuing to use Fursday after a change means you accept the updated Terms. This version is effective from 27 November 2026.",
   },
 ];
 
@@ -74,6 +74,17 @@ export default function TermsAndConditions({ onBack, city }) {
             {lang === 'hi' && <div style={{ marginTop:6, fontSize:font.sm }}>{tr('terms_legalEnglishNote')}</div>}
           </div>
         </div>
+
+        <section aria-label={tr('terms_payTitle')} style={{ ...ui.card, marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:font.md, fontWeight:700, color:color.ink, marginBottom:6 }}>
+            <Icon name="shield" size={18} color={color.navy} />{tr('terms_payTitle')}
+          </div>
+          {['terms_pay1', 'terms_pay2', 'terms_pay3', 'terms_pay4'].map((k, i) => (
+            <div key={k} style={{ display:'flex', gap:10, padding:'8px 0', borderTop:i ? `1px solid ${color.line}` : 'none', fontSize:13, color:color.text, lineHeight:1.6 }}>
+              <span style={{ fontWeight:700, color:color.navy, fontVariantNumeric:'tabular-nums' }}>{i + 1}</span><span>{tr(k)}</span>
+            </div>
+          ))}
+        </section>
 
         <div style={{ background:color.surface, borderRadius:radius.lg, border:`1px solid ${color.line}`, overflow:'hidden' }}>
           {SECTIONS.map((s, i) => {

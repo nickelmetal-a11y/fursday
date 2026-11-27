@@ -13,6 +13,11 @@ jest.mock('./notificationService', () => ({
   notifyBookingCancelled: jest.fn(),
 }));
 
+jest.mock('./paymentsClient', () => ({
+  ...jest.requireActual('./paymentsClient'),
+  cancelBooking: (...a) => global.__cancelOnServer(...a),
+}));
+
 jest.mock('./supabase', () => {
   const bookingsTable = {
     update: (fields) => { global.__updateCalls.push(fields); return bookingsTable; },
@@ -54,6 +59,8 @@ function makeBooking(overrides = {}) {
 }
 
 beforeEach(() => {
+  const { PaymentsError } = jest.requireActual('./paymentsClient');
+  global.__cancelOnServer = jest.fn(() => Promise.reject(new PaymentsError('Network error')));
   global.__updateCalls = [];
   updateCalls = global.__updateCalls;
   onCancelled = jest.fn();
@@ -117,7 +124,8 @@ describe('CancellationPolicyModal - refund tiers', () => {
 
   // UT-CAN-09. bookings.cancelled_at/refund_percentage/refund_amount_paise
   // (migration 014, safety-netted by 023) back the displayed refund tier —
-  // this must actually get written, not just shown.
+  // this must actually get written, not just shown. Here the payments server
+  // is unreachable, so the cancellation is recorded for a refund by hand.
   test('confirming cancellation writes exactly one bookings update with the right fields', async () => {
     render(
       <CancellationPolicyModal
@@ -142,6 +150,45 @@ describe('CancellationPolicyModal - refund tiers', () => {
 
     await waitFor(() => expect(onCancelled).toHaveBeenCalled());
     expect(onClose).toHaveBeenCalled();
+  });
+
+  test('paid booking: the server cancels and refunds; the app writes nothing itself and uses the refund the server computed', async () => {
+    global.__cancelOnServer = jest.fn(() => Promise.resolve({ ok: true, refund_percentage: 75, refund_amount_paise: 26175 }));
+    render(<CancellationPolicyModal booking={makeBooking({ payment_status: 'held', booking_date: hoursFromNow(48) })} onClose={onClose} onCancelled={onCancelled} />);
+    fireEvent.click(screen.getByText('Cancel booking'));
+    fireEvent.click(screen.getByText('Change of plans'));
+    fireEvent.click(screen.getByText('Yes, cancel this booking'));
+    await waitFor(() => expect(onCancelled).toHaveBeenCalled());
+    expect(global.__cancelOnServer).toHaveBeenCalledWith('booking-1', 'Change of plans');
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  test('if the server refuses the cancellation, the parent is told and nothing is written', async () => {
+    const { PaymentsError } = jest.requireActual('./paymentsClient');
+    global.__cancelOnServer = jest.fn(() => Promise.reject(new PaymentsError('Razorpay: refund failed', 502, 'gateway')));
+    window.alert = jest.fn();
+    render(<CancellationPolicyModal booking={makeBooking({ payment_status: 'held' })} onClose={onClose} onCancelled={onCancelled} />);
+    fireEvent.click(screen.getByText('Cancel booking'));
+    fireEvent.click(screen.getByText('Change of plans'));
+    fireEvent.click(screen.getByText('Yes, cancel this booking'));
+    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Razorpay: refund failed')));
+    expect(updateCalls).toHaveLength(0);
+    expect(onCancelled).not.toHaveBeenCalled();
+  });
+
+  test('unpaid booking: cancelled directly, the payments server is not involved', async () => {
+    render(<CancellationPolicyModal booking={makeBooking({ payment_status: 'unpaid' })} onClose={onClose} onCancelled={onCancelled} />);
+    fireEvent.click(screen.getByText('Cancel booking'));
+    fireEvent.click(screen.getByText('Change of plans'));
+    fireEvent.click(screen.getByText('Yes, cancel this booking'));
+    await waitFor(() => expect(updateCalls).toHaveLength(1));
+    expect(global.__cancelOnServer).not.toHaveBeenCalled();
+  });
+
+  test('a hold the sitter has not accepted yet is released in full, even close to the booking', () => {
+    render(<CancellationPolicyModal booking={makeBooking({ payment_status: 'authorized', booking_date: hoursFromNow(5) })} onClose={onClose} />);
+    expect(screen.getByText('No charge — your hold is released in full')).toBeInTheDocument();
+    expect(screen.getByText('₹349')).toBeInTheDocument();
   });
 
   test('"Keep booking" just closes the modal — no cancellation happens', () => {
