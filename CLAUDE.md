@@ -32,6 +32,17 @@ Design: a 3D glossy **navy blue** paw print (asymmetric teardrop pad + 4 angled 
 
 ---
 
+## 🛠️ XCODE BUILD FIX — "User Script Sandboxing" MUST BE "No" (added 2026-11-27, Mac session)
+
+**If an iOS build fails with `Sandbox: bash deny(1) file-read-data` during the "[CP] Embed Pods Frameworks" script phase, this is why.** `ios/App/App.xcodeproj` has a build setting called **User Script Sandboxing** (`ENABLE_USER_SCRIPT_SANDBOXING` in `project.pbxproj`) that is incompatible with CocoaPods' Run Script build phases on this Xcode version. It must be set to **No** for both Debug and Release.
+
+- Fix it in Xcode: select the `App` project → `App` target → **Build Settings** tab → scroll (or filter) to **"User Script Sandboxing"** → change the dropdown from Yes to No (combined view sets both configs at once).
+- **This has already reverted back to "Yes" once** after being fixed and the project re-synced/reopened (cause not fully confirmed — possibly the Synology Drive sync pulling an older `project.pbxproj`, possibly a fresh `pod install` resetting it). **If you hit the sandbox error, just check/re-flip this setting again before spending time debugging anything else.**
+- This was user-authorized to be changed via Xcode's GUI directly (a security-relevant sandboxing setting) — do not try to patch it via `sed`/`project.pbxproj` text edit without checking with the user first, since that's a more surprising way to make the same change.
+- Confirmed NOT related to Synology Drive / CloudStorage path issues — reproduced identically on a fully local, non-cloud-synced copy of the project.
+
+---
+
 ## 📱 IF YOU ARE A MAC SESSION — DO THIS FIRST (added 2026-11-25)
 
 The Windows session just fixed 4 real bugs found by testing in Xcode on a real iPhone (zoom/viewport, safe-area overlap, the bottom-nav-drifts-while-scrolling WKWebView bug, and a stale bundled web build) — all committed locally (not pushed to GitHub — see the sync note below). It cannot run `pod install` or Xcode itself (Mac-only). **Your job: get those fixes onto a real device.**
@@ -113,7 +124,12 @@ Android: the Windows session is installing Android Studio + a JDK locally (user 
 | Founding Sitter perk (0% comm, first 20) | AdminPanel.js, SitterEarningsDashboard.js, migration 025 | ✅ Live (Phase 4 P3) |
 | Admin auth hardening (is_admin, RLS) | AdminPanel.js, migration 021 | ✅ Live (Phase 4 P3) |
 | Contact info column-level RLS | get_user_contact() RPC, migration 022 | ✅ Live (Phase 4 P3) |
-| Admin-managed promotions + home banner | AdminPromotions.js, BookingFlow.js, migrations 028/029 | 🟡 Built, migrations not yet run on prod |
+| Admin-managed promotions + home banner | AdminPromotions.js, BookingFlow.js, migrations 028/029 | ✅ Live |
+| One-screen parent signup | FirstLoginPrompt.js | ✅ Live (ParentOnboarding.js deleted) |
+| Feedback tab + admin inbox | FeedbackTab.js, AdminFeedback.js, migration 037 | 🟡 Live, needs 037 |
+| Boarding-only hosts | BoardingHomeEditor.js, SitterOnboarding.js, SitterEditProfile.js, SitterProfile.js | 🟡 Live, needs 037 |
+| Smart nearby requests | BroadcastRequest.js, broadcastMatching.js, SitterRequestsFeed.js | 🟡 Live, needs 037 |
+| Pay at booking, held payouts | api/payments/[action].js, _lib.js, paymentsClient.js, PaymentScreen.js | 🟡 Live, simulated only until Razorpay keys + 037 |
 
 ---
 
@@ -299,6 +315,17 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - A city the person picks by hand in the Home location sheet wins over GPS (stored as `fursday_city_manual`). "Use my current location" clears that choice.
 - Bounds are wider: NCR is lat 28.2–29.0, lng 76.7–77.7; Pune is lat 18.35–18.8, lng 73.6–74.2. Keep `CITY_CONFIG` (App.js) and `ALLOWED_REGIONS` (geolocationService.js) in sync.
 - **The IP gate only hard-blocks non-India IPs.** Indian mobile IPs often geolocate to the wrong city (Pune Jio shows as Mumbai). Being outside the service area is decided by GPS and shown as the soft "outside city" notice.
+
+## 🧩 FIVE FEATURES (Phase 0, commit `1f29fcb`, 2026-11-27)
+**Migration `037_feedback_boarding_requests_held_payments.sql` must be run on prod.** All code works before it (fallbacks via `schemaFallback.js` and per-screen retries).
+- **Signup:** `FirstLoginPrompt` is the whole parent onboarding: name, optional pet name, "Find care" / "Offer pet care" (`onDone(name, intent)`; `offer` opens SitterOnboarding). Parents never see ID wording; the dog-prep checklist moved to Help FAQ.
+- **Feedback:** `FeedbackTab` (bulb tab, right edge, all signed-in screens except payment) writes `app_feedback` (kind idea/problem/love, screen key from App.js `feedbackScreen`, role, lang, platform, optional screenshot in private `feedback` bucket). Admin → Insights → Feedback triages status + private note.
+- **Boarding hosts:** `sitter_profiles.provider_type` ('sitter'|'boarding'|'both'), `home_details` jsonb, `home_photos` text[]. `BoardingHomeEditor` exports `homeStrength`/`homeSummary`. Explore treats boarding-only hosts within 15 km as "in my area" (the parent travels).
+- **Nearby requests:** matching in `broadcastMatching.js` (service, calendar, dog size, radius; waves 5/8/12 km every 15 min, top 8). Invites live in `broadcast_recipients`; sitters only see requests they were invited to (RLS via security-definer helpers to avoid policy recursion). Later waves and urgent first-accept run from the parent's open status screen (no minute cron on Vercel Hobby). Choosing an offer opens BookingFlow with `initialDate/initialTime/agreedPriceRupees/broadcastRequestId`; the booking starts `confirmed` and is linked via `broadcast_requests.booking_id`.
+- **Pay at booking:** all money changes go through `/api/payments/<action>` (one dynamic function: create-order, verify, simulate, capture, release-hold, cancel, sweep). Trigger `guard_booking_money` blocks browser writes to payment/payout fields. Flow: authorise at checkout → capture when the sitter accepts → payout `on_hold` until service end + 24h → `ready` (daily sweep, `vercel.json` cron 21:30 UTC) → admin marks paid. Decline / 24h no reply = full void. Cancel refunds are recomputed server-side. **Until `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` exist, only @example.com accounts get a simulated checkout; real users keep "pay after the sitter accepts".** The cron needs `CRON_SECRET` in Vercel env (owner adds; Claude was blocked from setting it).
+- **Phase 1 follow-ups:** Razorpay Route transfers (slot marked in sweep), payment webhooks, test against real keys, Terms wording once Route is live, server-side price check for booking inserts (today the client sends `gross_amount_paise`).
+- **Phone verification (planned, not built):** Supabase phone OTP linked to the email account (`updateUser({phone})` + `verifyOtp type phone_change`), required for sitters, asked of parents at first booking; provider Twilio Verify (handles India DLT). Today Settings shows every phone as "Not verified" because nothing verifies.
+- **Uncommitted Mac work deployed with this build:** `src/pushNotifications.js`, the Settings push toggle, `@capacitor/push-notifications`, migration 036 are the Mac session's; left uncommitted for it, but `vercel --prod` uploads the working tree so they are in the live web build (no-ops on web).
 
 ## 🧭 ZONES, ADDRESSES, CALENDAR, REFERRALS (Phase 0, commit `321b2ce`, 2026-11-26)
 **Migration `035` must be run on prod** (after 030–033). The code works before it runs:
