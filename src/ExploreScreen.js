@@ -49,12 +49,12 @@ function cityCentre(city) {
 
 const toggleIn = (list, v) => (list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
 
-export default function ExploreScreen({ onBack, city, userLocation, onBook, onViewProfile, isGuest, onRequireSignIn }) {
+export default function ExploreScreen({ onBack, city, userLocation, onBook, onViewProfile, isGuest, onRequireSignIn, initialService, onServiceChange }) {
   const { t: tr, lang } = useLanguage();
   const [sitters, setSitters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeService, setActiveService] = useState('all');
+  const [activeService, setActiveService] = useState(SERVICES.some(s => s.id === initialService) ? initialService : 'all');
   const [sortBy, setSortBy] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [addresses, setAddresses] = useState([]);
@@ -251,7 +251,7 @@ export default function ExploreScreen({ onBack, city, userLocation, onBook, onVi
           {SERVICES.map(s => {
             const on = activeService === s.id;
             return (
-              <button key={s.id} type="button" onClick={() => setActiveService(s.id)} aria-pressed={on}
+              <button key={s.id} type="button" onClick={() => { setActiveService(s.id); onServiceChange?.(s.id); }} aria-pressed={on}
                 style={{ ...ui.chip(on), flexShrink:0, display:'flex', alignItems:'center', gap:6 }}>
                 <Icon name={s.icon} size={16} />{tr(s.key)}
               </button>

@@ -94,5 +94,6 @@ export const verifyTip = (bookingId, rz) => call('verify', { booking_id: booking
 export const simulateTip = (bookingId, amountPaise) => call('simulate', { booking_id: bookingId, purpose: 'tip', amount_paise: amountPaise });
 export const capturePayment = (bookingId) => call('capture', { booking_id: bookingId });
 export const releaseHold = (bookingId, reason) => call('release-hold', { booking_id: bookingId, reason });
+export const releasePayout = (bookingId, reason) => call('release-payout', { booking_id: bookingId, reason });
 export const cancelBooking = (bookingId, reason) => call('cancel', { booking_id: bookingId, reason });
 export const runReleaseCheck = () => call('sweep', {});

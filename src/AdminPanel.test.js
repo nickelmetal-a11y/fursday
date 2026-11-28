@@ -84,6 +84,10 @@ jest.mock('./supabase', () => {
         if (table === 'users') return usersTable;
         if (table === 'sitter_pii') return { select: () => Promise.resolve({ data: global.__pii || [] }) };
         if (table === 'app_settings') return { select: () => Promise.resolve({ data: [] }) };
+        if (table === 'payment_events') return {
+          select: () => ({ in: () => Promise.resolve({ data: [] }) }),
+          insert: (row) => { global.__updateCalls.push({ table: 'payment_events', fields: row }); return Promise.resolve({ error: null }); },
+        };
         throw new Error('unexpected table: ' + table);
       },
       rpc: (fn, args) => {

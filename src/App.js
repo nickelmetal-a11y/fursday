@@ -80,6 +80,7 @@ export default function App() {
   const [showChat, setShowChat]           = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showExplore, setShowExplore]     = useState(false);
+  const [exploreService, setExploreService] = useState(null);
   const [showSitterEdit, setShowSitterEdit] = useState(false);
   const [showSettings, setShowSettings]   = useState(false);
   const [outsideCity, setOutsideCity]     = useState(false);
@@ -121,6 +122,8 @@ export default function App() {
   const goParentTab = (raw) => {
     const id = TAB_ALIASES[raw] || raw;
     closeTabScreens();
+    setExploreService(null);
+    if (id !== 'explore') setPromoForBooking(null);
     setActiveNav(id === 'bookings' ? 'book' : id === 'pets' ? 'profile' : id === 'account' ? 'settings' : id);
     if (id === 'bookings') setShowBookings(true);
     else if (id === 'explore') setShowExplore(true);
@@ -328,6 +331,8 @@ export default function App() {
   const isGuest = !user;
   const requireSignIn = (action) => { setPendingAction(action); setShowLogin(true); };
   const bookSitter = (sitter, service) => {
+    // Checkout needs a chosen sitter; without one, pick from Explore first.
+    if (!sitter?.id) { goParentTab('explore'); setExploreService(service || null); return; }
     if (isGuest) { requireSignIn({ type: 'book', sitter, service }); return; }
     setSelectedSitter(sitter); setSelectedServiceType(service || null); setShowExplore(false); setShowBooking(true);
   };
@@ -517,9 +522,10 @@ export default function App() {
       <>
         <div hidden={overProfile}>
           <ExploreScreen onBack={() => goParentTab('home')} city={city} userLocation={userLocation} isGuest={isGuest} onRequireSignIn={requireSignIn}
-            onBook={sitter => bookSitter(sitter)} onViewProfile={sitter => { setProfileFromExplore(true); setSelectedSitter(sitter); }} />
+            initialService={exploreService} onServiceChange={id => setExploreService(['walk30', 'boarding', 'daycare'].includes(id) ? id : null)}
+            onBook={sitter => bookSitter(sitter, exploreService)} onViewProfile={sitter => { setProfileFromExplore(true); setSelectedSitter(sitter); }} />
         </div>
-        {overProfile && <SitterProfile onBack={closeProfile} onBook={() => bookSitter(selectedSitter)} sitter={selectedSitter} city={city}
+        {overProfile && <SitterProfile onBack={closeProfile} onBook={() => bookSitter(selectedSitter, exploreService)} sitter={selectedSitter} city={city}
           isGuest={isGuest} onRequireSignIn={requireSignIn} onAskQuestion={askQuestion} />}
       </>
     );
@@ -533,7 +539,7 @@ export default function App() {
     const closePet = () => { setShowPetProfile(false); setEditingPetId(null); if (certFromBooking) setCertFromBooking(false); else goHome(); };
     return <PetProfile onBack={closePet} city={city} petId={editingPetId} onSave={closePet} />;
   }
-  if (showBooking) return <BookingFlow onAddCertificate={pet => { setEditingPetId(pet?.id || null); setCertFromBooking(true); setShowPetProfile(true); }} onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setBroadcastPrefill(null); goHome(); }}
+  if (showBooking) return <BookingFlow onAddCertificate={pet => { setEditingPetId(pet?.id || null); setCertFromBooking(true); setShowPetProfile(true); }} onBack={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setBroadcastPrefill(null); setSelectedSitter(null); setProfileFromExplore(false); goHome(); }}
     initialDate={broadcastPrefill?.dateISO} initialEndDate={broadcastPrefill?.endDateISO} initialTime={broadcastPrefill?.time} agreedPriceRupees={broadcastPrefill?.priceRupees} broadcastRequestId={broadcastPrefill?.requestId} sitter={selectedSitter} city={city} initialService={selectedServiceType} repeatBooking={repeatBookingData} initialPromoCode={promoForBooking} onChooseSitter={() => { setShowBooking(false); setSelectedServiceType(null); setRepeatBookingData(null); setPromoForBooking(null); setSelectedSitter(null); goParentTab('explore'); }} />;
   if (selectedSitter && !showBooking) return <SitterProfile onBack={closeProfile} onBook={() => bookSitter(selectedSitter)} sitter={selectedSitter} city={city}
     isGuest={isGuest} onRequireSignIn={requireSignIn} onAskQuestion={askQuestion} />;
@@ -680,7 +686,7 @@ export default function App() {
 
       {featuredPromo && (
         <div style={{ padding:'16px 16px 0' }}>
-          <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); setShowBooking(true); }} />
+          <PromoBanner promo={featuredPromo} onUse={() => { setPromoForBooking(featuredPromo.code); bookSitter(null); }} />
         </div>
       )}
 

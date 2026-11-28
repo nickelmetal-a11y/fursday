@@ -115,7 +115,7 @@ async function seedPune(authUsers, notes) {
         languages: p.languages, experience_years: p.experienceYears, experience_text: p.experienceYears + ' years',
         aadhaar_verified: p.status === 'active', base_area: p.area.name, base_pincode: p.area.pincode,
         lat: p.area.lat, lng: p.area.lng, service_radius_km: p.radiusKm, is_founding_sitter: !!p.founding,
-        availability_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], morning_slot: true, evening_slot: true,
+        availability_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], morning_slot: true, afternoon_slot: true, evening_slot: true,
         avg_rating: p.rating || null, rating: p.rating || null, review_count: p.reviews || 0, max_dogs: 2, advance_notice: '24hrs',
         profile_updated_at: new Date().toISOString(),
         provider_type: p.provider || 'sitter', home_details: p.home || {},

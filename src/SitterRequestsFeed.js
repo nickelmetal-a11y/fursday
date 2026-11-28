@@ -20,6 +20,9 @@ const PET_TRAIT_KEYS = {
 const DECLINE_REASONS = { busy: 'nearby_feed_reason_busy', far: 'nearby_feed_reason_far', size: 'nearby_feed_reason_size', price: 'nearby_feed_reason_price', other: 'nearby_feed_reason_other' };
 const RESPONSE_037_COLUMNS = ['message', 'proposed_time'];
 const KEEP_ANSWERED_MS = 3 * 24 * 60 * 60 * 1000;
+// A request that closed before the sitter answered stays (as Closed / Cancelled /
+// Booked) for a day, so the "new request near you" alert doesn't lead to an empty list.
+const KEEP_CLOSED_MS = 24 * 60 * 60 * 1000;
 const money = { fontVariantNumeric: 'tabular-nums' };
 const rupees = (paise) => Math.round((paise || 0) / 100);
 
@@ -43,9 +46,12 @@ export async function loadInvitedRequests(profile) {
     const now = Date.now();
     const items = (reqs || [])
       .map(r => ({ request: r, invite: invites.find(i => i.request_id === r.id), response: (resps || []).find(x => x.request_id === r.id) || null }))
-      .filter(it => !it.invite?.declined_at && (it.response
-        ? !(now - Date.parse(it.request.created_at) > KEEP_ANSWERED_MS)
-        : it.request.status === 'open' && !isExpired(it.request, now)))
+      .filter(it => {
+        if (it.invite?.declined_at) return false;
+        const age = now - Date.parse(it.request.created_at);
+        if (it.response) return !(age > KEEP_ANSWERED_MS);
+        return (it.request.status === 'open' && !isExpired(it.request, now)) || !(age > KEEP_CLOSED_MS);
+      })
       .sort((a, b) => String(b.request.created_at).localeCompare(String(a.request.created_at)));
     return { items, legacy: false };
   } catch (e) {
@@ -161,6 +167,7 @@ export default function SitterRequestsFeed({ profile, onChange }) {
     <div>
       <div style={{ fontSize:font.sm, color:color.muted, marginBottom:12, lineHeight:1.5 }}>{tr(legacy ? 'nearby_feed_legacy' : 'nearby_feed_hint')}</div>
       {!isActive && <div role="status" style={{ background:color.warningSoft, color:color.warning, borderRadius:radius.md, padding:'10px 12px', fontSize:font.sm, fontWeight:600, marginBottom:12, lineHeight:1.5 }}>{tr('nearby_feed_pendingWhy')}</div>}
+      {isActive && profile?.is_paused && <div role="status" style={{ background:color.warningSoft, color:color.warning, borderRadius:radius.md, padding:'10px 12px', fontSize:font.sm, fontWeight:600, marginBottom:12, lineHeight:1.5 }}>{tr('nearby_feed_pausedWhy')}</div>}
       {items.length === 0 && (
         <div style={{ ...ui.card, textAlign:'center', padding:'28px 20px' }}>
           <div style={{ ...ui.iconTile, margin:'0 auto 12px' }}><Icon name="megaphone" /></div>
@@ -174,7 +181,7 @@ export default function SitterRequestsFeed({ profile, onChange }) {
         const point = requestPoint(req);
         const cover = point ? sitterCovers(profile, point) : { covers: false, km: null };
         const km = it.invite?.distance_km != null ? Number(it.invite.distance_km) : cover.km;
-        const expired = isExpired(req, now);
+        const expired = isExpired(req, now) || req.status === 'expired';
         const mine = req.chosen_sitter_id === profile.id || res?.status === 'chosen';
         const actionable = req.status === 'open' && !expired && !res;
         const urgent = req.mode === 'urgent';
@@ -191,8 +198,8 @@ export default function SitterRequestsFeed({ profile, onChange }) {
         const traits = ['energy', 'strangers', 'leash'].map(k => PET_TRAIT_KEYS[k][pet[k]]).filter(Boolean).map(k => tr(k));
         const badge = req.status === 'filled' ? (mine ? ['success', tr('nearby_feed_youGotIt')] : ['danger', tr('nearby_feed_someoneElse')])
           : req.status === 'cancelled' ? ['danger', tr('nearby_feed_cancelled')]
-          : res ? ['warning', tr('nearby_feed_waiting')]
           : expired ? ['info', tr('nearby_closed')]
+          : res ? ['warning', tr('nearby_feed_waiting')]
           : [urgent ? 'warning' : 'info', tr(urgent ? 'nearby_modeUrgentBadge' : 'nearby_modeCompareBadge')];
         return (
           <article key={req.id} aria-label={(svcKey ? tr(svcKey) : req.service_type) + (req.area ? ', ' + req.area : '')} style={{ ...ui.card, marginBottom:12 }}>

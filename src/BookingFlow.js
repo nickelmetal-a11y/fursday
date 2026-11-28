@@ -428,6 +428,7 @@ export default function BookingFlow({ onBack, sitter, city, initialService, repe
   };
 
   const saveBooking = async () => {
+    if (!sitter?.id) { (onChooseSitter || onBack)(); return; }
     if (houseRules && !houseRulesAccepted) { setValidationError(tr('bookingFlow_errHouseRules')); return; }
     setValidationError('');
     setProcessing(true);

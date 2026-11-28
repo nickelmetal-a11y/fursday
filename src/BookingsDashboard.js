@@ -112,7 +112,7 @@ export default function BookingsDashboard({ onBack, city, onViewReport, onReview
     if (user) {
       const { data } = await supabase
         .from('bookings')
-        .select('*, sitter_profiles(id, user_id, users(name), rating, total_bookings)')
+        .select('*, sitter_profiles(id, user_id, users(name), rating, total_bookings, cancellation_policy)')
         .eq('pet_parent_id', user.id)
         .order('created_at', { ascending: false });
       const dataWithContact = await Promise.all((data || []).map(async (b) => {

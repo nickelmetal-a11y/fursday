@@ -197,7 +197,7 @@ export default function SitterEditProfile({ onBack, city }) {
       setSitterProfile({ ...profile, aadhaar_number: piiData?.aadhaar_number || null });
       setIsPaused(profile.is_paused || false);
       setPhotoUrl(profile.profile_photo_url || null);
-      setAvailableDays(profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+      setAvailableDays(profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
       setMorningSlot(profile.morning_slot !== false);
       setAfternoonSlot(profile.afternoon_slot || false);
       setEveningSlot(profile.evening_slot !== false);
@@ -230,7 +230,7 @@ export default function SitterEditProfile({ onBack, city }) {
       savedSnapshot.current = profileSnapshot({
         headline: profile.headline, bio: profile.bio, highlights: profile.highlights, area: loadedArea,
         experience: profile.experience_text || (profile.experience_years ? profile.experience_years + ' years' : ''),
-        languages: profile.languages || ['Hindi', 'English'], availableDays: profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        languages: profile.languages || ['Hindi', 'English'], availableDays: profile.availability_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         morningSlot: profile.morning_slot !== false, afternoonSlot: profile.afternoon_slot || false, eveningSlot: profile.evening_slot !== false,
         maxDogs: profile.max_dogs || 1, advanceNotice: profile.advance_notice || '24hrs', isPaused: profile.is_paused || false,
         photoUrl: profile.profile_photo_url, photos: loadedPhotos, activeServices: (services || []).map(s => s.service_type), prices: priceMap,

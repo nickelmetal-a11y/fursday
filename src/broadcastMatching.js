@@ -2,6 +2,7 @@
 // the search widens. Pure functions only, so the rules are easy to test.
 import { pointFor, sitterCovers } from './geo';
 import { isSitterAvailable, toISODate } from './AvailabilityCalendar';
+import { LOCALITIES } from './data/localities';
 
 // Labels shared by the parent's request screens and the sitter's feed.
 export const TIME_SLOTS = ['6:00 AM', '7:00 AM', '8:00 AM', '10:00 AM', '11:00 AM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM'];
@@ -83,6 +84,23 @@ export function expiryFor(mode, start, now = new Date()) {
 
 export const isExpired = (request, now = Date.now()) => !!request?.expires_at && +now >= Date.parse(request.expires_at);
 
+// The app has one city key per region ('Gurgaon' is all of Delhi NCR), but the
+// cities table also has rows for places inside it (Delhi, Noida). A row belongs
+// to the region whose localities list it as a district.
+export function serviceCityOf(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return null;
+  const hit = LOCALITIES.find(l => l.city.toLowerCase() === n) || LOCALITIES.find(l => n.includes(l.district.toLowerCase()));
+  return hit ? hit.city : n;
+}
+
+export function regionCityIds(cities, cityId) {
+  const own = (cities || []).find(c => c.id === cityId);
+  if (!own) return cityId ? [cityId] : null;
+  const region = serviceCityOf(own.name);
+  return cities.filter(c => serviceCityOf(c.name) === region).map(c => c.id);
+}
+
 export function requestPoint(request) {
   if (request?.address_lat != null && request?.address_lng != null) return { lat: Number(request.address_lat), lng: Number(request.address_lng) };
   return pointFor({ area: request?.area, pincode: request?.address_pincode });
@@ -144,8 +162,10 @@ const ratingOf = (s) => Number(s?.avg_rating ?? s?.rating ?? 0);
 // Carers who can take this request, nearest first, then best rated. A carer
 // qualifies if their own travel radius reaches the address or they are within
 // the current wave's radius. Carers with no base location are kept, last.
-export function matchCarers({ sitters, availability = [], bookings = [], request, radiusKm, exclude = [], ignoreAvailability = false, limit = WAVE_SIZE }) {
+// cityIds: every city row of the request's region (defaults to its own city).
+export function matchCarers({ sitters, availability = [], bookings = [], request, radiusKm, exclude = [], ignoreAvailability = false, limit = WAVE_SIZE, cityIds }) {
   if (!request) return [];
+  const cities = cityIds || (request.city_id ? [request.city_id] : null);
   const radius = radiusKm ?? waveRadius(request.wave || 1);
   const point = requestPoint(request);
   const dates = requestDates(request.scheduled_date, request.end_date, request.service_type);
@@ -156,7 +176,8 @@ export function matchCarers({ sitters, availability = [], bookings = [], request
   for (const s of sitters || []) {
     if (exclude.includes(s.id)) continue;
     if (s.status !== 'active' || s.is_paused) continue;
-    if (request.city_id && s.city_id && s.city_id !== request.city_id) continue;
+    if (cities && s.city_id && !cities.includes(s.city_id)) continue;
+    if (request.pet_parent_id && s.user_id === request.pet_parent_id) continue;
     const svc = (s.sitter_services || []).find(x => x.service_type === request.service_type && x.is_active !== false);
     if (!svc) continue;
     if (!ignoreAvailability) {

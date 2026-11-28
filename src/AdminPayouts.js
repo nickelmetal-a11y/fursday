@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { color, font, ui } from './theme';
 import Icon from './ui/Icon';
-import { payoutGroups, payoutBucket, payoutBaseRs, sitterKeepRate } from './adminInsights';
+import { payoutGroups, payoutBucket, sitterNetPaise } from './adminInsights';
 import { logPayoutMarkedPaid } from './auditService';
 import { A, Badge, EmptyState, KpiTile, SearchBox, Toolbar, ConfirmDialog, Notice, SectionHeader, rs, rsPaise, serviceLabel, fmtDateTime } from './AdminUI';
-import { runReleaseCheck } from './paymentsClient';
+import { runReleaseCheck, releasePayout } from './paymentsClient';
 
 // Marks completed jobs as paid out, logs each one, then tells the sitter once
 // with the total. `items` is [{ id, amount }] with amount in rupees (net).
@@ -14,6 +14,8 @@ export async function markPayoutsPaid(items) {
   for (const it of items) {
     const { error } = await supabase.from('bookings').update({ payout_status: 'paid' }).eq('id', it.id);
     if (error) return { error: error.message };
+    const { error: logError } = await supabase.from('payment_events').insert({ booking_id: it.id, kind: 'paid_out', amount_paise: it.amount * 100, note: "Paid to the sitter's UPI" });
+    if (logError) console.error('payment_events paid_out insert failed:', logError.message);
     if (user) await logPayoutMarkedPaid(user.id, it.id, it.amount);
   }
   const total = items.reduce((a, it) => a + it.amount, 0);
@@ -52,7 +54,7 @@ function WaitingList({ title, subtitle, rows, sitterById, action }) {
               <div style={A.muted}>{serviceLabel(b.service_type)} · {b.booking_date || '—'} · {b.payout_status === 'on_hold' ? 'releases ' + fmtDateTime(b.payout_release_at) : 'parent reported a problem'}</div>
             </div>
             <div style={{ ...A.row(12), flexWrap: 'nowrap' }}>
-              <span style={{ fontSize: font.md, fontWeight: 600, ...A.num }}>{rs(Math.round(payoutBaseRs(b) * sitterKeepRate(sitter)))}</span>
+              <span style={{ fontSize: font.md, fontWeight: 600, ...A.num }}>{rsPaise(sitterNetPaise(b, sitter))}</span>
               {action && action(b)}
             </div>
           </div>
@@ -81,14 +83,39 @@ export default function AdminPayouts({ bookings, sitters, showMsg, onChanged }) 
     setBusy(false);
   };
 
-  // The admin decides a disputed payout after looking into it (Disputes tab).
-  const releaseDisputed = async (b) => {
+  // The admin decides a disputed payout after looking into it (Disputes tab),
+  // or releases a finished job before its 24h hold ends.
+  const release = async (b, reason) => {
     setBusy(true);
-    const { error } = await supabase.from('bookings').update({ payout_status: 'ready', released_at: new Date().toISOString() }).eq('id', b.id);
+    try {
+      await releasePayout(b.id, reason);
+      showMsg('Payout moved to Ready ✓');
+      onChanged();
+    } catch (e) { showMsg('Could not release: ' + e.message, 'error'); }
     setBusy(false);
-    if (error) { showMsg('Could not release: ' + error.message, 'error'); return; }
-    showMsg('Payout moved to Ready ✓');
-    onChanged();
+  };
+
+  // Tips that arrived after the job's payout was already paid are owed separately.
+  const [tips, setTips] = useState([]);
+  const loadTips = useCallback(async () => {
+    const { data } = await supabase.from('payment_events').select('*').in('kind', ['tip_unpaid', 'tip_paid']);
+    const paid = new Set((data || []).filter(e => e.kind === 'tip_paid').map(e => e.gateway_ref));
+    setTips((data || []).filter(e => e.kind === 'tip_unpaid' && !paid.has(e.gateway_ref)));
+  }, []);
+  useEffect(() => { loadTips(); }, [loadTips]);
+  const bookingById = Object.fromEntries(bookings.map(b => [b.id, b]));
+  const payTip = async (tip) => {
+    setBusy(true);
+    const { error } = await supabase.from('payment_events').insert({ booking_id: tip.booking_id, kind: 'tip_paid', amount_paise: tip.amount_paise, gateway_ref: tip.gateway_ref, note: "Tip paid to the sitter's UPI" });
+    setBusy(false);
+    if (error) { showMsg('Could not mark the tip paid: ' + error.message, 'error'); return; }
+    const sitter = sitterById[bookingById[tip.booking_id]?.sitter_id];
+    try {
+      const { createNotification } = await import('./notificationService');
+      await createNotification(sitter?.user_id, 'payout_marked', 'Tip paid!', rsPaise(tip.amount_paise) + ' tip sent to your UPI');
+    } catch (e) { console.error('Tip notification failed:', e); }
+    showMsg('Tip marked as paid ✓');
+    loadTips();
   };
 
   const groups = payoutGroups(bookings, sitters);
@@ -176,9 +203,31 @@ export default function AdminPayouts({ bookings, sitters, showMsg, onChanged }) 
         </ConfirmDialog>
       )}
 
+      {tips.length > 0 && (
+        <section aria-label="Tips to pay" style={{ ...ui.card, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: 16, borderBottom: `1px solid ${color.line}` }}><SectionHeader title={'Tips to pay (' + tips.length + ')'} subtitle="Tipped after the job's payout was paid. Send the tip to the sitter's UPI, then mark it paid." /></div>
+          {tips.map((tip, i) => {
+            const b = bookingById[tip.booking_id];
+            const sitter = sitterById[b?.sitter_id];
+            return (
+              <div key={tip.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 16px', borderTop: i ? `1px solid ${color.line}` : 'none' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: font.md, fontWeight: 600 }}>{(b?.booking_ref || 'Booking') + ' · ' + (sitter?.users?.name || 'Unknown sitter')}</div>
+                  <div style={A.muted}>{sitter?.upi_id ? 'UPI ' + sitter.upi_id : 'No UPI on file'}</div>
+                </div>
+                <div style={{ ...A.row(12), flexWrap: 'nowrap' }}>
+                  <span style={{ fontSize: font.md, fontWeight: 600, color: color.success, ...A.num }}>{'Tip: ' + rsPaise(tip.amount_paise)}</span>
+                  <button onClick={() => payTip(tip)} disabled={busy} style={A.small}>Mark tip paid</button>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
       <WaitingList title="Disputed" subtitle="Paused because the parent reported a problem. Release once the Disputes tab is settled." rows={disputed} sitterById={sitterById}
-        action={(b) => <button onClick={() => releaseDisputed(b)} disabled={busy} style={A.small}>Release to Ready</button>} />
-      <WaitingList title="On hold" subtitle="Held until 24 hours after the service. Not payable yet." rows={onHold} sitterById={sitterById} />
-    </div>
+        action={(b) => <button onClick={() => release(b, 'Dispute settled: released by Fursday')} disabled={busy} style={A.small}>Release to Ready</button>} />
+      <WaitingList title="On hold" subtitle="Held until 24 hours after the service. Not payable yet." rows={onHold} sitterById={sitterById}
+        action={(b) => ['completed', 'cancelled'].includes(b.status) && <button onClick={() => release(b, 'Released early by Fursday')} disabled={busy} style={A.small}>Release now</button>} />    </div>
   );
 }

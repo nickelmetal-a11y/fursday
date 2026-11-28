@@ -9,6 +9,7 @@ import { color, font, radius, ui, statusTone, navPadding } from './theme';
 import Icon from './ui/Icon';
 import { messagePreview } from './InboxScreen';
 import { capturePayment, releaseHold, moneyInHand, moneyCaptured, serverUnavailable } from './paymentsClient';
+import { sitterNetPaise } from './adminInsights';
 import LanguageToggle from './LanguageToggle';
 import SitterRequestsFeed, { loadInvitedRequests, openInvites } from './SitterRequestsFeed';
 import StayHandover, { DailyUpdateCard, isStay, postedToday } from './StayHandover';
@@ -190,11 +191,10 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
                       tab === 'active' ? activeBookings : pastBookings;
 
   // Same net figure as the Earnings tab: after commission, this calendar month only.
-  const commissionRate = sitterProfile?.is_founding_sitter ? 0 : 0.15;
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const totalEarnings = Math.round(bookings
     .filter(b => b.status === 'completed' && new Date(b.completed_at || b.booking_date || b.created_at) >= monthStart)
-    .reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100 * (1 - commissionRate), 0));
+    .reduce((sum, b) => sum + sitterNetPaise(b, sitterProfile), 0) / 100);
 
   const verifyStartOtp = async (booking) => {
     const entered = (otpEntry[booking.id] || '').trim();
@@ -549,6 +549,14 @@ export default function SitterDashboard({ onBack, city, onStartWalk, onMessage, 
       </header>
 
       <div style={{ padding: '16px 16px 0' }}>
+        {sitterProfile?.status === 'active' && sitterProfile.is_paused && tab !== 'requests' && (
+          <button type="button" onClick={onEditProfile}
+            style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', background: color.warningSoft, color: color.warning, borderRadius: radius.lg, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', border: `1px solid ${color.line}`, fontSize: font.sm, fontWeight: 600, lineHeight: 1.5 }}>
+            <Icon name="info" size={20} />
+            <span style={{ flex: 1, minWidth: 0 }}>{tr('nearby_feed_pausedWhy')}</span>
+            <Icon name="chevronRight" size={18} color={color.muted} />
+          </button>
+        )}
         {broadcastRequests.length > 0 && (
           <button type="button" onClick={() => setTab('requests')}
             style={{ width: '100%', fontFamily: 'inherit', textAlign: 'left', background: color.saffronSoft, borderRadius: radius.lg, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', border: `1px solid ${color.line}` }}>

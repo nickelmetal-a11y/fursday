@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import AdminAttention from './AdminAttention';
-import { weekOverWeek, unpaidPayouts, payoutBaseRs, sitterKeepRate } from './adminInsights';
+import { weekOverWeek, unpaidPayouts, sitterNetPaise } from './adminInsights';
 import { A, KpiTile, Delta, DataTable, SectionHeader, StatusBadge, EmptyState, rs, rsPaise, serviceLabel } from './AdminUI';
 
 export default function AdminOverview({ bookings, sitters, onOpenBooking, onGoTab }) {
@@ -22,7 +22,7 @@ export default function AdminOverview({ bookings, sitters, onOpenBooking, onGoTa
   const sitterById = Object.fromEntries(sitters.map(s => [s.id, s]));
   const completed = bookings.filter(b => b.status === 'completed');
   const totalGmv = completed.reduce((sum, b) => sum + (b.gross_amount_paise || 0) / 100, 0);
-  const payoutsDue = unpaidPayouts(bookings).reduce((sum, b) => sum + payoutBaseRs(b) * sitterKeepRate(sitterById[b.sitter_id]), 0);
+  const payoutsDue = unpaidPayouts(bookings).reduce((sum, b) => sum + sitterNetPaise(b, sitterById[b.sitter_id]) / 100, 0);
   const pendingCount = sitters.filter(s => s.status === 'pending').length;
 
   const recentColumns = [

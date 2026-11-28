@@ -255,7 +255,7 @@ describe('cancel', () => {
     const res = await call('cancel', 'tok-parent', { booking_id: 'b1', reason: 'Change of plans', refund_percentage: 100, refund_amount_paise: 40000 });
     expect(res.body).toMatchObject({ ok: true, refund_percentage: 75, refund_amount_paise: 30000 });
     expect(rzCalls.find(c => c.path === '/payments/pay_1/refund').body.amount).toBe(30000);
-    expect(row('b1')).toMatchObject({ status: 'cancelled', payment_status: 'partially_refunded', refunded_amount_paise: 30000, refund_percentage: 75, payout_status: null });
+    expect(row('b1')).toMatchObject({ status: 'cancelled', payment_status: 'partially_refunded', refunded_amount_paise: 30000, refund_percentage: 75, payout_status: 'on_hold', sitter_payout_paise: 10000 });
     expect(events('b1', 'refunded')[0].amount_paise).toBe(30000);
   });
 
@@ -291,7 +291,9 @@ describe('cancel', () => {
     const res = await call('cancel', 'tok-parent', { booking_id: 'b1', reason: 'Change of plans' });
     expect(res.body.outcome).toBe('refund_manual');
     expect(rzCalls).toHaveLength(0);
-    expect(events('b1', 'refunded')[0].note).toMatch(/^Refund by hand/);
+    expect(events('b1', 'refund_due')[0].note).toMatch(/^Refund by hand/);
+    expect(events('b1', 'refunded')).toHaveLength(0);
+    expect(row('b1')).toMatchObject({ status: 'cancelled', payment_status: 'paid', refund_amount_paise: 40000, refunded_amount_paise: 0 });
   });
 });
 

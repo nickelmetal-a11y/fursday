@@ -10,7 +10,7 @@ import { createNotification } from './notificationService';
 import { writeWithFallback } from './schemaFallback';
 import {
   matchCarers, nextWave, waveRadius, lastWave, petSummary, expiryFor, startsAt, isExpired,
-  requestPoint, dateRangeLabel, formatLeft, TIME_SLOTS, NIGHT_SERVICES, loadNightsTaken,
+  requestPoint, dateRangeLabel, formatLeft, TIME_SLOTS, NIGHT_SERVICES, loadNightsTaken, regionCityIds,
 } from './broadcastMatching';
 
 const SERVICES = [
@@ -35,8 +35,13 @@ const rupees = (paise) => (paise == null ? null : Math.round(paise / 100));
 const coarse = (v) => (v == null ? null : Math.round(Number(v) * 100) / 100);
 
 async function loadCandidates(cityId, request) {
+  let cityIds = cityId ? [cityId] : null;
+  if (cityId) {
+    const { data: cities } = await supabase.from('cities').select('id, name');
+    if (Array.isArray(cities)) cityIds = regionCityIds(cities, cityId);
+  }
   let q = supabase.from('sitter_profiles').select('*, users(name), sitter_services(service_type, price_paise, is_active)').eq('status', 'active');
-  if (cityId) q = q.eq('city_id', cityId);
+  if (cityIds) q = q.in('city_id', cityIds);
   const { data } = await q;
   const sitters = data || [];
   let availability = [];
@@ -47,7 +52,7 @@ async function loadCandidates(cityId, request) {
   const bookings = sitters.length && NIGHT_SERVICES.includes(request?.service_type)
     ? await loadNightsTaken(supabase, sitters.map(s => s.id), request.scheduled_date, request.end_date || request.scheduled_date)
     : [];
-  return { sitters, availability, bookings };
+  return { sitters, availability, bookings, cityIds };
 }
 
 function inviteTitle(req, km) {
@@ -61,12 +66,12 @@ function inviteBody(req) {
 // Invites the next batch of carers. If a wave finds nobody new it moves
 // straight on to the wider one, so a quiet area doesn't wait 15 minutes for nothing.
 async function dispatchWave(request, fromWave, alreadyInvited = []) {
-  const { sitters, availability, bookings } = await loadCandidates(request.city_id, request);
+  const { sitters, availability, bookings, cityIds } = await loadCandidates(request.city_id, request);
   let wave = Math.min(fromWave, lastWave);
-  let picks = matchCarers({ sitters, availability, bookings, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
+  let picks = matchCarers({ sitters, availability, bookings, request, cityIds, radiusKm: waveRadius(wave), exclude: alreadyInvited });
   while (!picks.length && wave < lastWave) {
     wave += 1;
-    picks = matchCarers({ sitters, availability, bookings, request, radiusKm: waveRadius(wave), exclude: alreadyInvited });
+    picks = matchCarers({ sitters, availability, bookings, request, cityIds, radiusKm: waveRadius(wave), exclude: alreadyInvited });
   }
   if (picks.length) {
     const { error } = await supabase.from('broadcast_recipients').insert(picks.map(p => ({
@@ -168,8 +173,8 @@ function RequestStatus({ requestId, notice, onBack, onSitterAccepted, onViewSitt
   useEffect(() => {
     if (!showFallback || fallback) return;
     let off = false;
-    loadCandidates(request.city_id).then(({ sitters }) => {
-      if (!off) setFallback(matchCarers({ sitters, request, radiusKm: Infinity, ignoreAvailability: true, limit: 3 }));
+    loadCandidates(request.city_id).then(({ sitters, cityIds }) => {
+      if (!off) setFallback(matchCarers({ sitters, cityIds, request, radiusKm: Infinity, ignoreAvailability: true, limit: 3 }));
     });
     return () => { off = true; };
   }, [showFallback, fallback, request]);

@@ -320,6 +320,27 @@ The whole app (parent and sitter) is on the owner-approved Design A. **Rules are
 - Bounds are wider: NCR is lat 28.2–29.0, lng 76.7–77.7; Pune is lat 18.35–18.8, lng 73.6–74.2. Keep `CITY_CONFIG` (App.js) and `ALLOWED_REGIONS` (geolocationService.js) in sync.
 - **The IP gate only hard-blocks non-India IPs.** Indian mobile IPs often geolocate to the wrong city (Pune Jio shows as Mumbai). Being outside the service area is decided by GPS and shown as the soft "outside city" notice.
 
+## 🧪 END-TO-END SUITES (Phase 0, 2026-11-28)
+`E2E_SCENARIOS.md` lists 49 scenarios. `src/scenarios/e2e-booking|e2e-nearby|e2e-money.scenario.test.js` mount `<App/>` and click through as parent, sitter and admin. Money runs through the real `api/payments` handler via `fakePayments`. Owner-reported bugs fixed:
+- **"null sitter_id" on booking:** the Home Walk/Boarding/Daycare tiles and the promo "Book now" opened BookingFlow with no sitter. `bookSitter(null, service)` now opens Explore filtered to that service (`exploreService`; ExploreScreen `initialService`/`onServiceChange`), and `saveBooking` refuses to save without `sitter.id`. BookingFlow back also clears `selectedSitter` (before, "Back to home" landed on the profile). Leaving Explore clears a banner promo.
+- **Sitter sees no nearby requests:** on prod the owner's sitter profile is `is_paused`. Every live sitter is Mon–Fri with `afternoon_slot=false` (old signup defaults), so weekend and 4 PM requests reach nobody. No sitter has `base_area`. New sitters now default to all 7 days and all slots (SitterOnboarding, seed-test-data). There's a paused notice on Jobs and in the feed.
+  - Matching now spans the whole region, so sitters on the Delhi/Noida city rows count as NCR (`regionCityIds`).
+  - A parent is never invited to her own request.
+  - Closed or cancelled invites stay visible for 24h.
+- **Money fixes:**
+  - On a late cancel the sitter keeps her share: `sitter_payout_paise × (100 − refund%)` is held, then released by the sweep (`payoutEarned`).
+  - No commission on tips (`sitterNetPaise` in adminInsights).
+  - Tips that arrive after a payout get an admin "Tips to pay" list.
+  - A refund done by hand is recorded as owed (`refund_due`) until the admin presses "Mark refund sent".
+  - New admin-only `release-payout` action ("Release now").
+  - `paid_out` ledger events.
+- **Open:**
+  - Tapping a "new request" notification doesn't deep-link to the feed.
+  - The Jobs invite count doesn't refresh live.
+  - Cancellation-fee revenue isn't in Reports.
+  - A late tip shows as "paid" in Earnings. Proposed fix: a `tip_paid_out_paise` column.
+  - To test nearby requests the owner needs a second (parent) account, because his own requests are excluded.
+
 ## 🚀 PRO BUILD (Phase 0, commit `b3bf836`, 2026-11-27)
 **Migration `038_pro_parent_host_discovery.sql` must be run on prod** (after 037). Code works before it (fallbacks).
 - **Visitors:** no login gate. Home/Explore/SitterProfile work signed out; booking, requests, chat, favourites store a `pendingAction` in App.js, show LoginScreen, then resume. Ratings come from `review_count`/`avg_rating` (`src/sitterCard.js`, `SitterRating.js`): 0 reviews = "New" (prod defaults avg_rating to 5.00). Share links `/s/<share_slug>` (vercel.json rewrite; `ShareProfileCard` in Edit Profile). Explore filters + lazy Leaflet map (`SitterMap.js`, pins at locality centre; sitters without `base_area` aren't pinned). No GPS claims anywhere (no tracking exists).

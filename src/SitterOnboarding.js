@@ -103,10 +103,10 @@ export default function SitterOnboarding({ onDone, city }) {
   const [aadhaar, setAadhaar] = useState('');
   const [upiId, setUpiId] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [availableDays, setAvailableDays] = useState(['Mon','Tue','Wed','Thu','Fri']);
+  const [availableDays, setAvailableDays] = useState(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']);
   const [morningSlot, setMorningSlot] = useState(true);
   const [eveningSlot, setEveningSlot] = useState(true);
-  const [afternoonSlot, setAfternoonSlot] = useState(false);
+  const [afternoonSlot, setAfternoonSlot] = useState(true);
   const [maxDogs, setMaxDogs] = useState('1');
   const [advanceNotice, setAdvanceNotice] = useState('24hrs');
   const [saving, setSaving] = useState(false);

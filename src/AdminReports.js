@@ -15,8 +15,9 @@ export const weekStart = (iso) => {
   return d.toISOString().split('T')[0];
 };
 
-// Fursday keeps commission on the sitter's price; promo discounts come out of that.
-export const platformTake = (b, rate) => (b.gross_amount_paise || 0) - Math.round((b.sitter_payout_paise || b.gross_amount_paise || 0) * (1 - rate));
+// Fursday keeps commission on the sitter's price; promo discounts come out of
+// that. A tip is in sitter_payout_paise but not in gross, and passes straight through.
+export const platformTake = (b, rate) => (b.gross_amount_paise || 0) - Math.round(((b.sitter_payout_paise || b.gross_amount_paise || 0) - (b.tip_paise || 0)) * (1 - rate));
 
 export const toCsv = (rows) => {
   const cols = ['booking_ref', 'booking_date', 'time_slot', 'service_type', 'status', 'payment_status', 'payout_status', 'city', 'parent_paid_rs', 'sitter_price_rs', 'refund_rs'];

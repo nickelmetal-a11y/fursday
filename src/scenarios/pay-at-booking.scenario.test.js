@@ -248,7 +248,8 @@ describe('Parent cancels a paid booking', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel this booking' }));
 
     await waitFor(() => expect(db.one('bookings', { id: 'bk-can' }).status).toBe('cancelled'));
-    expect(db.one('bookings', { id: 'bk-can' })).toMatchObject({ payment_status: 'partially_refunded', refunded_amount_paise: 30000, refund_percentage: 75, payout_status: null });
+    // The 25% the policy keeps is Priya's cancellation fee.
+    expect(db.one('bookings', { id: 'bk-can' })).toMatchObject({ payment_status: 'partially_refunded', refunded_amount_paise: 30000, refund_percentage: 75, payout_status: 'on_hold', sitter_payout_paise: 10000 });
     expect(payments.calls.find(c => c.action === 'cancel')).toEqual({ action: 'cancel', booking_id: 'bk-can', reason: 'Change of plans' });
     // The sheet confirms the refund the server made before closing.
     expect(await screen.findByText(/₹300 \(75%\) is on its way back/)).toBeInTheDocument();

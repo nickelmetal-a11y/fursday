@@ -52,15 +52,23 @@ export function attentionItems({ bookings = [], sitters = [], disputes = [], del
 // first 20 launch sitters an admin has marked "Founding Sitter" — they pay
 // 0% until an admin turns it back off (see migration 025).
 export const sitterKeepRate = (sitter) => (sitter?.is_founding_sitter ? 1 : 0.85);
-// Sitters are paid on their own price (sitter_payout_paise); a parent's promo only lowers gross.
-export const payoutBaseRs = (b) => (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100;
+// What the sitter receives for one booking: their own price (sitter_payout_paise;
+// a parent's promo only lowers gross) less commission, plus any tip in full
+// (the server adds tips to sitter_payout_paise).
+export const sitterNetPaise = (b, sitter) => {
+  const tip = b.tip_paise || 0;
+  return Math.round(((b.sitter_payout_paise || b.gross_amount_paise || 0) - tip) * sitterKeepRate(sitter)) + tip;
+};
+// A late cancellation keeps a fee for the sitter once the parent's refund has
+// gone out (api/payments cancel); any other cancellation owes the sitter nothing.
+const keepsFee = (b) => (b.refund_percentage ?? 100) < 100 && (b.refunded_amount_paise || 0) >= (b.refund_amount_paise || 0);
 // Where a sitter's payout stands: on_hold until 24h after the service, then
 // ready to pay; disputed pauses it. Jobs from before pay-at-booking have no
 // payout_status and are ready as soon as they are completed.
 export function payoutBucket(b) {
   if (b.payout_status === 'paid') return 'paid';
-  if (b.payout_status === 'disputed') return b.status === 'cancelled' ? null : 'disputed';
-  if (b.payout_status === 'on_hold') return b.status === 'cancelled' ? null : 'on_hold';
+  if (b.status === 'cancelled' && !(b.payout_status && keepsFee(b))) return null;
+  if (['ready', 'on_hold', 'disputed'].includes(b.payout_status)) return b.payout_status;
   return b.status === 'completed' ? 'ready' : null;
 }
 export const unpaidPayouts = (bookings = []) => bookings.filter(b => payoutBucket(b) === 'ready');
@@ -73,7 +81,7 @@ export function payoutGroups(bookings = [], sitters = []) {
     const key = b.sitter_id || 'unknown';
     const sitter = byId[b.sitter_id] || null;
     const g = (groups[key] = groups[key] || { sitterId: b.sitter_id || null, sitter, items: [], total: 0 });
-    const net = Math.round(payoutBaseRs(b) * sitterKeepRate(sitter));
+    const net = Math.round(sitterNetPaise(b, sitter) / 100);
     g.items.push({ booking: b, net });
     g.total += net;
   });

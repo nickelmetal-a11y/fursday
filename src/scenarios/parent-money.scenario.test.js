@@ -112,9 +112,10 @@ describe('Parent money scenarios', () => {
     expect(policyText).toMatch(/Your refund\s*₹400/);
     expect(confirmText).toContain('₹400');
     expect(row.refund_amount_paise).toBe(40000);
-    // The refund itself is recorded by the payments server, never by the app.
-    expect(row).toMatchObject({ payment_status: 'refunded', refunded_amount_paise: 40000 });
-    expect(db.rows('payment_events', { booking_id: 'bk-far', kind: 'refunded' })).toHaveLength(1);
+    // bk-far was paid before order-based checkout, so the server cannot refund it
+    // through Razorpay: the refund is owed (for the admin to send by hand), not sent.
+    expect(row).toMatchObject({ payment_status: 'paid', refunded_amount_paise: 0 });
+    expect(db.rows('payment_events', { booking_id: 'bk-far', kind: 'refund_due' })).toHaveLength(1);
   });
 
   test('S1: the quick "Cancel booking" button on the card applies the same refund policy', async () => {

@@ -42,6 +42,7 @@ export const verifyPayment = (bookingId, rz) => call('verify', { booking_id: boo
 export const simulatePayment = (bookingIds) => call('simulate', ids(bookingIds));
 export const capturePayment = (bookingId) => call('capture', { booking_id: bookingId });
 export const releaseHold = (bookingId, reason) => call('release-hold', { booking_id: bookingId, reason });
+export const releasePayout = (bookingId, reason) => call('release-payout', { booking_id: bookingId, reason });
 export const cancelBooking = (bookingId, reason) => call('cancel', { booking_id: bookingId, reason });
 export const runReleaseCheck = () => call('sweep', {});
 export const startTip = (bookingId, amountPaise) => call('tip', { booking_id: bookingId, amount_paise: amountPaise });

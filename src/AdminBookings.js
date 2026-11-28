@@ -37,7 +37,7 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
   const [note, setNote] = useState('');
   const [reassignTo, setReassignTo] = useState('');
   const [msg, setMsg] = useState(null);
-  const [dialog, setDialog] = useState(null); // 'cancel' | 'reassign'
+  const [dialog, setDialog] = useState(null); // 'cancel' | 'reassign' | 'refund'
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -98,6 +98,22 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
     await notify(sitterUserId(b), 'booking_cancelled', 'Fursday cancelled booking ' + b.booking_ref, why);
     await audit('admin_cancel_booking', b.id, why, { refund_paise: paid ? b.gross_amount_paise : 0 });
     done('Cancelled' + (paid ? ' with a full refund of ' + rs(b.gross_amount_paise) + (manual ? '. Send the refund by hand: the payment could not be refunded automatically' : '') : ''));
+  };
+
+  // A refund the server could not send through Razorpay is sent by hand, then recorded here.
+  const refundOwed = (b) => b.status === 'cancelled' && ['held', 'paid'].includes(b.payment_status) && (b.refund_amount_paise || 0) > (b.refunded_amount_paise || 0);
+  const markRefundSent = async (b) => {
+    setBusy(true);
+    const owed = (b.refund_amount_paise || 0) - (b.refunded_amount_paise || 0);
+    const { error } = await supabase.from('bookings').update({
+      refunded_amount_paise: b.refund_amount_paise, payment_status: b.refund_amount_paise >= (b.gross_amount_paise || 0) ? 'refunded' : 'partially_refunded',
+    }).eq('id', b.id);
+    setBusy(false); setDialog(null);
+    if (error) { setMsg({ tone: 'danger', text: 'Could not record the refund: ' + error.message }); return; }
+    await supabase.from('payment_events').insert({ booking_id: b.id, kind: 'refunded', amount_paise: owed, note: 'Refunded by hand by Fursday' });
+    await notify(b.pet_parent_id, 'payment_refunded', 'Refund sent for ' + b.booking_ref, rs(owed) + ' has been sent back to you. Your bank may take a few days to show it.');
+    await audit('admin_refund_sent', b.id, 'Refund of ' + rs(owed) + ' sent by hand', { refund_paise: owed });
+    done('Refund of ' + rs(owed) + ' recorded as sent');
   };
 
   const reassign = async (b) => {
@@ -205,6 +221,13 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
             </section>
           )}
 
+          {refundOwed(open) && (
+            <section style={ui.card}>
+              <Notice tone="warning" icon="alert">{'Refund of ' + rs(open.refund_amount_paise - (open.refunded_amount_paise || 0)) + " has not gone back to the parent: it could not be sent automatically. Send it by hand to the parent's original payment method, then record it."}</Notice>
+              <button onClick={() => setDialog('refund')} style={{ ...A.primary, alignSelf: 'flex-start', marginTop: 12 }}>Mark refund sent</button>
+            </section>
+          )}
+
           <section style={ui.card}>
             <SectionHeader title="Admin notes and history" />
             <div style={A.row(8)}>
@@ -233,6 +256,11 @@ export default function AdminBookings({ bookings, sitters, focusId, onChanged })
             <div>{moneyInHand(open) ? 'The parent gets a full refund of ' + rs(open.gross_amount_paise) + '.' : 'The parent has not paid, so there is nothing to refund.'} Both sides will see your reason.</div>
             <textarea aria-label="Reason for cancelling" value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="e.g. Sitter unwell, no replacement available" style={A.textarea} />
           </div>
+        </ConfirmDialog>
+      )}
+      {open && dialog === 'refund' && (
+        <ConfirmDialog title={'Record the refund for ' + open.booking_ref + '?'} confirmLabel="Yes, it was sent" busy={busy} onCancel={() => setDialog(null)} onConfirm={() => markRefundSent(open)}>
+          {'Only do this after ' + rs(open.refund_amount_paise - (open.refunded_amount_paise || 0)) + ' has gone back to ' + (open.users?.name || 'the parent') + '. They will be told it was sent.'}
         </ConfirmDialog>
       )}
       {open && dialog === 'reassign' && sitterById[reassignTo] && (

@@ -6,6 +6,7 @@
 //   simulate      parent   @example.com test accounts only, while Razorpay is off
 //   capture       sitter   sitter accepted: take the held money, start the payout hold
 //   release-hold  sitter   declined or cancelled by the sitter: hand everything back
+//   release-payout admin   moves a held or disputed payout to ready before the sweep would
 //   cancel        parent   refund by the booking's cancellation policy (admin: always 100%)
 //   tip           parent   checkout for a tip on a completed booking (100% to the sitter)
 //   sweep         cron     daily: void unanswered holds, release finished payouts, next-day reminders
@@ -98,6 +99,19 @@ async function addTip(b, amount, ref, mode) {
   return updated;
 }
 const tipResult = (b, amount) => ({ ok: true, purpose: 'tip', amount, tip_paise: b.tip_paise, status: b.status });
+
+// A payout is owed once the service is done, or when a cancellation kept a fee
+// for the sitter and the parent's refund has gone out.
+const payoutEarned = (b) => b.status === 'completed'
+  || (b.status === 'cancelled' && (b.refund_percentage ?? 100) < 100 && (b.refunded_amount_paise || 0) >= (b.refund_amount_paise || 0));
+
+async function releasePayout(b, note) {
+  // Phase 1: a Razorpay Route transfer to the sitter's linked account goes here.
+  const updated = await L.updateBooking(b.id, { payout_status: 'ready', released_at: new Date().toISOString() });
+  await L.logEvent(b.id, 'released', b.sitter_payout_paise, null, note);
+  await L.notify(await L.sitterUserId(b), 'payout_ready', 'Your payout is ready', 'Booking ' + (b.booking_ref || '') + (b.status === 'cancelled' ? ' was cancelled late; your cancellation fee' : ' is complete and its payout') + ' is on its way to your UPI.', b.id);
+  return updated;
+}
 
 async function verifyTip(b, body) {
   const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } = body;
@@ -198,6 +212,15 @@ const actions = {
     return { ...result(booking), outcome };
   },
 
+  async 'release-payout'(req, body) {
+    const b = await L.loadBooking(body.booking_id);
+    if (!(await L.isAdmin(await L.callerFrom(req)))) throw new L.HttpError(403, 'Only Fursday can release a payout early', 'forbidden');
+    if (!['on_hold', 'disputed'].includes(b.payout_status)) throw new L.HttpError(409, 'This payout is not on hold', 'bad_state');
+    if (!payoutEarned(b)) throw new L.HttpError(409, 'The service has not been completed yet', 'bad_state');
+    const note = String(body.reason || 'Released early by Fursday').slice(0, 300);
+    return result(await releasePayout(b, note));
+  },
+
   async cancel(req, body) {
     const b = await L.loadBooking(body.booking_id);
     const caller = await L.callerFrom(req);
@@ -222,13 +245,18 @@ const actions = {
     const already = b.refunded_amount_paise || 0;
     const amount = Math.max(0, Math.round(gross * pct / 100) - already);
     const r = await L.refund(b, amount, reason);
-    const refunded = already + amount;
+    // A refund by hand is owed, not sent: the admin marks it sent from the Bookings tab.
+    const refunded = already + (r.manual ? 0 : amount);
+    // What the policy keeps is the sitter's cancellation fee, on their own (pre-promo) price.
+    const kept = pct < 100 && b.sitter_id
+      ? { sitter_payout_paise: Math.round((b.sitter_payout_paise || gross) * (100 - pct) / 100), payout_status: 'on_hold', payout_release_at: L.payoutReleaseAt(b) }
+      : null;
     const fields = {
-      ...base, refund_percentage: pct, refund_amount_paise: Math.round(gross * pct / 100), refunded_amount_paise: refunded,
+      ...base, ...kept, refund_percentage: pct, refund_amount_paise: Math.round(gross * pct / 100), refunded_amount_paise: refunded,
       payment_status: refunded >= gross && gross > 0 ? 'refunded' : refunded > 0 ? 'partially_refunded' : b.payment_status,
     };
     const updated = await L.updateBooking(b.id, fields);
-    if (amount > 0) await L.logEvent(b.id, 'refunded', amount, r.ref, (r.manual ? 'Refund by hand: ' : '') + pct + '% refund (' + policy + ' policy). ' + reason);
+    if (amount > 0) await L.logEvent(b.id, r.manual ? 'refund_due' : 'refunded', amount, r.ref, (r.manual ? 'Refund by hand: ' : '') + pct + '% refund (' + policy + ' policy). ' + reason);
     return { ...result(updated), refund_percentage: pct, refund_amount_paise: fields.refund_amount_paise, policy, outcome: r.manual ? 'refund_manual' : amount > 0 ? 'refunded' : 'no_refund' };
   },
 
@@ -266,7 +294,7 @@ const actions = {
     }
     for (const b of waiting || []) {
       try {
-        if (b.status !== 'completed') continue;
+        if (!payoutEarned(b)) continue;
         const held = openDispute.has(b.id) || reported.has(b.id);
         if (held) {
           if (b.payout_status === 'on_hold') {
@@ -277,10 +305,7 @@ const actions = {
           continue;
         }
         if (b.payout_status === 'on_hold' && b.payout_release_at && new Date(b.payout_release_at).getTime() > now) continue;
-        // Phase 1: a Razorpay Route transfer to the sitter's linked account goes here.
-        await L.updateBooking(b.id, { payout_status: 'ready', released_at: new Date().toISOString() });
-        await L.logEvent(b.id, 'released', b.sitter_payout_paise, null, 'Ready to pay the sitter');
-        await L.notify(await L.sitterUserId(b), 'payout_ready', 'Your payout is ready', 'Booking ' + (b.booking_ref || '') + ' is complete and its payout is on its way to your UPI.', b.id);
+        await releasePayout(b, 'Ready to pay the sitter');
         out.released++;
       } catch (e) { out.errors.push((b.booking_ref || b.id) + ': ' + e.message); }
     }

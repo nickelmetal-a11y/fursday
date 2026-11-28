@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 import { useLanguage } from './i18n';
 import { color, font, radius, ui, navPadding } from './theme';
 import Icon from './ui/Icon';
-import { payoutBucket } from './adminInsights';
+import { payoutBucket, sitterNetPaise } from './adminInsights';
 
 const DAY = 24 * 60 * 60 * 1000;
 const money = { fontVariantNumeric: 'tabular-nums' };
@@ -60,30 +60,30 @@ export default function SitterEarningsDashboard({ city, onBack }) {
         if (!user) return;
         const { data: sitterProfile } = await supabase.from('sitter_profiles').select('id, is_founding_sitter, users(name)').eq('user_id', user.id).single();
         if (!sitterProfile) return;
-        // Flat 15% commission, or 0% for a Founding Sitter (migration 025).
-        const keepRate = sitterProfile.is_founding_sitter ? 1 : 0.85;
         setIsFoundingSitter(!!sitterProfile.is_founding_sitter);
         setSitterName(sitterProfile.users?.name || '');
         const { data: bookings, error } = await supabase
           .from('bookings')
           .select('*')
           .eq('sitter_id', sitterProfile.id)
-          .in('status', ['confirmed', 'active', 'completed'])
+          .in('status', ['confirmed', 'active', 'completed', 'cancelled'])
           .order('created_at', { ascending: false });
         if (error) throw error;
-        // Earnings come from the sitter's own price, never reduced by a parent's promo code.
+        // Earnings come from the sitter's own price, never reduced by a parent's promo code:
+        // flat 15% commission (0% for a Founding Sitter, migration 025), tips in full.
+        // A late cancellation's fee counts as earned once its payout is due.
         setRows((bookings || []).map(b => {
-          const basePaise = b.sitter_payout_paise || b.gross_amount_paise || 0;
+          const bucket = payoutBucket(b);
           return {
             id: b.id,
             ref: b.booking_ref,
             service: b.service_type,
-            completed: b.status === 'completed',
-            when: new Date(b.completed_at || b.booking_date || b.created_at),
+            completed: b.status === 'completed' || (b.status === 'cancelled' && !!bucket),
+            when: new Date(b.completed_at || b.cancelled_at || b.booking_date || b.created_at),
             releaseAt: b.payout_release_at ? new Date(b.payout_release_at) : null,
-            bookingRs: basePaise / 100,
-            earnedRs: Math.floor(basePaise * keepRate) / 100,
-            bucket: payoutBucket(b),
+            bookingRs: (b.sitter_payout_paise || b.gross_amount_paise || 0) / 100,
+            earnedRs: sitterNetPaise(b, sitterProfile) / 100,
+            bucket,
           };
         }).filter(r => r.completed || r.bucket));
       } catch (e) {

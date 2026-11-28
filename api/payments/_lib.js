@@ -204,8 +204,8 @@ async function capture(given) {
   if (leftover > 0) {
     const r = await refund(b, leftover, 'Bookings cancelled before the sitter accepted');
     for (const x of group.filter(y => y.payment_status === 'voided')) {
-      await updateBooking(x.id, { payment_status: 'refunded', refunded_amount_paise: x.gross_amount_paise || 0 });
-      await logEvent(x.id, 'refunded', x.gross_amount_paise, r.ref, (r.manual ? 'Refund by hand: ' : '') + 'cancelled before the plan was accepted');
+      await updateBooking(x.id, r.manual ? { payment_status: 'held' } : { payment_status: 'refunded', refunded_amount_paise: x.gross_amount_paise || 0 });
+      await logEvent(x.id, r.manual ? 'refund_due' : 'refunded', x.gross_amount_paise, r.ref, (r.manual ? 'Refund by hand: ' : '') + 'cancelled before the plan was accepted');
     }
   }
   return mine;
@@ -238,9 +238,13 @@ async function releaseFully(b, reason) {
   } else if (['held', 'paid'].includes(b.payment_status)) {
     const amount = (b.gross_amount_paise || 0) - (b.refunded_amount_paise || 0);
     const r = await refund(b, amount, reason);
-    Object.assign(fields, { payment_status: 'refunded', refunded_amount_paise: (b.refunded_amount_paise || 0) + amount, refund_percentage: 100, refund_amount_paise: b.gross_amount_paise || 0 });
+    // A refund by hand is owed, not sent, until the admin marks it sent.
+    Object.assign(fields, {
+      payment_status: r.manual ? b.payment_status : 'refunded', refunded_amount_paise: (b.refunded_amount_paise || 0) + (r.manual ? 0 : amount),
+      refund_percentage: 100, refund_amount_paise: b.gross_amount_paise || 0,
+    });
     outcome = r.manual ? 'refund_manual' : 'refunded';
-    await logEvent(b.id, 'refunded', amount, r.ref, (r.manual ? 'Refund by hand: ' : '') + reason);
+    await logEvent(b.id, r.manual ? 'refund_due' : 'refunded', amount, r.ref, (r.manual ? 'Refund by hand: ' : '') + reason);
   }
   const updated = await updateBooking(b.id, fields);
   if (outcome === 'voided') await logEvent(b.id, 'voided', b.gross_amount_paise, b.payment_id, reason);
